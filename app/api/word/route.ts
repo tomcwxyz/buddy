@@ -1,174 +1,42 @@
 import { NextResponse } from "next/server";
 import { explainWordWithModel, modelWordFallbackEnabled } from "@/lib/ai/word-explainer";
 import { normaliseWord } from "@/lib/literacy/engine";
+import {
+  chooseLexicalSense,
+  extractInflectionLink,
+  lexicalAttribution,
+  morphologyLabel,
+  normalisePartOfSpeech,
+  simplifyDefinition,
+} from "@/lib/literacy/lexicon";
+import { lookupLexicalWord } from "@/lib/literacy/lexical-providers";
+import { analyseMorphology, withDetectedLemma, type MorphologyAnalysis } from "@/lib/literacy/morphology";
 import { analyseWordSounds } from "@/lib/literacy/sound-map";
-
-type DictionaryDefinition = {
-  definition?: string;
-  example?: string;
-};
-
-type DictionaryMeaning = {
-  partOfSpeech?: string;
-  definitions?: DictionaryDefinition[];
-};
-
-type DictionaryPhonetic = {
-  text?: string;
-  audio?: string;
-};
-
-type DictionaryEntry = {
-  word?: string;
-  phonetic?: string;
-  phonetics?: DictionaryPhonetic[];
-  meanings?: DictionaryMeaning[];
-};
-
-type DatamuseWord = {
-  word?: string;
-  defs?: string[];
-  tags?: string[];
-  numSyllables?: number;
-  defHeadword?: string;
-};
-
-type DefinitionCandidate = {
-  definition: string;
-  example: string | null;
-  partOfSpeech: string | null;
-  source: "dictionaryapi.dev" | "datamuse";
-};
-
-const STOP_WORDS = new Set([
-  "a", "an", "and", "are", "as", "at", "be", "been", "but", "by", "for", "from", "had", "has", "have", "he", "her", "hers", "him", "his", "i", "in", "is", "it", "its", "me", "my", "of", "on", "or", "our", "she", "so", "that", "the", "their", "them", "they", "this", "to", "was", "we", "were", "with", "you", "your",
-]);
-
-const POS_LABELS: Record<string, string> = {
-  n: "noun",
-  v: "verb",
-  adj: "adjective",
-  adv: "adverb",
-  u: "other",
-};
-
-function wordsIn(value: string) {
-  return (value.toLocaleLowerCase("en-GB").match(/[a-z]+(?:['-][a-z]+)*/g) ?? [])
-    .filter((item) => !STOP_WORDS.has(item));
-}
-
-function contextNeighbours(context: string, word: string) {
-  const tokens = context.toLocaleLowerCase("en-GB").match(/[a-z]+(?:['-][a-z]+)*/g) ?? [];
-  const index = tokens.findIndex((token) => normaliseWord(token) === word);
-  if (index < 0) return { left: null, right: null };
-  return {
-    left: index > 0 ? normaliseWord(tokens[index - 1]) : null,
-    right: index < tokens.length - 1 ? normaliseWord(tokens[index + 1]) : null,
-  };
-}
-
-function parseDatamuseDefinition(raw: string): DefinitionCandidate | null {
-  const match = raw.match(/^(n|v|adj|adv|u)\t(.+)$/);
-  const definition = (match?.[2] ?? raw).trim();
-  if (!definition) return null;
-  return {
-    definition,
-    example: null,
-    partOfSpeech: match ? POS_LABELS[match[1]] ?? null : null,
-    source: "datamuse",
-  };
-}
-
-function dictionaryCandidates(entries: DictionaryEntry[]): DefinitionCandidate[] {
-  return entries.flatMap((entry) =>
-    (entry.meanings ?? []).flatMap((meaning) =>
-      (meaning.definitions ?? [])
-        .filter((item) => typeof item.definition === "string")
-        .map((item) => ({
-          definition: item.definition!.trim(),
-          example: item.example?.trim() ?? null,
-          partOfSpeech: meaning.partOfSpeech ?? null,
-          source: "dictionaryapi.dev" as const,
-        })),
-    ),
-  );
-}
-
-function simplifyDefinition(value: string) {
-  let definition = value
-    .replace(/\s+/g, " ")
-    .replace(/^\([^)]*\)\s*/, "")
-    .replace(/\s*\([^)]{1,80}\)\s*$/g, "")
-    .trim();
-
-  const semicolon = definition.indexOf(";");
-  if (semicolon >= 35) definition = definition.slice(0, semicolon).trim();
-
-  if (definition.length > 180) {
-    const sentenceEnd = definition.slice(0, 180).lastIndexOf(".");
-    definition = sentenceEnd > 55 ? definition.slice(0, sentenceEnd + 1) : `${definition.slice(0, 176).trim()}…`;
-  }
-
-  if (definition && !/[.!?…]$/.test(definition)) definition += ".";
-  return definition;
-}
-
-function chooseDefinition(candidates: DefinitionCandidate[], context: string, preferredPartOfSpeech: string | null) {
-  const contextTerms = new Set(wordsIn(context));
-  const discouraged = /\b(archaic|obsolete|dated|vulgar|slang|historical)\b/i;
-
-  return [...candidates]
-    .filter((item) => item.definition.length >= 4)
-    .map((item) => {
-      const candidateTerms = new Set(wordsIn(`${item.definition} ${item.example ?? ""}`));
-      const overlap = [...contextTerms].filter((term) => candidateTerms.has(term)).length;
-      const posMatch = preferredPartOfSpeech && item.partOfSpeech === preferredPartOfSpeech ? 3 : 0;
-      const exampleBonus = item.example ? 1.5 : 0;
-      const readableLength = item.definition.length <= 150 ? 2 : item.definition.length <= 220 ? 0.5 : -2;
-      const discouragedPenalty = discouraged.test(item.definition) ? -8 : 0;
-      return {
-        item,
-        score: overlap * 5 + posMatch + exampleBonus + readableLength + discouragedPenalty,
-      };
-    })
-    .sort((a, b) => b.score - a.score || a.item.definition.length - b.item.definition.length)[0]?.item ?? null;
-}
-
-function normaliseAudio(value?: string) {
-  if (!value) return null;
-  if (value.startsWith("//")) return `https:${value}`;
-  return value.startsWith("https://") ? value : null;
-}
 
 function sentenceFromContext(context: string, word: string) {
   const clean = context.replace(/\s+/g, " ").trim();
   if (!clean || clean.length > 260) return null;
-  return wordsIn(clean).includes(word) || clean.toLocaleLowerCase("en-GB").includes(word) ? clean : null;
+  const tokens = clean.toLocaleLowerCase("en-GB").match(/[a-z]+(?:['-][a-z]+)*/g) ?? [];
+  return tokens.some((token) => normaliseWord(token) === word) ? clean : null;
 }
 
-function editDistance(a: string, b: string) {
-  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
-  for (let i = 1; i <= a.length; i += 1) {
-    let diagonal = previous[0];
-    previous[0] = i;
-    for (let j = 1; j <= b.length; j += 1) {
-      const above = previous[j];
-      previous[j] = Math.min(
-        previous[j] + 1,
-        previous[j - 1] + 1,
-        diagonal + (a[i - 1] === b[j - 1] ? 0 : 1),
-      );
-      diagonal = above;
-    }
-  }
-  return previous[b.length];
+function detectedInflectionLemma(
+  candidates: Awaited<ReturnType<typeof lookupLexicalWord>>["candidates"],
+  morphology: MorphologyAnalysis,
+) {
+  const links = candidates
+    .map((candidate) => ({ candidate, link: extractInflectionLink(candidate.definition) }))
+    .filter((item): item is { candidate: typeof candidates[number]; link: NonNullable<ReturnType<typeof extractInflectionLink>> } => Boolean(item.link));
+
+  if (links.length === 0) return null;
+  return links.find((item) => !morphology.partOfSpeech || item.link.partOfSpeech === morphology.partOfSpeech)?.link
+    ?? links[0].link;
 }
 
-function plausibleSuggestion(word: string, candidate?: string) {
-  const suggestion = normaliseWord(candidate ?? "");
-  if (!suggestion || suggestion === word) return null;
-  const maximumDistance = word.length <= 5 ? 1 : word.length <= 9 ? 2 : 3;
-  return editDistance(word, suggestion) <= maximumDistance ? suggestion : null;
+function safeMorphologyPartOfSpeech(value: string | null) {
+  const normalised = normalisePartOfSpeech(value);
+  if (normalised === "verb" || normalised === "noun" || normalised === "adjective") return normalised;
+  return null;
 }
 
 function shouldRefineMeaning(input: {
@@ -177,12 +45,14 @@ function shouldRefineMeaning(input: {
   candidateCount: number;
   context: string;
   example: string | null;
+  source: string | null;
 }) {
   if (!input.requestExplain || !modelWordFallbackEnabled()) return false;
   if (!input.meaning) return true;
-  if (input.meaning.length > 100) return true;
+  if (input.meaning.length > 90) return true;
   if (input.candidateCount > 1 && Boolean(input.context)) return true;
   if (!input.example && Boolean(input.context)) return true;
+  if (input.source === "wiktionary") return true;
   return false;
 }
 
@@ -196,65 +66,56 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "invalid_word" }, { status: 400 });
   }
 
-  const neighbours = contextNeighbours(context, word);
-  const datamuseParams = new URLSearchParams({
-    sp: word,
-    qe: "sp",
-    md: "dpsr",
-    ipa: "1",
-    max: "3",
-  });
-  if (neighbours.left) datamuseParams.set("lc", neighbours.left);
-  if (neighbours.right) datamuseParams.set("rc", neighbours.right);
-
   try {
-    const [datamuseResponse, dictionaryResponse] = await Promise.allSettled([
-      fetch(`https://api.datamuse.com/words?${datamuseParams.toString()}`, {
-        headers: { Accept: "application/json" },
-        next: { revalidate: 60 * 60 * 24 * 14 },
-        signal: AbortSignal.timeout(3000),
-      }),
-      fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`, {
-        headers: { Accept: "application/json" },
-        next: { revalidate: 60 * 60 * 24 * 7 },
-        signal: AbortSignal.timeout(3000),
-      }),
-    ]);
+    let morphology = analyseMorphology(word, context);
+    const surface = await lookupLexicalWord(word, context, "surface");
 
-    let datamuse: DatamuseWord[] = [];
-    if (datamuseResponse.status === "fulfilled" && datamuseResponse.value.ok) {
-      datamuse = (await datamuseResponse.value.json()) as DatamuseWord[];
+    const wiktionaryInflection = detectedInflectionLemma(surface.candidates, morphology);
+    if (wiktionaryInflection) {
+      morphology = withDetectedLemma(
+        morphology,
+        wiktionaryInflection.lemma,
+        wiktionaryInflection.partOfSpeech,
+        wiktionaryInflection.form,
+      );
+    } else if (
+      morphology.lemma === word
+      && surface.headword
+      && normaliseWord(surface.headword) !== word
+    ) {
+      morphology = withDetectedLemma(
+        morphology,
+        surface.headword,
+        safeMorphologyPartOfSpeech(surface.preferredPartOfSpeech),
+        morphology.form,
+      );
     }
 
-    let dictionary: DictionaryEntry[] = [];
-    if (dictionaryResponse.status === "fulfilled" && dictionaryResponse.value.ok) {
-      dictionary = (await dictionaryResponse.value.json()) as DictionaryEntry[];
-    }
+    const shouldLookupLemma = morphology.lemma !== word && (
+      morphology.confidence === "high"
+      || Boolean(wiktionaryInflection)
+      || Boolean(surface.headword)
+    );
+    const lemmaLookup = shouldLookupLemma
+      ? await lookupLexicalWord(morphology.lemma, context, "lemma")
+      : null;
 
-    const exactDatamuse = datamuse.find((item) => normaliseWord(item.word ?? "") === word) ?? null;
-    const possibleSpelling = exactDatamuse ? null : plausibleSuggestion(word, datamuse[0]?.word);
-    const hasLexicalEvidence = Boolean(exactDatamuse || dictionary.length > 0);
+    const candidates = [
+      ...surface.candidates,
+      ...(lemmaLookup?.recognised ? lemmaLookup.candidates : []),
+    ];
 
-    const preferredPosCode = exactDatamuse?.tags?.find((tag) => Object.hasOwn(POS_LABELS, tag)) ?? null;
-    const preferredPartOfSpeech = preferredPosCode ? POS_LABELS[preferredPosCode] : null;
-    const datamuseCandidates = (exactDatamuse?.defs ?? [])
-      .map(parseDatamuseDefinition)
-      .filter((item): item is DefinitionCandidate => Boolean(item));
-    const dictionaryDefinitions = dictionaryCandidates(dictionary);
-    const candidates = [...datamuseCandidates, ...dictionaryDefinitions];
-    const chosen = chooseDefinition(candidates, context, preferredPartOfSpeech);
-
-    const dictionaryPhonetics = dictionary.flatMap((entry) => entry.phonetics ?? []);
-    const dictionaryIpa = dictionary.find((entry) => entry.phonetic)?.phonetic
-      ?? dictionaryPhonetics.find((item) => item.text)?.text
-      ?? null;
-    const datamuseIpa = exactDatamuse?.tags?.find((tag) => tag.startsWith("pron:"))?.slice(5) ?? null;
-    const ipa = datamuseIpa || dictionaryIpa;
-    const audio = normaliseAudio(dictionaryPhonetics.find((item) => item.audio)?.audio);
-    const contextualExample = sentenceFromContext(context, word);
-    const dictionaryExample = chosen?.example ?? dictionaryDefinitions.find((item) => item.example)?.example ?? null;
+    const hasLexicalEvidence = surface.recognised || Boolean(lemmaLookup?.recognised);
+    const chosen = chooseLexicalSense(candidates, context, morphology);
     const deterministicMeaning = chosen ? simplifyDefinition(chosen.definition) : null;
-    const soundGuide = analyseWordSounds(word, exactDatamuse?.numSyllables ?? null, ipa);
+    const contextualExample = sentenceFromContext(context, word);
+    const dictionaryExample = chosen?.example ?? candidates.find((item) => item.example)?.example ?? null;
+    const soundGuide = analyseWordSounds(
+      word,
+      surface.pronunciation.syllables,
+      surface.pronunciation.ipa,
+    );
+    const attribution = lexicalAttribution(chosen);
 
     if (!hasLexicalEvidence) {
       let modelExplanation = null;
@@ -276,19 +137,27 @@ export async function GET(request: Request) {
         example: contextualExample,
         alternateExample: modelRecognised ? modelExplanation!.example : null,
         contextualExample,
-        partOfSpeech: null,
+        partOfSpeech: morphology.partOfSpeech,
+        morphology: {
+          lemma: morphology.lemma,
+          form: morphology.form,
+          label: morphologyLabel(morphology),
+          confidence: morphology.confidence,
+        },
         pronunciation: { ipa: null, syllables: soundGuide.syllables, audio: null },
         soundGuide,
-        headword: null,
-        possibleSpelling: modelRecognised ? null : possibleSpelling,
+        headword: morphology.lemma !== word ? morphology.lemma : null,
+        possibleSpelling: modelRecognised ? null : surface.possibleSpelling,
         recognisedWord: modelRecognised,
         meaningCanBeRefined: modelWordFallbackEnabled() && !requestExplain,
+        attribution: null,
         explanation: {
           source: modelRecognised ? "model" : "none",
           modelUsed: Boolean(modelExplanation),
           confidence: modelExplanation?.confidence ?? "low",
         },
         source: modelRecognised ? "model-rare-word" : "unknown-word",
+        providers: surface.providers,
       });
     }
 
@@ -298,6 +167,7 @@ export async function GET(request: Request) {
       candidateCount: candidates.length,
       context,
       example: dictionaryExample,
+      source: chosen?.source ?? null,
     });
 
     let modelExplanation = null;
@@ -307,7 +177,9 @@ export async function GET(request: Request) {
           word,
           context,
           existingMeaning: deterministicMeaning,
-          partOfSpeech: chosen?.partOfSpeech ?? preferredPartOfSpeech,
+          partOfSpeech: chosen?.partOfSpeech ?? morphology.partOfSpeech ?? surface.preferredPartOfSpeech,
+          lemma: morphology.lemma,
+          grammaticalForm: morphology.form,
         });
       } catch {
         modelExplanation = null;
@@ -324,9 +196,10 @@ export async function GET(request: Request) {
 
     const meaningCanBeRefined = modelWordFallbackEnabled() && (
       !deterministicMeaning
-      || deterministicMeaning.length > 100
+      || deterministicMeaning.length > 90
       || (candidates.length > 1 && Boolean(context))
       || (!dictionaryExample && Boolean(context))
+      || chosen?.source === "wiktionary"
     );
 
     return NextResponse.json({
@@ -335,17 +208,24 @@ export async function GET(request: Request) {
       example,
       alternateExample,
       contextualExample,
-      partOfSpeech: chosen?.partOfSpeech ?? preferredPartOfSpeech,
+      partOfSpeech: chosen?.partOfSpeech ?? morphology.partOfSpeech ?? surface.preferredPartOfSpeech,
+      morphology: {
+        lemma: morphology.lemma,
+        form: morphology.form,
+        label: morphologyLabel(morphology),
+        confidence: morphology.confidence,
+      },
       pronunciation: {
         ipa: soundGuide.ipa,
         syllables: soundGuide.syllables,
-        audio,
+        audio: surface.pronunciation.audio,
       },
       soundGuide,
-      headword: exactDatamuse?.defHeadword ?? null,
+      headword: morphology.lemma !== word ? morphology.lemma : surface.headword,
       possibleSpelling: null,
       recognisedWord: true,
       meaningCanBeRefined: meaningCanBeRefined && !requestExplain,
+      attribution,
       explanation: {
         source: useModelMeaning ? "model" : chosen?.source ?? "none",
         modelUsed: Boolean(modelExplanation),
@@ -353,28 +233,38 @@ export async function GET(request: Request) {
       },
       source: useModelMeaning
         ? "model-context"
-        : chosen?.source ?? (exactDatamuse ? "datamuse-pronunciation" : "dictionaryapi.dev"),
+        : chosen?.source ?? (surface.recognised ? "lexical-evidence" : "lemma-evidence"),
+      providers: [...new Set([...surface.providers, ...(lemmaLookup?.providers ?? [])])],
     });
   } catch {
+    const fallbackMorphology = analyseMorphology(word, context);
     return NextResponse.json({
       word,
       meaning: null,
       example: sentenceFromContext(context, word),
       alternateExample: null,
       contextualExample: sentenceFromContext(context, word),
-      partOfSpeech: null,
+      partOfSpeech: fallbackMorphology.partOfSpeech,
+      morphology: {
+        lemma: fallbackMorphology.lemma,
+        form: fallbackMorphology.form,
+        label: morphologyLabel(fallbackMorphology),
+        confidence: fallbackMorphology.confidence,
+      },
       pronunciation: { ipa: null, syllables: null, audio: null },
       soundGuide: analyseWordSounds(word),
-      headword: null,
+      headword: fallbackMorphology.lemma !== word ? fallbackMorphology.lemma : null,
       possibleSpelling: null,
       recognisedWord: false,
       meaningCanBeRefined: modelWordFallbackEnabled() && !requestExplain,
+      attribution: null,
       explanation: {
         source: "none",
         modelUsed: false,
         confidence: "low",
       },
       source: "lookup-unavailable",
+      providers: [],
     });
   }
 }
