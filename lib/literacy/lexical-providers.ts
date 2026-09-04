@@ -129,7 +129,8 @@ function wiktionaryCandidates(payload: WiktionaryPayload, lookupWord: string, re
           lookupWord,
           relation,
         };
-      });
+      }),
+  );
 }
 
 function normaliseAudio(value?: string) {
