@@ -48,12 +48,29 @@ See:
 - [`docs/BRAND.md`](docs/BRAND.md) — visual and verbal language system.
 - [`docs/IMPLEMENTATION.md`](docs/IMPLEMENTATION.md) — current implementation architecture and next slice.
 
+## Current alpha
+
+The first useful reading loop now exists:
+
+1. open the device camera;
+2. capture a page;
+3. run OCR locally in the browser;
+4. tap a recognised word directly on the captured page;
+5. choose **Tell me**, **Give me a clue**, or **Let's work it out**;
+6. hear the word with browser speech;
+7. ask simple voice requests using press-to-talk;
+8. record the encounter in a local Learning Map;
+9. see encountered words in **Words we've met**;
+10. allow Buddy to surface tentative, rejectable observations in **Me** after repeated evidence.
+
+Unknown OCR words are not given invented phonics or definitions. The deterministic literacy layer only gives structured guidance where that guidance is explicitly curated; otherwise Buddy can still say the word and stay honest about what it does not yet know.
+
 ## Current alpha surfaces
 
 - `/` — action-first home.
-- `/read` — camera-first Read with me prototype, including a sample word interaction and child-controlled help depth.
-- `/words` — “Words we've met”.
-- `/me` — child-visible learning memory.
+- `/read` — live camera capture, local OCR, selectable words, spoken help and child-controlled scaffolding.
+- `/words` — “Words we've met”, derived from local learning events.
+- `/me` — tentative child-visible observations derived from repeated interactions.
 - `/discover` — initial Brain Quests.
 - `/help` — general voice/vision help entry.
 
@@ -65,11 +82,35 @@ See:
 - Framer Motion
 - Phosphor Icons
 - Atkinson Hyperlegible
+- Tesseract.js 7 for local browser OCR
 
 Shared product primitives live in:
 
 - `lib/buddy-design.ts`
 - `lib/buddy-language.ts`
+- `lib/literacy/engine.ts`
+- `lib/learning/*`
+- `lib/device/contract.ts`
+
+## Multi-surface contract
+
+`lib/device/contract.ts` defines device-neutral Buddy input/output semantics. A phone, tablet, Rabbit R1-style surface or future tactile Android device should translate its physical inputs into the same Buddy events rather than owning a separate learning model or personality.
+
+Initial common states are:
+
+- idle;
+- listening;
+- thinking;
+- speaking.
+
+Initial physical semantics include:
+
+- select/point to a word;
+- talk;
+- look;
+- stop;
+- got it;
+- change help depth.
 
 ## Run locally
 
@@ -80,15 +121,18 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
+Camera access requires a secure context outside localhost, so real phone/tablet testing should use an HTTPS deployment.
+
 ## Immediate roadmap
 
-1. Validate the visual and verbal language with the child co-designer.
-2. Wire real image capture to OCR and selectable word regions.
-3. Add a deterministic pronunciation/literacy service boundary.
-4. Add press-to-talk voice and companion response streaming.
-5. Introduce the first local Learning Map schema.
-6. Test the Read with me loop before expanding accounts or parent reporting.
-7. Define the R1/Android device adapter using the same Buddy states and language primitives.
+1. Put the current Read loop onto a real phone and tablet and co-design from actual use.
+2. Improve capture quality, crop/deskew and OCR confidence handling.
+3. Add a validated lexical/pronunciation data adapter behind the literacy boundary.
+4. Add a provider-neutral companion agent layer without giving it unrestricted access to the child's Learning Map.
+5. Upgrade voice where browser speech recognition is unreliable.
+6. Expand `Me` from reading-support observations into explicit strategies and later strengths discovery.
+7. Define child/parent identity and consent boundaries before cloud synchronisation.
+8. Implement the first R1/Android tactile adapter using the shared device contract.
 
 ## Product constraint
 
