@@ -47,6 +47,7 @@ type WordLookup = {
   headword?: string | null;
   possibleSpelling?: string | null;
   recognisedWord?: boolean;
+  meaningCanBeRefined?: boolean;
   source: string;
 };
 
@@ -81,7 +82,7 @@ function makeOcrImage(source: HTMLCanvasElement) {
     pixels[index + 2] = contrasted;
   }
 
-  context.putImageData(imageData, 0, canvas.width ? 0 : 0);
+  context.putImageData(imageData, 0, 0);
   return canvas.toDataURL("image/png");
 }
 
@@ -112,7 +113,7 @@ export function ReadingCompanion() {
     ? lookupUnknown
       ? lookup?.possibleSpelling
         ? `I'm not sure I read that right. Could it be “${lookup.possibleSpelling}”?`
-        : "I'm not sure I read that word correctly. Try tapping it again."
+        : "I'm not sure I read that word correctly. You can tap it again, or ask Buddy to check the word anyway."
       : voiceReply ?? helpText(support, helpDepth, lookup?.meaning)
     : null;
 
@@ -165,7 +166,7 @@ export function ReadingCompanion() {
       });
 
     return () => controller.abort();
-  }, [support, selectedContext, selectedSource, helpDepth]);
+  }, [support, selectedContext, selectedSource]);
 
   async function startCamera() {
     setCameraState("starting");
@@ -319,11 +320,37 @@ export function ReadingCompanion() {
     }
   }
 
+  async function requestMeaningExplanation() {
+    if (!support) return null;
+
+    const params = new URLSearchParams({ word: support.word, explain: "1" });
+    if (selectedContext) params.set("context", selectedContext);
+
+    setVoiceReply("Finding a simple meaning for this one…");
+    setBuddyState("thinking");
+
+    try {
+      const response = await fetch(`/api/word?${params.toString()}`);
+      if (!response.ok) throw new Error("lookup_failed");
+      const result = (await response.json()) as WordLookup;
+      setLookup(result);
+      setLookupState("ready");
+      return result;
+    } catch {
+      return null;
+    } finally {
+      setBuddyState("idle");
+    }
+  }
+
   function changeHelpDepth(depth: HelpDepth) {
     setHelpDepth(depth);
     setVoiceReply(null);
     if (selectedWord && !lookupUnknown) {
       recordLearningEvent({ kind: "help_depth_changed", word: selectedWord, helpDepth: depth, source: selectedSource });
+    }
+    if (depth === "tell" && !lookupUnknown) {
+      void explainMeaning();
     }
   }
 
@@ -357,27 +384,45 @@ export function ReadingCompanion() {
     speak(checkedExample);
   }
 
-  function explainMeaning() {
+  async function explainMeaning() {
     if (!support) return;
-    if (lookupUnknown) {
-      setVoiceReply(lookup?.possibleSpelling
-        ? `I might have read that wrong. Could it be ${lookup.possibleSpelling}?`
-        : "I might have read that word wrong. Try tapping it again.");
-      return;
+
+    if (!lookupUnknown) {
+      recordLearningEvent({ kind: "meaning_requested", word: support.word, helpDepth, source: selectedSource });
     }
 
-    recordLearningEvent({ kind: "meaning_requested", word: support.word, helpDepth, source: selectedSource });
+    const needsExplanation = lookupUnknown || lookup?.meaningCanBeRefined || !checkedMeaning;
+    if (needsExplanation) {
+      const result = await requestMeaningExplanation();
+      if (!result) {
+        setVoiceReply(checkedMeaning ?? "I couldn't get a reliable meaning just now. I can still say it or help with the spelling.");
+        return;
+      }
+
+      if (result.recognisedWord === false) {
+        setVoiceReply(result.possibleSpelling
+          ? `I still think the word might be ${result.possibleSpelling}. Try tapping it again if that doesn't look right.`
+          : "I still can't identify that as an English word confidently. Try tapping it again.");
+        return;
+      }
+
+      if (result.meaning) {
+        if (recordedSelectionRef.current === null) {
+          recordLearningEvent({ kind: "word_selected", word: support.word, source: selectedSource, helpDepth });
+          recordedSelectionRef.current = `${support.word}|${selectedContext ?? ""}|${selectedSource}`;
+        }
+        recordLearningEvent({ kind: "meaning_requested", word: support.word, helpDepth, source: selectedSource });
+        setVoiceReply(result.meaning);
+        return;
+      }
+    }
 
     if (checkedMeaning) {
       setVoiceReply(checkedMeaning);
       return;
     }
 
-    setVoiceReply(
-      lookupState === "loading"
-        ? "I'm still finding a simple meaning for this one."
-        : "I couldn't find a checked meaning for this one. I can still say it or help you look at the spelling.",
-    );
+    setVoiceReply("I couldn't get a reliable meaning just now. I can still say it or help with the spelling.");
   }
 
   function retrySelection() {
@@ -409,7 +454,12 @@ export function ReadingCompanion() {
     if (!support) return;
 
     if (lookupUnknown) {
-      if (/again|retry|wrong/.test(transcript.toLocaleLowerCase("en-GB"))) retrySelection();
+      const request = transcript.toLocaleLowerCase("en-GB");
+      if (/mean|definition|tell me|check/.test(request)) {
+        void explainMeaning();
+      } else if (/again|retry|wrong/.test(request)) {
+        retrySelection();
+      }
       return;
     }
 
@@ -622,6 +672,9 @@ export function ReadingCompanion() {
                 <button type="button" className="tactile-button" onClick={retrySelection}>
                   Tap it again
                 </button>
+                <button type="button" className="tactile-button" onClick={() => void explainMeaning()}>
+                  Check this word anyway
+                </button>
               </div>
             )}
 
@@ -681,7 +734,7 @@ export function ReadingCompanion() {
                     <TextAlignLeft size={21} /> Read the line
                   </button>
                 )}
-                <button type="button" className="tactile-button" onClick={explainMeaning}>
+                <button type="button" className="tactile-button" onClick={() => void explainMeaning()}>
                   Tell me the meaning
                 </button>
                 <PressToTalk
