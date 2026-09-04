@@ -82,29 +82,26 @@ function derivePatternSupport(word: string): Pick<WordSupport, "chunks" | "clue"
   const prefix = PREFIXES.find((candidate) => word.startsWith(candidate) && word.length >= candidate.length + 3);
   const suffix = SUFFIXES.find((candidate) => word.endsWith(candidate) && word.length >= candidate.length + 3);
 
-  if (prefix && suffix && prefix.length + suffix.length < word.length) {
-    const middle = word.slice(prefix.length, word.length - suffix.length);
+  if (prefix && suffix) {
     return {
-      chunks: [prefix, middle, suffix],
-      clue: `I can see ‘${prefix}’ at the start and ‘${suffix}’ at the end. Try the middle bit next.`,
+      chunks: [word],
+      clue: `I can see ‘${prefix}’ at the start and ‘${suffix}’ at the end. Spot those first, then look at what is left.`,
       source: "pattern",
     };
   }
 
   if (prefix) {
-    const rest = word.slice(prefix.length);
     return {
-      chunks: [prefix, rest],
-      clue: `Start by spotting ‘${prefix}’. Then try the rest of the word.`,
+      chunks: [word],
+      clue: `Spot ‘${prefix}’ at the start first. Then look at the rest of the word.`,
       source: "pattern",
     };
   }
 
   if (suffix) {
-    const stem = word.slice(0, word.length - suffix.length);
     return {
-      chunks: [stem, suffix],
-      clue: `Look at the ending ‘${suffix}’. What does the word look like without that bit?`,
+      chunks: [word],
+      clue: `Spot the ending ‘${suffix}’ first. Then look back at the rest of the word.`,
       source: "pattern",
     };
   }
@@ -155,7 +152,7 @@ export function helpText(support: WordSupport, depth: HelpDepth, checkedMeaning?
     return support.clue ?? "I can say this one, but I don’t want to invent a reading clue that might be wrong.";
   }
 
-  if (support.chunks.length > 1) {
+  if (support.source === "curated" && support.chunks.length > 1) {
     return `Let’s use chunks: ${support.chunks.join(" · ")}. Try each bit, then put them back together.`;
   }
 
