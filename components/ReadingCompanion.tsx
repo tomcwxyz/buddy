@@ -13,6 +13,7 @@ type CameraState = "idle" | "starting" | "ready" | "error";
 type OcrState = "idle" | "reading" | "ready" | "error";
 type BuddyState = "idle" | "listening" | "thinking" | "speaking";
 type WordSource = "ocr" | "demo";
+type LookupState = "idle" | "loading" | "ready" | "error";
 
 type CapturedPage = {
   image: string;
@@ -20,11 +21,43 @@ type CapturedPage = {
   height: number;
 };
 
+type WordLookup = {
+  meaning: string | null;
+  example: string | null;
+  partOfSpeech?: string | null;
+  source: string;
+};
+
 const helpLabels: Record<HelpDepth, string> = {
   tell: "Tell me",
   clue: "Give me a clue",
   together: "Let's work it out",
 };
+
+function makeOcrImage(source: HTMLCanvasElement) {
+  const canvas = document.createElement("canvas");
+  canvas.width = source.width;
+  canvas.height = source.height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return source.toDataURL("image/jpeg", 0.94);
+
+  context.drawImage(source, 0, 0);
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = imageData.data;
+
+  for (let index = 0; index < pixels.length; index += 4) {
+    const grey = Math.round(
+      pixels[index] * 0.299 + pixels[index + 1] * 0.587 + pixels[index + 2] * 0.114,
+    );
+    const contrasted = Math.max(0, Math.min(255, Math.round((grey - 128) * 1.42 + 136)));
+    pixels[index] = contrasted;
+    pixels[index + 1] = contrasted;
+    pixels[index + 2] = contrasted;
+  }
+
+  context.putImageData(imageData, 0, 0);
+  return canvas.toDataURL("image/png");
+}
 
 export function ReadingCompanion() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -39,9 +72,13 @@ export function ReadingCompanion() {
   const [buddyState, setBuddyState] = useState<BuddyState>("idle");
   const [voiceReply, setVoiceReply] = useState<string | null>(null);
   const [lastTranscript, setLastTranscript] = useState<string | null>(null);
+  const [lookup, setLookup] = useState<WordLookup | null>(null);
+  const [lookupState, setLookupState] = useState<LookupState>("idle");
 
   const support = useMemo(() => (selectedWord ? getWordSupport(selectedWord) : null), [selectedWord]);
-  const currentHelp = support ? voiceReply ?? helpText(support, helpDepth) : null;
+  const checkedMeaning = support?.meaning ?? lookup?.meaning ?? null;
+  const checkedExample = support?.example ?? lookup?.example ?? null;
+  const currentHelp = support ? voiceReply ?? helpText(support, helpDepth, lookup?.meaning) : null;
 
   useEffect(() => {
     return () => {
@@ -49,6 +86,34 @@ export function ReadingCompanion() {
       window.speechSynthesis?.cancel();
     };
   }, []);
+
+  useEffect(() => {
+    if (!support || support.meaning) {
+      setLookup(null);
+      setLookupState("idle");
+      return;
+    }
+
+    const controller = new AbortController();
+    setLookup(null);
+    setLookupState("loading");
+
+    fetch(`/api/word?word=${encodeURIComponent(support.word)}`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("lookup_failed");
+        return (await response.json()) as WordLookup;
+      })
+      .then((result) => {
+        setLookup(result);
+        setLookupState("ready");
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setLookupState("error");
+      });
+
+    return () => controller.abort();
+  }, [support]);
 
   async function startCamera() {
     setCameraState("starting");
@@ -60,7 +125,11 @@ export function ReadingCompanion() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 2560 },
+          height: { ideal: 1440 },
+        },
         audio: false,
       });
       streamRef.current = stream;
@@ -86,13 +155,15 @@ export function ReadingCompanion() {
     setSelectedWord(null);
     setVoiceReply(null);
     setLastTranscript(null);
+    setLookup(null);
+    setLookupState("idle");
   }
 
   async function capturePage() {
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) return;
 
-    const maxWidth = 1600;
+    const maxWidth = 2000;
     const scale = Math.min(1, maxWidth / video.videoWidth);
     const width = Math.round(video.videoWidth * scale);
     const height = Math.round(video.videoHeight * scale);
@@ -103,15 +174,16 @@ export function ReadingCompanion() {
     if (!context) return;
 
     context.drawImage(video, 0, 0, width, height);
-    const image = canvas.toDataURL("image/jpeg", 0.9);
+    const image = canvas.toDataURL("image/jpeg", 0.94);
+    const ocrImage = makeOcrImage(canvas);
     setCapturedPage({ image, width, height });
     stopCamera();
     setOcrState("reading");
     setBuddyState("thinking");
 
     try {
-      const result = await recognisePage(image, width, height);
-      setOcrWords(result.words.filter((word) => word.confidence >= 30));
+      const result = await recognisePage(ocrImage, width, height);
+      setOcrWords(result.words.filter((word) => word.confidence >= 18 && /[a-z]/i.test(word.text)));
       setOcrState("ready");
     } catch {
       setOcrState("error");
@@ -127,6 +199,8 @@ export function ReadingCompanion() {
     setSelectedSource(source);
     setVoiceReply(null);
     setLastTranscript(null);
+    setLookup(null);
+    setLookupState("idle");
     recordLearningEvent({ kind: "word_selected", word: cleanWord, source, helpDepth });
   }
 
@@ -166,10 +240,18 @@ export function ReadingCompanion() {
   function explainMeaning() {
     if (!support) return;
     recordLearningEvent({ kind: "meaning_requested", word: support.word, helpDepth, source: selectedSource });
-    const reply = support.meaning
-      ? `${support.meaning}${support.example ? ` For example: ${support.example}` : ""}`
-      : "I don't have a checked meaning for this one yet. I can still say it for you.";
-    setVoiceReply(reply);
+
+    if (checkedMeaning) {
+      const reply = `${checkedMeaning}${checkedExample ? ` For example: ${checkedExample}` : ""}`;
+      setVoiceReply(reply);
+      return;
+    }
+
+    setVoiceReply(
+      lookupState === "loading"
+        ? "I'm still finding a simple meaning for this one."
+        : "I couldn't find a checked meaning for this one. I can still say it or help you look at the spelling.",
+    );
   }
 
   function moveOn() {
@@ -179,6 +261,8 @@ export function ReadingCompanion() {
     setSelectedWord(null);
     setVoiceReply(null);
     setLastTranscript(null);
+    setLookup(null);
+    setLookupState("idle");
   }
 
   function handleTranscript(transcript: string) {
@@ -194,8 +278,8 @@ export function ReadingCompanion() {
     });
 
     const request = transcript.toLocaleLowerCase("en-GB");
-    if (/mean|definition/.test(request)) {
-      explainMeaning();
+    if (/mean|definition|tell me/.test(request)) {
+      changeHelpDepth("tell");
       return;
     }
     if (/say|pronoun|read it|what is it/.test(request)) {
@@ -215,7 +299,7 @@ export function ReadingCompanion() {
       return;
     }
 
-    setVoiceReply("I heard you. For this first version, try asking me to say it, give you a clue, or tell you what it means.");
+    setVoiceReply("I heard you. Try asking me to say it, tell you what it means, give you a clue, or help you work it out.");
   }
 
   return (
@@ -232,7 +316,7 @@ export function ReadingCompanion() {
                     ? `I found ${ocrWords.length} words.`
                     : "I'm looking at the page."
                   : cameraState === "ready"
-                    ? "Hold the page still."
+                    ? "Fill the frame and hold the page still."
                     : "Show me the page."}
             </strong>
           </div>
@@ -311,7 +395,7 @@ export function ReadingCompanion() {
         </div>
 
         <div className="camera-demo-row">
-          <span>{capturedPage ? "Tap a word Buddy has found on the page." : "The page is processed locally in your browser."}</span>
+          <span>{capturedPage ? "Tap a word Buddy has found on the page." : "The page stays on this device while Buddy finds the words."}</span>
           <button type="button" className="text-button" onClick={chooseDemoWord}>
             <HandPointing size={18} /> Try “extraordinary”
           </button>
@@ -328,7 +412,7 @@ export function ReadingCompanion() {
 
         <section className="help-depth" aria-labelledby="help-depth-title">
           <div className="section-heading">
-            <span>How much help?</span>
+            <span>What would help?</span>
             <strong id="help-depth-title">You choose.</strong>
           </div>
           <div className="depth-control" role="group" aria-label="Choose how Buddy helps">
@@ -351,6 +435,10 @@ export function ReadingCompanion() {
             <h2>{support.word}</h2>
             <p className="word-help">{currentHelp}</p>
 
+            {helpDepth === "tell" && lookupState === "loading" && !support.meaning && (
+              <p className="lookup-note">Finding a checked meaning…</p>
+            )}
+
             {lastTranscript && (
               <p className="heard-you"><span>You said</span> “{lastTranscript}”</p>
             )}
@@ -360,7 +448,7 @@ export function ReadingCompanion() {
                 <SpeakerHigh size={22} /> Say it
               </button>
               <button type="button" className="tactile-button" onClick={explainMeaning}>
-                What does it mean?
+                More about it
               </button>
               <PressToTalk
                 onListeningChange={(listening) => setBuddyState(listening ? "listening" : "idle")}
