@@ -23,8 +23,8 @@ const STOP_WORDS = new Set([
 ]);
 
 const SOURCE_SCORE: Record<LexicalSource, number> = {
-  wiktionary: 3,
-  "dictionaryapi.dev": 2,
+  "dictionaryapi.dev": 3,
+  wiktionary: 2,
   datamuse: 1,
 };
 
@@ -137,12 +137,34 @@ function isInflectionDefinition(value: string) {
   return Boolean(extractInflectionLink(value));
 }
 
+function definitionQualityPenalty(definition: string, morphology: MorphologyAnalysis, lookupWord: string) {
+  const clean = definition.toLocaleLowerCase("en-GB").trim();
+  const terms = new Set(wordsIn(clean));
+  const referencesResolvedWord = terms.has(morphology.surface)
+    || terms.has(morphology.lemma)
+    || terms.has(lookupWord);
+
+  let penalty = 0;
+  if (clean.length < 18) penalty -= 9;
+  else if (clean.length < 28) penalty -= 3;
+
+  // Glosses such as “To be sold.” are technically valid dictionary senses but
+  // are useless as an explanation for a child and tend to win naive shortest-
+  // definition ranking. Prefer an informative sense when one is available.
+  if (referencesResolvedWord && clean.length < 48) penalty -= 12;
+  if (/^to be [a-z'-]+[.!]?$/.test(clean)) penalty -= 8;
+
+  return penalty;
+}
+
 export function chooseLexicalSense(
   candidates: LexicalCandidate[],
   context: string,
   morphology: MorphologyAnalysis,
 ) {
-  const contextTerms = new Set(wordsIn(context));
+  const contextTerms = new Set(
+    wordsIn(context).filter((term) => term !== morphology.surface && term !== morphology.lemma),
+  );
   const discouraged = /\b(archaic|obsolete|dated|vulgar|historical)\b/i;
   const preferredPos = morphology.partOfSpeech;
 
@@ -163,6 +185,7 @@ export function chooseLexicalSense(
       const readableLength = definition.length <= 120 ? 2 : definition.length <= 190 ? 0.5 : -2;
       const discouragedPenalty = discouraged.test(definition) ? -14 : 0;
       const inflectionPenalty = isInflectionDefinition(definition) ? -8 : 0;
+      const qualityPenalty = definitionQualityPenalty(definition, morphology, item.lookupWord);
       const sourceScore = SOURCE_SCORE[item.source];
 
       return {
@@ -177,6 +200,7 @@ export function chooseLexicalSense(
           + readableLength
           + discouragedPenalty
           + inflectionPenalty
+          + qualityPenalty
           + sourceScore,
       };
     })
