@@ -1,0 +1,260 @@
+.selected-word-card h2,
+.practice-card h1 {
+  --word-play-accent: var(--buddy-sun);
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  isolation: isolate;
+  padding-bottom: 14px;
+}
+
+.selected-word-card h2::after,
+.practice-card h1::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--word-play-accent);
+  opacity: 0.88;
+  transform-origin: left center;
+  animation: buddy-underline-arrive 420ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  z-index: -1;
+}
+
+.selected-word-card h2::before,
+.practice-card h1::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  bottom: 17px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.78), transparent 24%),
+    var(--word-play-accent);
+  box-shadow: 0 6px 15px rgba(37, 35, 31, 0.18);
+  animation: buddy-pebble-arrive 520ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  z-index: 2;
+}
+
+/* Reading help modes use the existing Buddy palette rather than right/wrong colour. */
+.reading-side:has(.depth-control button:nth-child(1).active) .selected-word-card h2 {
+  --word-play-accent: var(--buddy-clay);
+}
+
+.reading-side:has(.depth-control button:nth-child(2).active) .selected-word-card h2 {
+  --word-play-accent: var(--buddy-sun);
+}
+
+.reading-side:has(.depth-control button:nth-child(3).active) .selected-word-card h2 {
+  --word-play-accent: var(--buddy-moss);
+}
+
+/* The uncertain-OCR state is quieter: no playful motion until Buddy trusts the word. */
+.selected-word-card.word-uncertain h2 {
+  --word-play-accent: var(--buddy-line);
+}
+
+.selected-word-card.word-uncertain h2::before {
+  animation: none;
+  opacity: 0.45;
+}
+
+/* Give trusted sound features their own soft marker treatment. */
+.sound-feature {
+  position: relative;
+  overflow: hidden;
+}
+
+.sound-feature strong {
+  position: relative;
+  z-index: 1;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--buddy-sun) 75%, transparent);
+  text-decoration-thickness: 4px;
+  text-underline-offset: 4px;
+}
+
+.sound-feature::after {
+  content: "";
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  right: -12px;
+  top: -15px;
+  background: color-mix(in srgb, var(--buddy-sun) 16%, transparent);
+  pointer-events: none;
+}
+
+/* Pressing Say it makes the pebble travel across the word. */
+.reading-side:has(.word-actions .tactile-button.dark:active) .selected-word-card h2,
+.practice-card:has(.practice-help-actions button:nth-child(1):active) h1 {
+  --word-play-accent: var(--buddy-sky);
+}
+
+.reading-side:has(.word-actions .tactile-button.dark:active) .selected-word-card h2::before,
+.practice-card:has(.practice-help-actions button:nth-child(1):active) h1::before {
+  animation: buddy-pebble-across 800ms cubic-bezier(0.25, 0.75, 0.35, 1) both;
+}
+
+/* Clue and work-it-out actions give a smaller, purposeful hop. */
+.practice-card:has(.practice-help-actions button:nth-child(2):active) h1 {
+  --word-play-accent: var(--buddy-sun);
+}
+
+.practice-card:has(.practice-help-actions button:nth-child(3):active) h1 {
+  --word-play-accent: var(--buddy-moss);
+}
+
+.practice-card:has(.practice-help-actions button:nth-child(4):active) h1 {
+  --word-play-accent: var(--buddy-clay);
+}
+
+.practice-card:has(.practice-help-actions button:nth-child(2):active) h1::before,
+.practice-card:has(.practice-help-actions button:nth-child(3):active) h1::before,
+.practice-card:has(.practice-help-actions button:nth-child(4):active) h1::before {
+  animation: buddy-pebble-hop 420ms ease-out both;
+}
+
+/* Once help has unfolded in practice, leave a soft trace rather than a score state. */
+.practice-card:has(.practice-reveal) h1::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+/* Tiny completion motion when the child moves on. */
+.reading-side:has(.move-on .text-button:active) .selected-word-card h2,
+.practice-card:has(.practice-primary:active) h1,
+.practice-card:has(.practice-skip:active) h1 {
+  --word-play-accent: var(--buddy-plum);
+}
+
+.reading-side:has(.move-on .text-button:active) .selected-word-card h2::before,
+.practice-card:has(.practice-primary:active) h1::before,
+.practice-card:has(.practice-skip:active) h1::before {
+  animation: buddy-pebble-finish 360ms ease-out both;
+}
+
+/* Make examples feel connected to the active word rather than like another card. */
+.context-example,
+.meaning-example,
+.practice-example {
+  position: relative;
+}
+
+.context-example::before,
+.meaning-example::before,
+.practice-example::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--buddy-sky);
+  opacity: 0.62;
+}
+
+.context-example > span,
+.meaning-example > span,
+.practice-example > span {
+  padding-left: 16px;
+}
+
+@keyframes buddy-underline-arrive {
+  from {
+    opacity: 0;
+    transform: scaleX(0.12) rotate(-0.5deg);
+  }
+  70% {
+    opacity: 0.95;
+    transform: scaleX(1.025) rotate(0.25deg);
+  }
+  to {
+    opacity: 0.88;
+    transform: scaleX(1) rotate(0deg);
+  }
+}
+
+@keyframes buddy-pebble-arrive {
+  from {
+    opacity: 0;
+    transform: translate(-6px, 8px) scale(0.7);
+  }
+  55% {
+    opacity: 1;
+    transform: translate(7px, -7px) scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: translate(3px, 0) scale(1);
+  }
+}
+
+@keyframes buddy-pebble-across {
+  0% {
+    left: 2px;
+    transform: translateY(0) scale(1);
+  }
+  22% {
+    transform: translateY(-12px) scale(1.04);
+  }
+  45% {
+    transform: translateY(0) scale(1);
+  }
+  68% {
+    transform: translateY(-9px) scale(1.03);
+  }
+  100% {
+    left: calc(100% - 17px);
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes buddy-pebble-hop {
+  0% { transform: translateY(0) scale(1); }
+  48% { transform: translateY(-11px) scale(1.07); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes buddy-pebble-finish {
+  0% { transform: translate(3px, 0) scale(1); }
+  55% { transform: translate(14px, -13px) scale(1.1); }
+  100% { transform: translate(22px, 1px) scale(0.92); }
+}
+
+@media (max-width: 640px) {
+  .selected-word-card h2::after,
+  .practice-card h1::after {
+    height: 6px;
+  }
+
+  .selected-word-card h2::before,
+  .practice-card h1::before {
+    width: 13px;
+    height: 13px;
+    bottom: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selected-word-card h2::after,
+  .practice-card h1::after,
+  .selected-word-card h2::before,
+  .practice-card h1::before {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .selected-word-card h2::before,
+  .practice-card h1::before {
+    left: 2px !important;
+    transform: none !important;
+  }
+}
