@@ -6,7 +6,7 @@ import { BuddyPresence } from "@/components/BuddyPresence";
 import { PressToTalk } from "@/components/PressToTalk";
 import { getWordSupport, helpText, type HelpDepth } from "@/lib/literacy/engine";
 import { recordLearningEvent } from "@/lib/learning/local-store";
-import { recognisePage } from "@/lib/ocr/browser-tesseract";
+import { recognisePage, recogniseWordRegion } from "@/lib/ocr/browser-tesseract";
 import type { OcrWord } from "@/lib/ocr/types";
 
 type CameraState = "idle" | "starting" | "ready" | "error";
@@ -17,6 +17,7 @@ type LookupState = "idle" | "loading" | "ready" | "error";
 
 type CapturedPage = {
   image: string;
+  ocrImage: string;
   width: number;
   height: number;
 };
@@ -33,6 +34,10 @@ const helpLabels: Record<HelpDepth, string> = {
   clue: "Give me a clue",
   together: "Let's work it out",
 };
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.max(minimum, Math.min(maximum, value));
+}
 
 function makeOcrImage(source: HTMLCanvasElement) {
   const canvas = document.createElement("canvas");
@@ -75,6 +80,7 @@ export function ReadingCompanion() {
   const [lastTranscript, setLastTranscript] = useState<string | null>(null);
   const [lookup, setLookup] = useState<WordLookup | null>(null);
   const [lookupState, setLookupState] = useState<LookupState>("idle");
+  const [tapLookupMessage, setTapLookupMessage] = useState<string | null>(null);
 
   const support = useMemo(() => (selectedWord ? getWordSupport(selectedWord) : null), [selectedWord]);
   const checkedMeaning = support?.meaning ?? lookup?.meaning ?? null;
@@ -124,6 +130,7 @@ export function ReadingCompanion() {
     setSelectedWord(null);
     setSelectedContext(null);
     setVoiceReply(null);
+    setTapLookupMessage(null);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -160,6 +167,7 @@ export function ReadingCompanion() {
     setLastTranscript(null);
     setLookup(null);
     setLookupState("idle");
+    setTapLookupMessage(null);
   }
 
   async function capturePage() {
@@ -179,7 +187,7 @@ export function ReadingCompanion() {
     context.drawImage(video, 0, 0, width, height);
     const image = canvas.toDataURL("image/jpeg", 0.94);
     const ocrImage = makeOcrImage(canvas);
-    setCapturedPage({ image, width, height });
+    setCapturedPage({ image, ocrImage, width, height });
     stopCamera();
     setOcrState("reading");
     setBuddyState("thinking");
@@ -205,6 +213,7 @@ export function ReadingCompanion() {
     setLastTranscript(null);
     setLookup(null);
     setLookupState("idle");
+    setTapLookupMessage(null);
     recordLearningEvent({ kind: "word_selected", word: cleanWord, source, helpDepth });
   }
 
@@ -214,6 +223,53 @@ export function ReadingCompanion() {
       chooseWord("extraordinary", "demo", "The view from the top was extraordinary.");
       setBuddyState("idle");
     }, 320);
+  }
+
+  function nearestLineText(y: number) {
+    const nearest = ocrWords.reduce<{ distance: number; text: string | null }>(
+      (best, word) => {
+        if (!word.lineText) return best;
+        const centre = (word.bbox.y0 + word.bbox.y1) / 2;
+        const distance = Math.abs(centre - y);
+        return distance < best.distance ? { distance, text: word.lineText } : best;
+      },
+      { distance: Number.POSITIVE_INFINITY, text: null },
+    );
+    return nearest.text ?? undefined;
+  }
+
+  async function inspectTappedPoint(clientX: number, clientY: number, element: HTMLDivElement) {
+    if (!capturedPage || ocrState !== "ready" || buddyState === "thinking") return;
+
+    const bounds = element.getBoundingClientRect();
+    const x = ((clientX - bounds.left) / bounds.width) * capturedPage.width;
+    const y = ((clientY - bounds.top) / bounds.height) * capturedPage.height;
+    const cropWidth = Math.min(520, capturedPage.width * 0.32);
+    const cropHeight = Math.min(180, capturedPage.height * 0.14);
+    const left = clamp(x - cropWidth / 2, 0, capturedPage.width - cropWidth);
+    const top = clamp(y - cropHeight / 2, 0, capturedPage.height - cropHeight);
+
+    setTapLookupMessage("Looking at that spot…");
+    setBuddyState("thinking");
+
+    try {
+      const candidate = await recogniseWordRegion(capturedPage.ocrImage, {
+        left: Math.round(left),
+        top: Math.round(top),
+        width: Math.round(cropWidth),
+        height: Math.round(cropHeight),
+      });
+
+      if (candidate) {
+        chooseWord(candidate, "ocr", nearestLineText(y));
+      } else {
+        setTapLookupMessage("I couldn't quite get that word. Try tapping closer to the middle of it.");
+      }
+    } catch {
+      setTapLookupMessage("I couldn't quite get that word. Try tapping it again.");
+    } finally {
+      setBuddyState("idle");
+    }
   }
 
   function changeHelpDepth(depth: HelpDepth) {
@@ -346,7 +402,11 @@ export function ReadingCompanion() {
           {!capturedPage && <video ref={videoRef} autoPlay playsInline muted />}
 
           {capturedPage && (
-            <div className="captured-page">
+            <div
+              className="captured-page"
+              onClick={(event) => inspectTappedPoint(event.clientX, event.clientY, event.currentTarget)}
+              role="presentation"
+            >
               {/* Page images remain in the browser for this local OCR alpha. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={capturedPage.image} alt="Captured reading page" />
@@ -361,7 +421,10 @@ export function ReadingCompanion() {
                     width: `${((word.bbox.x1 - word.bbox.x0) / capturedPage.width) * 100}%`,
                     height: `${((word.bbox.y1 - word.bbox.y0) / capturedPage.height) * 100}%`,
                   }}
-                  onClick={() => chooseWord(word.text, "ocr", word.lineText)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    chooseWord(word.text, "ocr", word.lineText);
+                  }}
                   aria-label={`Choose ${word.text}`}
                   title={word.text}
                 />
@@ -378,6 +441,10 @@ export function ReadingCompanion() {
                 <div className="ocr-status">
                   <span>I couldn't find the words clearly. Try another photo, or use the sample below.</span>
                 </div>
+              )}
+
+              {ocrState === "ready" && tapLookupMessage && (
+                <div className="tap-word-status">{tapLookupMessage}</div>
               )}
             </div>
           )}
@@ -410,7 +477,11 @@ export function ReadingCompanion() {
         </div>
 
         <div className="camera-demo-row">
-          <span>{capturedPage ? "Tap a word Buddy has found on the page." : "The page stays on this device while Buddy finds the words."}</span>
+          <span>
+            {capturedPage
+              ? "Tap a highlighted word — or tap an unboxed word and Buddy will take a closer look."
+              : "The page stays on this device while Buddy finds the words."}
+          </span>
           <button type="button" className="text-button" onClick={chooseDemoWord}>
             <HandPointing size={18} /> Try “extraordinary”
           </button>
