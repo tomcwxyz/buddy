@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { explainWordWithModel, modelWordFallbackEnabled } from "@/lib/ai/word-explainer";
 import { normaliseWord } from "@/lib/literacy/engine";
 import { analyseWordSounds } from "@/lib/literacy/sound-map";
 
@@ -145,6 +146,14 @@ function sentenceFromContext(context: string, word: string) {
   return wordsIn(clean).includes(word) || clean.toLocaleLowerCase("en-GB").includes(word) ? clean : null;
 }
 
+function needsModelHelp(meaning: string | null, contextualExample: string | null, dictionaryExample: string | null) {
+  if (!modelWordFallbackEnabled()) return false;
+  if (!meaning) return true;
+  if (meaning.length > 130) return true;
+  if (!contextualExample && !dictionaryExample) return true;
+  return false;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const word = normaliseWord(searchParams.get("word") ?? "");
@@ -195,7 +204,8 @@ export async function GET(request: Request) {
     const datamuseCandidates = (exactDatamuse?.defs ?? [])
       .map(parseDatamuseDefinition)
       .filter((item): item is DefinitionCandidate => Boolean(item));
-    const candidates = [...datamuseCandidates, ...dictionaryCandidates(dictionary)];
+    const dictionaryDefinitions = dictionaryCandidates(dictionary);
+    const candidates = [...datamuseCandidates, ...dictionaryDefinitions];
     const chosen = chooseDefinition(candidates, context, preferredPartOfSpeech);
 
     const dictionaryPhonetics = dictionary.flatMap((entry) => entry.phonetics ?? []);
@@ -206,15 +216,38 @@ export async function GET(request: Request) {
     const ipa = datamuseIpa || dictionaryIpa;
     const audio = normaliseAudio(dictionaryPhonetics.find((item) => item.audio)?.audio);
     const contextualExample = sentenceFromContext(context, word);
-    const dictionaryExample = chosen?.example ?? dictionaryCandidates(dictionary).find((item) => item.example)?.example ?? null;
-    const meaning = chosen ? simplifyDefinition(chosen.definition) : null;
+    const dictionaryExample = chosen?.example ?? dictionaryDefinitions.find((item) => item.example)?.example ?? null;
+    const deterministicMeaning = chosen ? simplifyDefinition(chosen.definition) : null;
     const soundGuide = analyseWordSounds(word, exactDatamuse?.numSyllables ?? null, ipa);
+
+    let modelExplanation = null;
+    if (needsModelHelp(deterministicMeaning, contextualExample, dictionaryExample)) {
+      try {
+        modelExplanation = await explainWordWithModel({
+          word,
+          context,
+          existingMeaning: deterministicMeaning,
+          partOfSpeech: chosen?.partOfSpeech ?? preferredPartOfSpeech,
+        });
+      } catch {
+        modelExplanation = null;
+      }
+    }
+
+    const useModelMeaning = Boolean(modelExplanation && (!deterministicMeaning || deterministicMeaning.length > 130));
+    const meaning = useModelMeaning ? modelExplanation!.meaning : deterministicMeaning;
+    const example = contextualExample ?? dictionaryExample ?? modelExplanation?.example ?? null;
+    const alternateExample = contextualExample
+      ? dictionaryExample ?? modelExplanation?.example ?? null
+      : dictionaryExample && modelExplanation?.example && dictionaryExample !== modelExplanation.example
+        ? modelExplanation.example
+        : null;
 
     return NextResponse.json({
       word,
       meaning,
-      example: contextualExample ?? dictionaryExample,
-      alternateExample: contextualExample ? dictionaryExample : null,
+      example,
+      alternateExample,
       contextualExample,
       partOfSpeech: chosen?.partOfSpeech ?? preferredPartOfSpeech,
       pronunciation: {
@@ -224,20 +257,42 @@ export async function GET(request: Request) {
       },
       soundGuide,
       headword: exactDatamuse?.defHeadword ?? null,
-      source: chosen?.source ?? (exactDatamuse ? "datamuse-pronunciation" : dictionary.length ? "dictionaryapi.dev" : "sound-fallback"),
+      explanation: {
+        source: useModelMeaning ? "model" : chosen?.source ?? (modelExplanation ? "model" : "none"),
+        modelUsed: Boolean(modelExplanation),
+        confidence: modelExplanation?.confidence ?? (chosen ? "high" : "unknown"),
+      },
+      source: useModelMeaning
+        ? "model-fallback"
+        : chosen?.source ?? (modelExplanation ? "model-example" : exactDatamuse ? "datamuse-pronunciation" : dictionary.length ? "dictionaryapi.dev" : "sound-fallback"),
     });
   } catch {
+    let modelExplanation = null;
+    if (modelWordFallbackEnabled()) {
+      try {
+        modelExplanation = await explainWordWithModel({ word, context });
+      } catch {
+        modelExplanation = null;
+      }
+    }
+
+    const contextualExample = sentenceFromContext(context, word);
     return NextResponse.json({
       word,
-      meaning: null,
-      example: sentenceFromContext(context, word),
-      alternateExample: null,
-      contextualExample: sentenceFromContext(context, word),
+      meaning: modelExplanation?.meaning ?? null,
+      example: contextualExample ?? modelExplanation?.example ?? null,
+      alternateExample: contextualExample ? modelExplanation?.example ?? null : null,
+      contextualExample,
       partOfSpeech: null,
       pronunciation: { ipa: null, syllables: null, audio: null },
       soundGuide: analyseWordSounds(word),
       headword: null,
-      source: "sound-fallback",
+      explanation: {
+        source: modelExplanation ? "model" : "none",
+        modelUsed: Boolean(modelExplanation),
+        confidence: modelExplanation?.confidence ?? "unknown",
+      },
+      source: modelExplanation ? "model-fallback" : "sound-fallback",
     });
   }
 }
