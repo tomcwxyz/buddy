@@ -38,6 +38,17 @@ type WordResult = {
     url: string;
     licence: string;
   } | null;
+  corpus?: {
+    version: string;
+    locale: string;
+    surfaceEntryHit: boolean;
+    surfaceLexicalHit: boolean;
+    surfacePronunciationHit: boolean;
+    lemmaEntryHit: boolean | null;
+    lemmaLexicalHit: boolean | null;
+    remoteFallback: boolean;
+    pronunciationSource: string | null;
+  } | null;
   providers?: string[];
   source?: string;
 };
@@ -110,6 +121,11 @@ export function WordEvaluationLab() {
     const result = state.result;
     return Boolean(result?.morphology?.lemma && result.morphology.lemma !== result.word);
   }).length;
+  const localMeanings = ready.filter((state) => Boolean(
+    state.result?.corpus?.surfaceLexicalHit || state.result?.corpus?.lemmaLexicalHit,
+  )).length;
+  const britishPronunciations = ready.filter((state) => state.result?.corpus?.surfacePronunciationHit).length;
+  const offlineReady = ready.filter((state) => state.result?.corpus && !state.result.corpus.remoteFallback).length;
 
   return (
     <div className="word-lab">
@@ -123,6 +139,9 @@ export function WordEvaluationLab() {
         </div>
         <div className="word-lab-summary">
           <span>{ready.length}/{WORD_EVAL_CASES.length} run</span>
+          <span>{offlineReady} fully local</span>
+          <span>{localMeanings} local meanings</span>
+          <span>{britishPronunciations} British pronunciations</span>
           <span>{lemmatised} resolved to a lemma</span>
           <span>{modelCalls} model-assisted</span>
           <span>{unrecognised} treated as uncertain</span>
@@ -223,6 +242,13 @@ export function WordEvaluationLab() {
                         {result.morphology?.lemma && <span>lemma: {result.morphology.lemma}</span>}
                         {result.morphology?.form && <span>form: {result.morphology.form}</span>}
                         {result.morphology?.confidence && <span>morphology: {result.morphology.confidence}</span>}
+                        {result.corpus && <span>corpus: {result.corpus.version} ({result.corpus.locale})</span>}
+                        {result.corpus?.surfaceLexicalHit && <span>local surface meaning: yes</span>}
+                        {result.corpus?.lemmaLexicalHit && <span>local lemma meaning: yes</span>}
+                        {result.corpus?.surfacePronunciationHit && (
+                          <span>British pronunciation: {result.corpus.pronunciationSource ?? "local"}</span>
+                        )}
+                        {result.corpus && <span>network lexical fallback: {result.corpus.remoteFallback ? "yes" : "no"}</span>}
                         {result.providers?.length ? <span>providers: {result.providers.join(", ")}</span> : null}
                         {result.possibleSpelling && <span>suggestion: {result.possibleSpelling}</span>}
                         {result.partOfSpeech && <span>{result.partOfSpeech}</span>}
