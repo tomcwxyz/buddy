@@ -1,0 +1,1 @@
+This file exists only to avoid accidental overwrite during README migration and will be removed once README.md is updated.
