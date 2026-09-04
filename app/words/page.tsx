@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowRight } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { BottomNav } from "@/components/BottomNav";
 import {
@@ -50,6 +52,11 @@ export default function WordsPage() {
           <p className="eyebrow">My words</p>
           <h1 className="page-title">Words we've met.</h1>
           <p>Not mistakes. Just interesting words worth another look sometimes.</p>
+          {words.length > 0 && (
+            <Link className="pill-button words-practice-link" href="/practice">
+              Try three words <ArrowRight size={18} />
+            </Link>
+          )}
         </header>
 
         {words.length > 0 ? (
