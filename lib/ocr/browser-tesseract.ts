@@ -7,7 +7,7 @@ type TesseractWord = {
   bbox?: { x0: number; y0: number; x1: number; y1: number };
 };
 
-type TesseractLine = { words?: TesseractWord[] };
+type TesseractLine = { words?: TesseractWord[]; text?: string };
 type TesseractParagraph = { lines?: TesseractLine[] };
 type TesseractBlock = { paragraphs?: TesseractParagraph[] };
 
@@ -41,6 +41,7 @@ export async function recognisePage(
   blocks.forEach((block, blockIndex) => {
     block.paragraphs?.forEach((paragraph, paragraphIndex) => {
       paragraph.lines?.forEach((line, lineIndex) => {
+        const lineText = line.text?.replace(/\s+/g, " ").trim();
         line.words?.forEach((word, wordIndex) => {
           const text = word.text?.trim();
           if (!text || !word.bbox || !/[a-z]/i.test(text)) return;
@@ -49,6 +50,7 @@ export async function recognisePage(
             text,
             confidence: word.confidence ?? 0,
             bbox: word.bbox,
+            lineText: lineText || undefined,
           });
         });
       });
