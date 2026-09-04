@@ -93,6 +93,8 @@ export async function explainWordWithModel(input: {
   context?: string | null;
   existingMeaning?: string | null;
   partOfSpeech?: string | null;
+  lemma?: string | null;
+  grammaticalForm?: string | null;
 }): Promise<ModelWordExplanation | null> {
   if (!modelWordFallbackEnabled()) return null;
 
@@ -101,6 +103,7 @@ export async function explainWordWithModel(input: {
 
   const lexicalContext = minimiseLexicalContext(input.context ?? "", word);
   const existingMeaning = input.existingMeaning ? tidy(input.existingMeaning, 180) : null;
+  const lemma = input.lemma ? normaliseWord(input.lemma) : null;
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
 
@@ -118,12 +121,14 @@ export async function explainWordWithModel(input: {
         {
           role: "system",
           content:
-            "You are the tightly scoped vocabulary explanation layer inside Buddy, a child-facing reading companion. Work only with the selected English word. Use nearby lexical context only to choose the likely sense. A known English word may be common, inflected, borrowed, dialectal, literary, scientific or technical; do not treat proper names, OCR garbage or invented strings as ordinary English words. If the token is not a word you can identify with reasonable confidence, set known_english_word false and leave meaning and example empty. Otherwise give one short, concrete, age-appropriate meaning in plain British English and one short natural example sentence using the same sense. Prefer everyday words in the explanation. Do not address the child directly, praise them, ask questions, give advice, discuss personal information, explain pronunciation, or add anything outside the requested fields. If the sense is uncertain, be cautious and mark confidence low rather than inventing detail.",
+            "You are the tightly scoped vocabulary explanation layer inside Buddy, a child-facing reading companion. Work only with the selected English word. Use nearby lexical context only to choose the likely sense. If trusted lexical evidence says the printed word is an inflected form of a lemma, keep the explanation in the sense and grammatical use supported by that evidence. A known English word may be common, inflected, borrowed, dialectal, literary, scientific or technical; do not treat proper names, OCR garbage or invented strings as ordinary English words. If the token is not a word you can identify with reasonable confidence, set known_english_word false and leave meaning and example empty. Otherwise give one short, concrete, age-appropriate meaning in plain British English and one short natural example sentence using the same sense. Prefer everyday words in the explanation. Do not address the child directly, praise them, ask questions, give advice, discuss personal information, explain pronunciation, or add anything outside the requested fields. If the sense is uncertain, be cautious and mark confidence low rather than inventing detail.",
         },
         {
           role: "user",
           content: JSON.stringify({
             word,
+            lemma: lemma && lemma !== word ? lemma : null,
+            grammatical_form: input.grammaticalForm ?? null,
             nearby_words: lexicalContext,
             existing_dictionary_meaning: existingMeaning,
             part_of_speech: input.partOfSpeech ?? null,
