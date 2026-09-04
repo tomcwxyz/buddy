@@ -83,7 +83,12 @@ function contextNeighbours(context: string, word: string) {
   };
 }
 
-function parseDatamuseDefinition(raw: string, lookupWord: string, relation: LexicalRelation): LexicalCandidate | null {
+function parseDatamuseDefinition(
+  raw: string,
+  lookupWord: string,
+  relation: LexicalRelation,
+  rank: number,
+): LexicalCandidate | null {
   const match = raw.match(/^(n|v|adj|adv|u)\t(.+)$/);
   const definition = (match?.[2] ?? raw).trim();
   if (!definition) return null;
@@ -94,10 +99,12 @@ function parseDatamuseDefinition(raw: string, lookupWord: string, relation: Lexi
     source: "datamuse",
     lookupWord,
     relation,
+    rank,
   };
 }
 
 function dictionaryCandidates(entries: DictionaryEntry[], lookupWord: string, relation: LexicalRelation): LexicalCandidate[] {
+  let rank = 0;
   return entries.flatMap((entry) =>
     (entry.meanings ?? []).flatMap((meaning) =>
       (meaning.definitions ?? [])
@@ -109,6 +116,7 @@ function dictionaryCandidates(entries: DictionaryEntry[], lookupWord: string, re
           source: "dictionaryapi.dev" as const,
           lookupWord,
           relation,
+          rank: rank++,
         })),
     ),
   );
@@ -116,6 +124,7 @@ function dictionaryCandidates(entries: DictionaryEntry[], lookupWord: string, re
 
 function wiktionaryCandidates(payload: WiktionaryPayload, lookupWord: string, relation: LexicalRelation): LexicalCandidate[] {
   const english = payload.en ?? [];
+  let rank = 0;
   return english.flatMap((entry) =>
     (entry.definitions ?? [])
       .filter((item) => typeof item.definition === "string" && item.definition.trim().length > 0)
@@ -128,6 +137,7 @@ function wiktionaryCandidates(payload: WiktionaryPayload, lookupWord: string, re
           source: "wiktionary" as const,
           lookupWord,
           relation,
+          rank: rank++,
         };
       }),
   );
@@ -238,7 +248,7 @@ export async function lookupLexicalWord(
   const exactWiktionary = englishWiktionary.length > 0;
 
   const datamuseCandidates = (exactDatamuse?.defs ?? [])
-    .map((raw) => parseDatamuseDefinition(raw, word, relation))
+    .map((raw, index) => parseDatamuseDefinition(raw, word, relation, index))
     .filter((item): item is LexicalCandidate => Boolean(item));
   const candidates = [
     ...wiktionaryCandidates(wiktionary, word, relation),

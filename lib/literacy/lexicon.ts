@@ -10,6 +10,7 @@ export type LexicalCandidate = {
   source: LexicalSource;
   lookupWord: string;
   relation: LexicalRelation;
+  rank: number;
 };
 
 export type LexicalAttribution = {
@@ -55,6 +56,7 @@ export function plainLexicalText(value: string) {
       .replace(/<br\s*\/?>/gi, " ")
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
+      .replace(/\s+([,.;:!?])/g, "$1")
       .trim(),
   );
 }
@@ -157,6 +159,13 @@ function definitionQualityPenalty(definition: string, morphology: MorphologyAnal
   return penalty;
 }
 
+function senseRankBonus(rank: number) {
+  // Dictionary order is useful weak evidence: established lexical sources tend
+  // to place common/core senses before specialist extensions. It must never
+  // overpower strong context, but it is a better tie-break than “shortest wins”.
+  return Math.max(0, 6 - Math.min(Math.max(rank, 0), 6));
+}
+
 export function chooseLexicalSense(
   candidates: LexicalCandidate[],
   context: string,
@@ -186,12 +195,13 @@ export function chooseLexicalSense(
       const discouragedPenalty = discouraged.test(definition) ? -14 : 0;
       const inflectionPenalty = isInflectionDefinition(definition) ? -8 : 0;
       const qualityPenalty = definitionQualityPenalty(definition, morphology, item.lookupWord);
+      const rankBonus = senseRankBonus(item.rank);
       const sourceScore = SOURCE_SCORE[item.source];
 
       return {
         item,
         score:
-          overlap * 4
+          overlap * 3
           + posMatch
           + posMismatch
           + lemmaBonus
@@ -201,10 +211,11 @@ export function chooseLexicalSense(
           + discouragedPenalty
           + inflectionPenalty
           + qualityPenalty
+          + rankBonus
           + sourceScore,
       };
     })
-    .sort((a, b) => b.score - a.score || a.item.definition.length - b.item.definition.length)[0]?.item ?? null;
+    .sort((a, b) => b.score - a.score || a.item.rank - b.item.rank || a.item.definition.length - b.item.definition.length)[0]?.item ?? null;
 }
 
 export function lexicalAttribution(candidate: LexicalCandidate | null): LexicalAttribution | null {
