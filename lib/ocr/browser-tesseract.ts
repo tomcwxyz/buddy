@@ -15,7 +15,15 @@ let workerPromise: Promise<Worker> | null = null;
 
 async function getWorker() {
   if (!workerPromise) {
-    workerPromise = import("tesseract.js").then(({ createWorker }) => createWorker("eng"));
+    workerPromise = import("tesseract.js").then(async ({ createWorker, PSM }) => {
+      const worker = await createWorker("eng");
+      await worker.setParameters({
+        tessedit_pageseg_mode: PSM.AUTO,
+        preserve_interword_spaces: "1",
+        user_defined_dpi: "300",
+      });
+      return worker;
+    });
   }
   return workerPromise;
 }
@@ -35,7 +43,7 @@ export async function recognisePage(
       paragraph.lines?.forEach((line, lineIndex) => {
         line.words?.forEach((word, wordIndex) => {
           const text = word.text?.trim();
-          if (!text || !word.bbox) return;
+          if (!text || !word.bbox || !/[a-z]/i.test(text)) return;
           words.push({
             id: `${blockIndex}-${paragraphIndex}-${lineIndex}-${wordIndex}`,
             text,
