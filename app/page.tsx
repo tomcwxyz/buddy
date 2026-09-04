@@ -48,10 +48,10 @@ export default function HomePage() {
               </div>
             </Link>
 
-            <Link href="/words" className="action-card words">
+            <Link href="/practice" className="action-card words">
               <div className="action-copy">
                 <h2>Let's play with words</h2>
-                <p>A couple of minutes with words and patterns we've met.</p>
+                <p>Just three words we've met before. Use whatever kind of help works.</p>
               </div>
               <div className="action-icon" aria-hidden="true">
                 <PuzzlePiece size={30} weight="regular" />
