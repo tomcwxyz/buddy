@@ -7,7 +7,9 @@ export type LearningEventKind =
   | "line_heard"
   | "meaning_requested"
   | "voice_request"
-  | "moved_on";
+  | "moved_on"
+  | "practice_seen"
+  | "practice_known";
 
 export type LearningEvent = {
   id: string;
@@ -16,7 +18,7 @@ export type LearningEvent = {
   word?: string;
   helpDepth?: HelpDepth;
   transcript?: string;
-  source?: "ocr" | "demo";
+  source?: "ocr" | "demo" | "practice";
 };
 
 export type RememberedWord = {
