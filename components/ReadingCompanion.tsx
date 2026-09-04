@@ -1,53 +1,70 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Camera, HandPointing, Microphone, SpeakerHigh, X } from "@phosphor-icons/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Camera, HandPointing, Scan, SpeakerHigh, X } from "@phosphor-icons/react";
 import { BuddyPresence } from "@/components/BuddyPresence";
-
-type HelpDepth = "tell" | "clue" | "together";
+import { PressToTalk } from "@/components/PressToTalk";
+import { getWordSupport, helpText, type HelpDepth } from "@/lib/literacy/engine";
+import { recordLearningEvent } from "@/lib/learning/local-store";
+import { recognisePage } from "@/lib/ocr/browser-tesseract";
+import type { OcrWord } from "@/lib/ocr/types";
 
 type CameraState = "idle" | "starting" | "ready" | "error";
+type OcrState = "idle" | "reading" | "ready" | "error";
+type BuddyState = "idle" | "listening" | "thinking" | "speaking";
+type WordSource = "ocr" | "demo";
 
-const helpCopy: Record<HelpDepth, { label: string; prompt: string }> = {
-  tell: {
-    label: "Tell me",
-    prompt: "That's extraordinary.",
-  },
-  clue: {
-    label: "Give me a clue",
-    prompt: "Start with ‘extra’. The rest has a familiar bit hiding in it.",
-  },
-  together: {
-    label: "Let's work it out",
-    prompt: "Try it in chunks: extra · ordinary. Now put them back together.",
-  },
+type CapturedPage = {
+  image: string;
+  width: number;
+  height: number;
+};
+
+const helpLabels: Record<HelpDepth, string> = {
+  tell: "Tell me",
+  clue: "Give me a clue",
+  together: "Let's work it out",
 };
 
 export function ReadingCompanion() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraState, setCameraState] = useState<CameraState>("idle");
+  const [ocrState, setOcrState] = useState<OcrState>("idle");
+  const [capturedPage, setCapturedPage] = useState<CapturedPage | null>(null);
+  const [ocrWords, setOcrWords] = useState<OcrWord[]>([]);
   const [helpDepth, setHelpDepth] = useState<HelpDepth>("clue");
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
-  const [buddyState, setBuddyState] = useState<"idle" | "listening" | "thinking" | "speaking">("idle");
+  const [selectedSource, setSelectedSource] = useState<WordSource>("demo");
+  const [buddyState, setBuddyState] = useState<BuddyState>("idle");
+  const [voiceReply, setVoiceReply] = useState<string | null>(null);
+  const [lastTranscript, setLastTranscript] = useState<string | null>(null);
+
+  const support = useMemo(() => (selectedWord ? getWordSupport(selectedWord) : null), [selectedWord]);
+  const currentHelp = support ? voiceReply ?? helpText(support, helpDepth) : null;
 
   useEffect(() => {
     return () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      window.speechSynthesis?.cancel();
     };
   }, []);
 
   async function startCamera() {
     setCameraState("starting");
+    setCapturedPage(null);
+    setOcrWords([]);
+    setOcrState("idle");
+    setSelectedWord(null);
+    setVoiceReply(null);
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } },
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      if (videoRef.current) videoRef.current.srcObject = stream;
       setCameraState("ready");
     } catch {
       setCameraState("error");
@@ -61,23 +78,144 @@ export function ReadingCompanion() {
     setCameraState("idle");
   }
 
-  function chooseDemoWord() {
-    setBuddyState("thinking");
-    setTimeout(() => {
-      setSelectedWord("extraordinary");
-      setBuddyState("idle");
-    }, 450);
+  function clearPage() {
+    stopCamera();
+    setCapturedPage(null);
+    setOcrWords([]);
+    setOcrState("idle");
+    setSelectedWord(null);
+    setVoiceReply(null);
+    setLastTranscript(null);
   }
 
-  function speakWord() {
+  async function capturePage() {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) return;
+
+    const maxWidth = 1600;
+    const scale = Math.min(1, maxWidth / video.videoWidth);
+    const width = Math.round(video.videoWidth * scale);
+    const height = Math.round(video.videoHeight * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    context.drawImage(video, 0, 0, width, height);
+    const image = canvas.toDataURL("image/jpeg", 0.9);
+    setCapturedPage({ image, width, height });
+    stopCamera();
+    setOcrState("reading");
+    setBuddyState("thinking");
+
+    try {
+      const result = await recognisePage(image, width, height);
+      setOcrWords(result.words.filter((word) => word.confidence >= 30));
+      setOcrState("ready");
+    } catch {
+      setOcrState("error");
+    } finally {
+      setBuddyState("idle");
+    }
+  }
+
+  function chooseWord(word: string, source: WordSource) {
+    const cleanWord = getWordSupport(word).word;
+    if (!cleanWord) return;
+    setSelectedWord(cleanWord);
+    setSelectedSource(source);
+    setVoiceReply(null);
+    setLastTranscript(null);
+    recordLearningEvent({ kind: "word_selected", word: cleanWord, source, helpDepth });
+  }
+
+  function chooseDemoWord() {
+    setBuddyState("thinking");
+    window.setTimeout(() => {
+      chooseWord("extraordinary", "demo");
+      setBuddyState("idle");
+    }, 320);
+  }
+
+  function changeHelpDepth(depth: HelpDepth) {
+    setHelpDepth(depth);
+    setVoiceReply(null);
+    if (selectedWord) {
+      recordLearningEvent({ kind: "help_depth_changed", word: selectedWord, helpDepth: depth, source: selectedSource });
+    }
+  }
+
+  function speak(text: string) {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance("extraordinary");
+    const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "en-GB";
     utterance.rate = 0.78;
     utterance.onstart = () => setBuddyState("speaking");
     utterance.onend = () => setBuddyState("idle");
     window.speechSynthesis.speak(utterance);
+  }
+
+  function speakWord() {
+    if (!support) return;
+    recordLearningEvent({ kind: "word_heard", word: support.word, helpDepth, source: selectedSource });
+    speak(support.word);
+  }
+
+  function explainMeaning() {
+    if (!support) return;
+    recordLearningEvent({ kind: "meaning_requested", word: support.word, helpDepth, source: selectedSource });
+    const reply = support.meaning
+      ? `${support.meaning}${support.example ? ` For example: ${support.example}` : ""}`
+      : "I don't have a checked meaning for this one yet. I can still say it for you.";
+    setVoiceReply(reply);
+  }
+
+  function moveOn() {
+    if (selectedWord) {
+      recordLearningEvent({ kind: "moved_on", word: selectedWord, helpDepth, source: selectedSource });
+    }
+    setSelectedWord(null);
+    setVoiceReply(null);
+    setLastTranscript(null);
+  }
+
+  function handleTranscript(transcript: string) {
+    setLastTranscript(transcript);
+    if (!support) return;
+
+    recordLearningEvent({
+      kind: "voice_request",
+      word: support.word,
+      helpDepth,
+      transcript,
+      source: selectedSource,
+    });
+
+    const request = transcript.toLocaleLowerCase("en-GB");
+    if (/mean|definition/.test(request)) {
+      explainMeaning();
+      return;
+    }
+    if (/say|pronoun|read it|what is it/.test(request)) {
+      speakWord();
+      return;
+    }
+    if (/clue|hint/.test(request)) {
+      changeHelpDepth("clue");
+      return;
+    }
+    if (/work.*out|help me/.test(request)) {
+      changeHelpDepth("together");
+      return;
+    }
+    if (/got it|carry on|keep going|done/.test(request)) {
+      moveOn();
+      return;
+    }
+
+    setVoiceReply("I heard you. For this first version, try asking me to say it, give you a clue, or tell you what it means.");
   }
 
   return (
@@ -86,19 +224,66 @@ export function ReadingCompanion() {
         <div className="camera-toolbar">
           <div>
             <span className="camera-kicker">Read with me</span>
-            <strong>{cameraState === "ready" ? "I'm looking." : "Show me the page."}</strong>
+            <strong>
+              {ocrState === "reading"
+                ? "Finding the words…"
+                : capturedPage
+                  ? ocrWords.length > 0
+                    ? `I found ${ocrWords.length} words.`
+                    : "I'm looking at the page."
+                  : cameraState === "ready"
+                    ? "Hold the page still."
+                    : "Show me the page."}
+            </strong>
           </div>
-          {cameraState === "ready" && (
-            <button type="button" className="round-control" onClick={stopCamera} aria-label="Stop camera">
+          {(cameraState === "ready" || capturedPage) && (
+            <button type="button" className="round-control" onClick={clearPage} aria-label="Close page">
               <X size={24} />
             </button>
           )}
         </div>
 
-        <div className={`camera-window ${cameraState}`}>
-          <video ref={videoRef} autoPlay playsInline muted />
+        <div className={`camera-window ${cameraState} ${capturedPage ? "captured" : ""}`}>
+          {!capturedPage && <video ref={videoRef} autoPlay playsInline muted />}
 
-          {cameraState !== "ready" && (
+          {capturedPage && (
+            <div className="captured-page">
+              {/* Page images remain in the browser for this local OCR alpha. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={capturedPage.image} alt="Captured reading page" />
+              {ocrState === "ready" && ocrWords.map((word) => (
+                <button
+                  key={word.id}
+                  type="button"
+                  className="ocr-word"
+                  style={{
+                    left: `${(word.bbox.x0 / capturedPage.width) * 100}%`,
+                    top: `${(word.bbox.y0 / capturedPage.height) * 100}%`,
+                    width: `${((word.bbox.x1 - word.bbox.x0) / capturedPage.width) * 100}%`,
+                    height: `${((word.bbox.y1 - word.bbox.y0) / capturedPage.height) * 100}%`,
+                  }}
+                  onClick={() => chooseWord(word.text, "ocr")}
+                  aria-label={`Choose ${word.text}`}
+                  title={word.text}
+                />
+              ))}
+
+              {ocrState === "reading" && (
+                <div className="ocr-status">
+                  <Scan size={30} />
+                  <span>Finding words on this page…</span>
+                </div>
+              )}
+
+              {ocrState === "error" && (
+                <div className="ocr-status">
+                  <span>I couldn't find the words clearly. Try another photo, or use the sample below.</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!capturedPage && cameraState !== "ready" && (
             <div className="camera-empty">
               <Camera size={44} weight="light" />
               {cameraState === "error" ? (
@@ -117,23 +302,28 @@ export function ReadingCompanion() {
             </div>
           )}
 
-          {cameraState === "ready" && (
-            <button type="button" className="point-demo" onClick={chooseDemoWord}>
-              <HandPointing size={24} />
-              Point to a word
+          {!capturedPage && cameraState === "ready" && (
+            <button type="button" className="point-demo" onClick={capturePage}>
+              <Camera size={24} />
+              Take a look
             </button>
           )}
         </div>
 
         <div className="camera-demo-row">
-          <span>This first build uses a sample word while OCR/pointing is wired in.</span>
-          <button type="button" className="text-button" onClick={chooseDemoWord}>Try “extraordinary”</button>
+          <span>{capturedPage ? "Tap a word Buddy has found on the page." : "The page is processed locally in your browser."}</span>
+          <button type="button" className="text-button" onClick={chooseDemoWord}>
+            <HandPointing size={18} /> Try “extraordinary”
+          </button>
         </div>
       </section>
 
       <aside className="reading-side">
         <div className="presence-card">
-          <BuddyPresence state={buddyState} label={selectedWord ? "This one?" : "Point to the bit you want."} />
+          <BuddyPresence
+            state={buddyState}
+            label={selectedWord ? "This one?" : capturedPage ? "Tap the bit you want." : "Point me at the page."}
+          />
         </div>
 
         <section className="help-depth" aria-labelledby="help-depth-title">
@@ -142,40 +332,45 @@ export function ReadingCompanion() {
             <strong id="help-depth-title">You choose.</strong>
           </div>
           <div className="depth-control" role="group" aria-label="Choose how Buddy helps">
-            {(Object.keys(helpCopy) as HelpDepth[]).map((depth) => (
+            {(Object.keys(helpLabels) as HelpDepth[]).map((depth) => (
               <button
                 key={depth}
                 type="button"
                 className={helpDepth === depth ? "active" : ""}
-                onClick={() => setHelpDepth(depth)}
+                onClick={() => changeHelpDepth(depth)}
               >
-                {helpCopy[depth].label}
+                {helpLabels[depth]}
               </button>
             ))}
           </div>
         </section>
 
-        {selectedWord ? (
+        {support ? (
           <section className="selected-word-card" aria-live="polite">
             <span className="selected-kicker">This one?</span>
-            <h2>{selectedWord}</h2>
-            <p className="word-help">{helpCopy[helpDepth].prompt}</p>
+            <h2>{support.word}</h2>
+            <p className="word-help">{currentHelp}</p>
+
+            {lastTranscript && (
+              <p className="heard-you"><span>You said</span> “{lastTranscript}”</p>
+            )}
 
             <div className="word-actions">
               <button type="button" className="tactile-button dark" onClick={speakWord}>
                 <SpeakerHigh size={22} /> Say it
               </button>
-              <button type="button" className="tactile-button">
+              <button type="button" className="tactile-button" onClick={explainMeaning}>
                 What does it mean?
               </button>
-              <button type="button" className="round-control" aria-label="Talk to Buddy" onPointerDown={() => setBuddyState("listening")} onPointerUp={() => setBuddyState("idle")}>
-                <Microphone size={24} />
-              </button>
+              <PressToTalk
+                onListeningChange={(listening) => setBuddyState(listening ? "listening" : "idle")}
+                onTranscript={handleTranscript}
+              />
             </div>
 
             <div className="move-on">
               <span>Got it?</span>
-              <button type="button" className="text-button" onClick={() => setSelectedWord(null)}>Yep, keep going</button>
+              <button type="button" className="text-button" onClick={moveOn}>Yep, keep going</button>
             </div>
           </section>
         ) : (
