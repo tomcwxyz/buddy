@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Atkinson_Hyperlegible } from "next/font/google";
 import "./globals.css";
+import "./playful.css";
 
 const atkinson = Atkinson_Hyperlegible({
   subsets: ["latin"],
