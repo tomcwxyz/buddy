@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, HandPointing, Scan, SpeakerHigh, X } from "@phosphor-icons/react";
+import { Camera, HandPointing, Scan, SpeakerHigh, TextAlignLeft, X } from "@phosphor-icons/react";
 import { BuddyPresence } from "@/components/BuddyPresence";
 import { PressToTalk } from "@/components/PressToTalk";
 import { getWordSupport, helpText, type HelpDepth } from "@/lib/literacy/engine";
@@ -68,6 +68,7 @@ export function ReadingCompanion() {
   const [ocrWords, setOcrWords] = useState<OcrWord[]>([]);
   const [helpDepth, setHelpDepth] = useState<HelpDepth>("clue");
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [selectedContext, setSelectedContext] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<WordSource>("demo");
   const [buddyState, setBuddyState] = useState<BuddyState>("idle");
   const [voiceReply, setVoiceReply] = useState<string | null>(null);
@@ -121,6 +122,7 @@ export function ReadingCompanion() {
     setOcrWords([]);
     setOcrState("idle");
     setSelectedWord(null);
+    setSelectedContext(null);
     setVoiceReply(null);
 
     try {
@@ -153,6 +155,7 @@ export function ReadingCompanion() {
     setOcrWords([]);
     setOcrState("idle");
     setSelectedWord(null);
+    setSelectedContext(null);
     setVoiceReply(null);
     setLastTranscript(null);
     setLookup(null);
@@ -192,10 +195,11 @@ export function ReadingCompanion() {
     }
   }
 
-  function chooseWord(word: string, source: WordSource) {
+  function chooseWord(word: string, source: WordSource, context?: string) {
     const cleanWord = getWordSupport(word).word;
     if (!cleanWord) return;
     setSelectedWord(cleanWord);
+    setSelectedContext(context?.trim() || null);
     setSelectedSource(source);
     setVoiceReply(null);
     setLastTranscript(null);
@@ -207,7 +211,7 @@ export function ReadingCompanion() {
   function chooseDemoWord() {
     setBuddyState("thinking");
     window.setTimeout(() => {
-      chooseWord("extraordinary", "demo");
+      chooseWord("extraordinary", "demo", "The view from the top was extraordinary.");
       setBuddyState("idle");
     }, 320);
   }
@@ -237,6 +241,12 @@ export function ReadingCompanion() {
     speak(support.word);
   }
 
+  function readLine() {
+    if (!support || !selectedContext) return;
+    recordLearningEvent({ kind: "line_heard", word: support.word, helpDepth, source: selectedSource });
+    speak(selectedContext);
+  }
+
   function explainMeaning() {
     if (!support) return;
     recordLearningEvent({ kind: "meaning_requested", word: support.word, helpDepth, source: selectedSource });
@@ -259,6 +269,7 @@ export function ReadingCompanion() {
       recordLearningEvent({ kind: "moved_on", word: selectedWord, helpDepth, source: selectedSource });
     }
     setSelectedWord(null);
+    setSelectedContext(null);
     setVoiceReply(null);
     setLastTranscript(null);
     setLookup(null);
@@ -282,6 +293,10 @@ export function ReadingCompanion() {
       changeHelpDepth("tell");
       return;
     }
+    if (/line|sentence|whole bit/.test(request) && selectedContext) {
+      readLine();
+      return;
+    }
     if (/say|pronoun|read it|what is it/.test(request)) {
       speakWord();
       return;
@@ -299,7 +314,7 @@ export function ReadingCompanion() {
       return;
     }
 
-    setVoiceReply("I heard you. Try asking me to say it, tell you what it means, give you a clue, or help you work it out.");
+    setVoiceReply("I heard you. Try asking me to say it, read the line, tell you what it means, give you a clue, or help you work it out.");
   }
 
   return (
@@ -346,7 +361,7 @@ export function ReadingCompanion() {
                     width: `${((word.bbox.x1 - word.bbox.x0) / capturedPage.width) * 100}%`,
                     height: `${((word.bbox.y1 - word.bbox.y0) / capturedPage.height) * 100}%`,
                   }}
-                  onClick={() => chooseWord(word.text, "ocr")}
+                  onClick={() => chooseWord(word.text, "ocr", word.lineText)}
                   aria-label={`Choose ${word.text}`}
                   title={word.text}
                 />
@@ -439,6 +454,10 @@ export function ReadingCompanion() {
               <p className="lookup-note">Finding a checked meaning…</p>
             )}
 
+            {selectedContext && (
+              <p className="context-line">“{selectedContext}”</p>
+            )}
+
             {lastTranscript && (
               <p className="heard-you"><span>You said</span> “{lastTranscript}”</p>
             )}
@@ -447,6 +466,11 @@ export function ReadingCompanion() {
               <button type="button" className="tactile-button dark" onClick={speakWord}>
                 <SpeakerHigh size={22} /> Say it
               </button>
+              {selectedContext && (
+                <button type="button" className="tactile-button" onClick={readLine}>
+                  <TextAlignLeft size={21} /> Read the line
+                </button>
+              )}
               <button type="button" className="tactile-button" onClick={explainMeaning}>
                 More about it
               </button>
