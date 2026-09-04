@@ -56,6 +56,23 @@ function shouldRefineMeaning(input: {
   return false;
 }
 
+function corpusMetadata(
+  surface: Awaited<ReturnType<typeof lookupLexicalWord>>,
+  lemmaLookup: Awaited<ReturnType<typeof lookupLexicalWord>> | null,
+) {
+  return {
+    version: surface.corpus.version,
+    locale: surface.corpus.locale,
+    surfaceEntryHit: surface.corpus.entryHit,
+    surfaceLexicalHit: surface.corpus.lexicalHit,
+    surfacePronunciationHit: surface.corpus.pronunciationHit,
+    lemmaEntryHit: lemmaLookup?.corpus.entryHit ?? null,
+    lemmaLexicalHit: lemmaLookup?.corpus.lexicalHit ?? null,
+    remoteFallback: surface.corpus.remoteFallback || Boolean(lemmaLookup?.corpus.remoteFallback),
+    pronunciationSource: surface.corpus.pronunciationSource,
+  };
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const word = normaliseWord(searchParams.get("word") ?? "");
@@ -68,7 +85,7 @@ export async function GET(request: Request) {
 
   try {
     let morphology = analyseMorphology(word, context);
-    const surface = await lookupLexicalWord(word, context, "surface");
+    const surface = await lookupLexicalWord(word, context, "surface", morphology.partOfSpeech);
 
     const wiktionaryInflection = detectedInflectionLemma(surface.candidates, morphology);
     if (wiktionaryInflection) {
@@ -97,7 +114,7 @@ export async function GET(request: Request) {
       || Boolean(surface.headword)
     );
     const lemmaLookup = shouldLookupLemma
-      ? await lookupLexicalWord(morphology.lemma, context, "lemma")
+      ? await lookupLexicalWord(morphology.lemma, context, "lemma", morphology.partOfSpeech)
       : null;
 
     const candidates = [
@@ -116,6 +133,7 @@ export async function GET(request: Request) {
       surface.pronunciation.ipa,
     );
     const attribution = lexicalAttribution(chosen);
+    const corpus = corpusMetadata(surface, lemmaLookup);
 
     if (!hasLexicalEvidence) {
       let modelExplanation = null;
@@ -151,6 +169,7 @@ export async function GET(request: Request) {
         recognisedWord: modelRecognised,
         meaningCanBeRefined: modelWordFallbackEnabled() && !requestExplain,
         attribution: null,
+        corpus,
         explanation: {
           source: modelRecognised ? "model" : "none",
           modelUsed: Boolean(modelExplanation),
@@ -226,6 +245,7 @@ export async function GET(request: Request) {
       recognisedWord: true,
       meaningCanBeRefined: meaningCanBeRefined && !requestExplain,
       attribution,
+      corpus,
       explanation: {
         source: useModelMeaning ? "model" : chosen?.source ?? "none",
         modelUsed: Boolean(modelExplanation),
@@ -258,6 +278,7 @@ export async function GET(request: Request) {
       recognisedWord: false,
       meaningCanBeRefined: modelWordFallbackEnabled() && !requestExplain,
       attribution: null,
+      corpus: null,
       explanation: {
         source: "none",
         modelUsed: false,
