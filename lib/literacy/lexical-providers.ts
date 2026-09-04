@@ -270,7 +270,7 @@ export async function lookupLexicalWord(
   }
 
   const exactDatamuse = datamuse.find((item) => normaliseWord(item.word ?? "") === word) ?? null;
-  const exactDictionary = dictionary.some((entry) => normaliseWord(entry.word ?? word) === word);
+  const exactDictionary = dictionary.some((entry) => normaliseWord(entry.word ?? "") === word);
   const englishWiktionary = wiktionary.en ?? [];
   const exactWiktionary = englishWiktionary.length > 0;
 
@@ -295,7 +295,18 @@ export async function lookupLexicalWord(
   );
   const preferredPosCode = exactDatamuse?.tags?.find((tag) => Object.hasOwn(POS_LABELS, tag)) ?? null;
 
-  const recognised = Boolean(local.recognised || exactDatamuse || exactDictionary || exactWiktionary);
+  // Datamuse can echo an exact spelling and attach syllable/pronunciation
+  // metadata even when it has no lexical definition for that token. Treating
+  // that echo as recognition lets OCR-like nonsense through the guardrail.
+  // Require actual lexical evidence from Datamuse, or recognition from another
+  // exact source/local corpus.
+  const datamuseHasLexicalEvidence = datamuseCandidates.length > 0;
+  const recognised = Boolean(
+    local.recognised
+    || exactDictionary
+    || exactWiktionary
+    || datamuseHasLexicalEvidence
+  );
   const ipa = local.pronunciation.ipa ?? dictionaryIpa ?? datamusePronunciation;
   const syllables = local.pronunciation.ipa
     ? local.pronunciation.syllables
@@ -314,7 +325,7 @@ export async function lookupLexicalWord(
     },
     preferredPartOfSpeech: local.preferredPartOfSpeech
       ?? (preferredPosCode ? POS_LABELS[preferredPosCode] : null),
-    headword: local.headword ?? exactDatamuse?.defHeadword ?? null,
+    headword: recognised ? local.headword ?? exactDatamuse?.defHeadword ?? null : null,
     possibleSpelling: recognised ? null : plausibleSuggestion(word, datamuse[0]?.word),
     providers,
     corpus: { ...local.metadata, remoteFallback: true },

@@ -155,6 +155,19 @@ export async function GET(request: Request) {
       const modelRecognised = Boolean(
         modelExplanation?.knownEnglishWord && modelExplanation.confidence !== "low",
       );
+      const trustedMorphology = modelRecognised
+        ? {
+            lemma: morphology.lemma,
+            form: morphology.form,
+            label: morphologyLabel(morphology),
+            confidence: morphology.confidence,
+          }
+        : {
+            lemma: word,
+            form: null,
+            label: null,
+            confidence: "low" as const,
+          };
 
       return NextResponse.json({
         word,
@@ -162,16 +175,11 @@ export async function GET(request: Request) {
         example: contextualExample,
         alternateExample: modelRecognised ? modelExplanation!.example : null,
         contextualExample,
-        partOfSpeech: morphology.partOfSpeech,
-        morphology: {
-          lemma: morphology.lemma,
-          form: morphology.form,
-          label: morphologyLabel(morphology),
-          confidence: morphology.confidence,
-        },
+        partOfSpeech: modelRecognised ? morphology.partOfSpeech : null,
+        morphology: trustedMorphology,
         pronunciation: { ipa: null, syllables: soundGuide.syllables, audio: null },
         soundGuide,
-        headword: morphology.lemma !== word ? morphology.lemma : null,
+        headword: modelRecognised && morphology.lemma !== word ? morphology.lemma : null,
         possibleSpelling: modelRecognised ? null : surface.possibleSpelling,
         recognisedWord: modelRecognised,
         meaningCanBeRefined: modelWordFallbackEnabled() && !requestExplain,
