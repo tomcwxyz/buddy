@@ -146,6 +146,31 @@ function sentenceFromContext(context: string, word: string) {
   return wordsIn(clean).includes(word) || clean.toLocaleLowerCase("en-GB").includes(word) ? clean : null;
 }
 
+function editDistance(a: string, b: string) {
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    let diagonal = previous[0];
+    previous[0] = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const above = previous[j];
+      previous[j] = Math.min(
+        previous[j] + 1,
+        previous[j - 1] + 1,
+        diagonal + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+      diagonal = above;
+    }
+  }
+  return previous[b.length];
+}
+
+function plausibleSuggestion(word: string, candidate?: string) {
+  const suggestion = normaliseWord(candidate ?? "");
+  if (!suggestion || suggestion === word) return null;
+  const maximumDistance = word.length <= 5 ? 1 : word.length <= 9 ? 2 : 3;
+  return editDistance(word, suggestion) <= maximumDistance ? suggestion : null;
+}
+
 function needsModelHelp(meaning: string | null, contextualExample: string | null, dictionaryExample: string | null) {
   if (!modelWordFallbackEnabled()) return false;
   if (!meaning) return true;
@@ -198,7 +223,10 @@ export async function GET(request: Request) {
       dictionary = (await dictionaryResponse.value.json()) as DictionaryEntry[];
     }
 
-    const exactDatamuse = datamuse.find((item) => normaliseWord(item.word ?? "") === word) ?? datamuse[0] ?? null;
+    const exactDatamuse = datamuse.find((item) => normaliseWord(item.word ?? "") === word) ?? null;
+    const possibleSpelling = exactDatamuse ? null : plausibleSuggestion(word, datamuse[0]?.word);
+    const hasLexicalEvidence = Boolean(exactDatamuse || dictionary.length > 0);
+
     const preferredPosCode = exactDatamuse?.tags?.find((tag) => Object.hasOwn(POS_LABELS, tag)) ?? null;
     const preferredPartOfSpeech = preferredPosCode ? POS_LABELS[preferredPosCode] : null;
     const datamuseCandidates = (exactDatamuse?.defs ?? [])
@@ -219,6 +247,28 @@ export async function GET(request: Request) {
     const dictionaryExample = chosen?.example ?? dictionaryDefinitions.find((item) => item.example)?.example ?? null;
     const deterministicMeaning = chosen ? simplifyDefinition(chosen.definition) : null;
     const soundGuide = analyseWordSounds(word, exactDatamuse?.numSyllables ?? null, ipa);
+
+    if (!hasLexicalEvidence) {
+      return NextResponse.json({
+        word,
+        meaning: null,
+        example: contextualExample,
+        alternateExample: null,
+        contextualExample,
+        partOfSpeech: null,
+        pronunciation: { ipa: null, syllables: null, audio: null },
+        soundGuide,
+        headword: null,
+        possibleSpelling,
+        recognisedWord: false,
+        explanation: {
+          source: "none",
+          modelUsed: false,
+          confidence: "low",
+        },
+        source: "unknown-word",
+      });
+    }
 
     let modelExplanation = null;
     if (needsModelHelp(deterministicMeaning, contextualExample, dictionaryExample)) {
@@ -257,42 +307,36 @@ export async function GET(request: Request) {
       },
       soundGuide,
       headword: exactDatamuse?.defHeadword ?? null,
+      possibleSpelling: null,
+      recognisedWord: true,
       explanation: {
         source: useModelMeaning ? "model" : chosen?.source ?? (modelExplanation ? "model" : "none"),
         modelUsed: Boolean(modelExplanation),
-        confidence: modelExplanation?.confidence ?? (chosen ? "high" : "unknown"),
+        confidence: modelExplanation?.confidence ?? (chosen ? "high" : "medium"),
       },
       source: useModelMeaning
         ? "model-fallback"
-        : chosen?.source ?? (modelExplanation ? "model-example" : exactDatamuse ? "datamuse-pronunciation" : dictionary.length ? "dictionaryapi.dev" : "sound-fallback"),
+        : chosen?.source ?? (modelExplanation ? "model-example" : exactDatamuse ? "datamuse-pronunciation" : "dictionaryapi.dev"),
     });
   } catch {
-    let modelExplanation = null;
-    if (modelWordFallbackEnabled()) {
-      try {
-        modelExplanation = await explainWordWithModel({ word, context });
-      } catch {
-        modelExplanation = null;
-      }
-    }
-
-    const contextualExample = sentenceFromContext(context, word);
     return NextResponse.json({
       word,
-      meaning: modelExplanation?.meaning ?? null,
-      example: contextualExample ?? modelExplanation?.example ?? null,
-      alternateExample: contextualExample ? modelExplanation?.example ?? null : null,
-      contextualExample,
+      meaning: null,
+      example: sentenceFromContext(context, word),
+      alternateExample: null,
+      contextualExample: sentenceFromContext(context, word),
       partOfSpeech: null,
       pronunciation: { ipa: null, syllables: null, audio: null },
       soundGuide: analyseWordSounds(word),
       headword: null,
+      possibleSpelling: null,
+      recognisedWord: false,
       explanation: {
-        source: modelExplanation ? "model" : "none",
-        modelUsed: Boolean(modelExplanation),
-        confidence: modelExplanation?.confidence ?? "unknown",
+        source: "none",
+        modelUsed: false,
+        confidence: "low",
       },
-      source: modelExplanation ? "model-fallback" : "sound-fallback",
+      source: "lookup-unavailable",
     });
   }
 }
