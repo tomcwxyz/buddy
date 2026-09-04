@@ -57,16 +57,33 @@ The first useful reading-and-learning loop now exists:
 3. run OCR locally in the browser;
 4. tap a recognised word directly on the captured page, or tap an unboxed word for a tighter second OCR pass;
 5. choose **Tell me**, **Give me a clue**, or **Let's work it out**;
-6. get broad pronunciation, syllable and sound-pattern support;
-7. get a context-sensitive meaning and example when lexical data is available;
-8. hear the word, reading line or example with browser speech;
-9. ask simple voice requests using press-to-talk;
-10. record the encounter in a local Learning Map;
-11. see encountered words in **Words we've met**;
-12. revisit three useful words at a time in **Let's play with words**;
-13. allow Buddy to surface tentative, rejectable observations in **Me** after repeated evidence.
+6. resolve the printed form into its likely lemma and grammatical form where useful;
+7. choose the likely meaning from the surrounding line rather than treating the spelling as an isolated dictionary headword;
+8. get broad pronunciation, syllable and sound-pattern support for the printed word;
+9. hear the word, reading line or example with browser speech;
+10. ask simple voice requests using press-to-talk;
+11. record the encounter in a local Learning Map;
+12. see encountered words in **Words we've met**;
+13. revisit three useful words at a time in **Let's play with words**;
+14. allow Buddy to surface tentative, rejectable observations in **Me** after repeated evidence.
 
-Buddy now uses layered word support rather than a tiny hard-coded vocabulary: curated literacy guidance first, broad lexical/pronunciation data second, cautious deterministic spelling/sound observations, and an optional tightly scoped model fallback for missing or overly complex meanings/examples.
+### Word Library v2
+
+Buddy's lexical layer is now deliberately separate from the child-facing UI. A selected token moves through:
+
+> printed form → morphology / lemma → contextual part of speech → candidate senses → simple meaning → pronunciation-aware sound guidance
+
+This matters for forms such as `sold`: Buddy should understand that the printed word can be the past tense or past participle of `sell`, use that grammatical evidence to choose the correct sense in the sentence, but still pronounce and explain the spelling of the actual printed word `sold`.
+
+The resolver is layered rather than relying on one dictionary:
+
+- English Wiktionary structured definitions add broad vocabulary, parts of speech and inflection evidence;
+- DictionaryAPI.dev adds definitions, examples and pronunciation/audio where available;
+- Datamuse adds broad lexical, syllable, pronunciation and headword evidence;
+- Buddy's own curated literacy layer wins for deliberately checked chunks, clues and explanations;
+- an optional tightly scoped model can simplify or disambiguate lexical evidence, but it does not invent canonical pronunciation or phonics guidance.
+
+Wiktionary-derived text is attributed as **Wiktionary / CC BY-SA** in resolver metadata so consuming surfaces can expose source information where required.
 
 The model fallback is disabled by default and never supplies canonical phonics/pronunciation guidance. See `.env.example` and `docs/IMPLEMENTATION.md`.
 
@@ -79,6 +96,7 @@ The model fallback is disabled by default and never supplies canonical phonics/p
 - `/me` — tentative child-visible observations derived from repeated interactions.
 - `/discover` — initial Brain Quests.
 - `/help` — general voice/vision help entry.
+- `/lab/words` — internal lexical, morphology, sense and pronunciation regression surface.
 
 ## Stack
 
@@ -89,14 +107,18 @@ The model fallback is disabled by default and never supplies canonical phonics/p
 - Phosphor Icons
 - Atkinson Hyperlegible
 - Tesseract.js 7 for local browser OCR
-- Datamuse + DictionaryAPI.dev for broad lexical/pronunciation lookup
+- Wiktionary + DictionaryAPI.dev + Datamuse for layered lexical lookup
 - optional OpenAI Responses API structured fallback for narrowly scoped word explanations
 
 Shared product primitives live in:
 
 - `lib/buddy-design.ts`
 - `lib/buddy-language.ts`
-- `lib/literacy/*`
+- `lib/literacy/morphology.ts`
+- `lib/literacy/lexicon.ts`
+- `lib/literacy/lexical-providers.ts`
+- `lib/literacy/sound-map.ts`
+- `lib/literacy/grapheme-phoneme.ts`
 - `lib/learning/*`
 - `lib/ai/word-explainer.ts`
 - `lib/device/contract.ts`
@@ -136,14 +158,16 @@ Optional model fallback configuration is documented in `.env.example`.
 
 ## Immediate roadmap
 
-1. Build and run a lexical evaluation set covering common, irregular, ambiguous, complex and rare words.
-2. Improve sound analysis towards a validated grapheme/phoneme representation.
-3. Improve capture quality, crop/deskew and OCR confidence handling.
-4. Add a provider-neutral companion agent layer without giving it unrestricted access to the child's Learning Map.
-5. Upgrade voice where browser speech recognition is unreliable.
-6. Expand `Me` from reading-support observations into explicit strategies and later strengths discovery.
-7. Define child/parent identity, consent and privacy boundaries before cloud synchronisation or broader model use.
-8. Implement the first R1/Android tactile adapter using the shared device contract.
+1. Grow the lexical evaluation set from real reading failures and make them permanent regressions.
+2. Add a versioned, pre-indexed broad lexical corpus for production so common lookups do not depend on several live third-party requests; keep provider adapters as refresh/fallback sources.
+3. Add the British-English pronunciation override layer and measure coverage across common vocabulary.
+4. Improve sound analysis towards a validated grapheme/phoneme representation.
+5. Improve capture quality, crop/deskew and OCR confidence handling.
+6. Add a provider-neutral companion agent layer without giving it unrestricted access to the child's Learning Map.
+7. Upgrade voice where browser speech recognition is unreliable.
+8. Expand `Me` from reading-support observations into explicit strategies and later strengths discovery.
+9. Define child/parent identity, consent and privacy boundaries before cloud synchronisation or broader model use.
+10. Implement the first R1/Android tactile adapter using the shared device contract.
 
 ## Product constraint
 

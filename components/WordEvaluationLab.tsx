@@ -12,6 +12,12 @@ type WordResult = {
   alternateExample?: string | null;
   contextualExample?: string | null;
   partOfSpeech?: string | null;
+  morphology?: {
+    lemma?: string | null;
+    form?: string | null;
+    label?: string | null;
+    confidence?: string | null;
+  };
   possibleSpelling?: string | null;
   recognisedWord?: boolean;
   pronunciation?: { ipa?: string | null; syllables?: number | null; audio?: string | null };
@@ -27,6 +33,12 @@ type WordResult = {
     modelUsed?: boolean;
     confidence?: string;
   };
+  attribution?: {
+    label: string;
+    url: string;
+    licence: string;
+  } | null;
+  providers?: string[];
   source?: string;
 };
 
@@ -94,6 +106,10 @@ export function WordEvaluationLab() {
   const ready = Object.values(states).filter((state) => state.status === "ready");
   const modelCalls = ready.filter((state) => state.result?.explanation?.modelUsed).length;
   const unrecognised = ready.filter((state) => state.result?.recognisedWord === false).length;
+  const lemmatised = ready.filter((state) => {
+    const result = state.result;
+    return Boolean(result?.morphology?.lemma && result.morphology.lemma !== result.word);
+  }).length;
 
   return (
     <div className="word-lab">
@@ -102,11 +118,12 @@ export function WordEvaluationLab() {
           <p className="eyebrow">Internal alpha lab</p>
           <h1>Does Buddy understand the word?</h1>
           <p>
-            Fixed cases for sense, meaning, examples and sound guidance. This is an evaluation surface, not a child-facing score.
+            Fixed cases for morphology, sense, meaning, examples and sound guidance. This is an evaluation surface, not a child-facing score.
           </p>
         </div>
         <div className="word-lab-summary">
           <span>{ready.length}/{WORD_EVAL_CASES.length} run</span>
+          <span>{lemmatised} resolved to a lemma</span>
           <span>{modelCalls} model-assisted</span>
           <span>{unrecognised} treated as uncertain</span>
           <button type="button" onClick={runAll} disabled={runningAll}>
@@ -153,6 +170,19 @@ export function WordEvaluationLab() {
                       </div>
 
                       <div className="word-lab-result-row">
+                        <span>Word form</span>
+                        <div>
+                          <p>
+                            {result.morphology?.label
+                              ?? (result.morphology?.lemma && result.morphology.lemma !== result.word
+                                ? `Related to ${result.morphology.lemma}`
+                                : "Base form or unresolved")}
+                          </p>
+                          {result.partOfSpeech && <small>part of speech: <b>{result.partOfSpeech}</b></small>}
+                        </div>
+                      </div>
+
+                      <div className="word-lab-result-row">
                         <span>Example</span>
                         <div>
                           <p>{result.example ?? "No example returned"}</p>
@@ -190,8 +220,15 @@ export function WordEvaluationLab() {
                         <span>meaning confidence: {result.explanation?.confidence ?? "unknown"}</span>
                         <span>sound alignment: {result.soundGuide?.alignment ?? "unknown"}</span>
                         <span>model: {result.explanation?.modelUsed ? "yes" : "no"}</span>
+                        {result.morphology?.lemma && <span>lemma: {result.morphology.lemma}</span>}
+                        {result.morphology?.form && <span>form: {result.morphology.form}</span>}
+                        {result.morphology?.confidence && <span>morphology: {result.morphology.confidence}</span>}
+                        {result.providers?.length ? <span>providers: {result.providers.join(", ")}</span> : null}
                         {result.possibleSpelling && <span>suggestion: {result.possibleSpelling}</span>}
                         {result.partOfSpeech && <span>{result.partOfSpeech}</span>}
+                        {result.attribution && (
+                          <span>attribution: {result.attribution.label} ({result.attribution.licence})</span>
+                        )}
                       </div>
                     </div>
                   )}
