@@ -15,9 +15,21 @@ import { choosePracticeWords, type PracticeWord } from "@/lib/practice/engine";
 type BuddyState = "idle" | "thinking" | "speaking";
 type Reveal = "none" | "clue" | "together" | "meaning";
 
+type SoundFeature = {
+  letters: string;
+  note: string;
+};
+
 type WordLookup = {
   meaning: string | null;
   example: string | null;
+  alternateExample?: string | null;
+  partOfSpeech?: string | null;
+  soundGuide?: {
+    syllables?: number | null;
+    features?: SoundFeature[];
+    guidance?: string;
+  };
 };
 
 export function PracticeSession() {
@@ -40,10 +52,25 @@ export function PracticeSession() {
 
   useEffect(() => {
     if (!current) return;
+    const controller = new AbortController();
     setReveal("none");
     setLookup(null);
-    setLookupLoading(false);
+    setLookupLoading(true);
     recordLearningEvent({ kind: "practice_seen", word: current.word, source: "practice" });
+
+    fetch(`/api/word?word=${encodeURIComponent(current.word)}`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("lookup_failed");
+        return (await response.json()) as WordLookup;
+      })
+      .then(setLookup)
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setLookup({ meaning: null, example: null });
+      })
+      .finally(() => setLookupLoading(false));
+
+    return () => controller.abort();
   }, [current]);
 
   function speak(text: string) {
@@ -85,26 +112,10 @@ export function PracticeSession() {
     });
   }
 
-  async function showMeaning() {
-    if (!current || !support) return;
+  function showMeaning() {
+    if (!current) return;
     setReveal("meaning");
     recordLearningEvent({ kind: "meaning_requested", word: current.word, source: "practice" });
-
-    if (support.meaning || lookup || lookupLoading) return;
-
-    setLookupLoading(true);
-    setBuddyState("thinking");
-    try {
-      const response = await fetch(`/api/word?word=${encodeURIComponent(current.word)}`);
-      if (!response.ok) throw new Error("lookup_failed");
-      const result = (await response.json()) as WordLookup;
-      setLookup(result);
-    } catch {
-      setLookup({ meaning: null, example: null });
-    } finally {
-      setLookupLoading(false);
-      setBuddyState("idle");
-    }
   }
 
   function nextWord(known = false) {
@@ -132,7 +143,7 @@ export function PracticeSession() {
         <div>
           <p className="eyebrow">Tiny practice</p>
           <h1>Nothing to practise yet.</h1>
-          <p>When you ask Buddy for help while reading, useful words can come back here later.</p>
+          <p>When you ask Buddy for help with a word while reading, useful words can come back here later.</p>
           <Link className="practice-primary" href="/read">Read with me <ArrowRight size={20} /></Link>
         </div>
       </section>
@@ -157,7 +168,7 @@ export function PracticeSession() {
   }
 
   const meaning = support?.meaning ?? lookup?.meaning ?? null;
-  const example = support?.example ?? lookup?.example ?? null;
+  const example = support?.example ?? lookup?.alternateExample ?? lookup?.example ?? null;
   const revealedText = reveal === "clue"
     ? helpText(support!, "clue")
     : reveal === "together"
@@ -165,9 +176,7 @@ export function PracticeSession() {
       : reveal === "meaning"
         ? lookupLoading
           ? "Finding a simple meaning…"
-          : meaning
-            ? `${meaning}${example ? ` For example: ${example}` : ""}`
-            : "I couldn't find a checked meaning for this one just now."
+          : meaning ?? "I couldn't find a checked meaning for this one just now."
         : null;
 
   return (
@@ -188,9 +197,37 @@ export function PracticeSession() {
       <article className="practice-card">
         <p className="eyebrow">One we've met before</p>
         <h1>{current.word}</h1>
+        {lookup?.partOfSpeech && <span className="practice-word-kind">{lookup.partOfSpeech}</span>}
         <p className="practice-prompt">{current.openingPrompt}</p>
 
+        {lookup?.soundGuide && (
+          <div className="practice-sound-guide">
+            <div>
+              <strong>Listen + notice</strong>
+              {lookup.soundGuide.syllables ? (
+                <span>{lookup.soundGuide.syllables} {lookup.soundGuide.syllables === 1 ? "syllable" : "syllables"}</span>
+              ) : null}
+            </div>
+            <p>{lookup.soundGuide.guidance}</p>
+            {(lookup.soundGuide.features?.length ?? 0) > 0 && (
+              <div className="practice-sound-features">
+                {lookup.soundGuide.features?.map((feature) => (
+                  <span key={`${feature.letters}-${feature.note}`}><strong>{feature.letters}</strong> {feature.note}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {revealedText && <div className="practice-reveal">{revealedText}</div>}
+
+        {reveal === "meaning" && example && (
+          <div className="practice-example">
+            <span>Example</span>
+            <p>“{example}”</p>
+            <button type="button" onClick={() => speak(example)}><SpeakerHigh size={17} /> Read it</button>
+          </div>
+        )}
 
         <div className="practice-help-actions">
           <button type="button" onClick={hearWord}>
