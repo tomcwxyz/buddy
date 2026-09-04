@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 const VERSION = "3.0.1";
-const SOURCE_URL = `https://raw.githubusercontent.com/JoseLlarena/Britfone/master/britfone.main.${VERSION}.csv`;
+const SOURCE_COMMIT = "1062be14adc96c358f2087ac5449d72130c7a6f4";
+const SOURCE_BLOB_SHA = "51a54c553812b06a8f464f5aa85f4df2e6edb645";
+const SOURCE_URL = `https://raw.githubusercontent.com/JoseLlarena/Britfone/${SOURCE_COMMIT}/britfone.main.${VERSION}.csv`;
 const DEFAULT_OUTPUT = resolve("data/lexicon/generated", `britfone.en-GB.v${VERSION}.json`);
 
 function parseArgs(argv) {
@@ -15,6 +18,19 @@ function parseArgs(argv) {
     if (value === "--output") args.output = resolve(argv[++index] ?? DEFAULT_OUTPUT);
   }
   return args;
+}
+
+function gitBlobSha(text) {
+  const body = Buffer.from(text, "utf8");
+  const header = Buffer.from(`blob ${body.length}\0`, "utf8");
+  return createHash("sha1").update(header).update(body).digest("hex");
+}
+
+function assertPinnedSource(text) {
+  const actual = gitBlobSha(text);
+  if (actual !== SOURCE_BLOB_SHA) {
+    throw new Error(`Britfone source verification failed: expected ${SOURCE_BLOB_SHA}, got ${actual}`);
+  }
 }
 
 function normaliseHeadword(value) {
@@ -59,6 +75,7 @@ async function sourceText(input) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const text = await sourceText(args.input);
+  assertPinnedSource(text);
   const entries = parseBritfone(text);
   const payload = {
     schemaVersion: 1,
@@ -66,6 +83,8 @@ async function main() {
     source: {
       name: "Britfone",
       version: VERSION,
+      commit: SOURCE_COMMIT,
+      blobSha: SOURCE_BLOB_SHA,
       url: "https://github.com/JoseLlarena/Britfone",
       licence: "MIT",
     },
