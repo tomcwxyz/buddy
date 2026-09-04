@@ -171,11 +171,18 @@ function plausibleSuggestion(word: string, candidate?: string) {
   return editDistance(word, suggestion) <= maximumDistance ? suggestion : null;
 }
 
-function needsModelHelp(meaning: string | null, contextualExample: string | null, dictionaryExample: string | null) {
-  if (!modelWordFallbackEnabled()) return false;
-  if (!meaning) return true;
-  if (meaning.length > 130) return true;
-  if (!contextualExample && !dictionaryExample) return true;
+function shouldRefineMeaning(input: {
+  requestExplain: boolean;
+  meaning: string | null;
+  candidateCount: number;
+  context: string;
+  example: string | null;
+}) {
+  if (!input.requestExplain || !modelWordFallbackEnabled()) return false;
+  if (!input.meaning) return true;
+  if (input.meaning.length > 100) return true;
+  if (input.candidateCount > 1 && Boolean(input.context)) return true;
+  if (!input.example && Boolean(input.context)) return true;
   return false;
 }
 
@@ -183,6 +190,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const word = normaliseWord(searchParams.get("word") ?? "");
   const context = (searchParams.get("context") ?? "").slice(0, 300);
+  const requestExplain = searchParams.get("explain") === "1";
 
   if (!word || word.length > 48 || !/^[a-z][a-z'-]*$/.test(word)) {
     return NextResponse.json({ error: "invalid_word" }, { status: 400 });
@@ -249,29 +257,51 @@ export async function GET(request: Request) {
     const soundGuide = analyseWordSounds(word, exactDatamuse?.numSyllables ?? null, ipa);
 
     if (!hasLexicalEvidence) {
+      let modelExplanation = null;
+      if (requestExplain && modelWordFallbackEnabled()) {
+        try {
+          modelExplanation = await explainWordWithModel({ word, context });
+        } catch {
+          modelExplanation = null;
+        }
+      }
+
+      const modelRecognised = Boolean(
+        modelExplanation?.knownEnglishWord && modelExplanation.confidence !== "low",
+      );
+
       return NextResponse.json({
         word,
-        meaning: null,
+        meaning: modelRecognised ? modelExplanation!.meaning : null,
         example: contextualExample,
-        alternateExample: null,
+        alternateExample: modelRecognised ? modelExplanation!.example : null,
         contextualExample,
         partOfSpeech: null,
-        pronunciation: { ipa: null, syllables: null, audio: null },
+        pronunciation: { ipa: null, syllables: soundGuide.syllables, audio: null },
         soundGuide,
         headword: null,
-        possibleSpelling,
-        recognisedWord: false,
+        possibleSpelling: modelRecognised ? null : possibleSpelling,
+        recognisedWord: modelRecognised,
+        meaningCanBeRefined: modelWordFallbackEnabled() && !requestExplain,
         explanation: {
-          source: "none",
-          modelUsed: false,
-          confidence: "low",
+          source: modelRecognised ? "model" : "none",
+          modelUsed: Boolean(modelExplanation),
+          confidence: modelExplanation?.confidence ?? "low",
         },
-        source: "unknown-word",
+        source: modelRecognised ? "model-rare-word" : "unknown-word",
       });
     }
 
+    const refineMeaning = shouldRefineMeaning({
+      requestExplain,
+      meaning: deterministicMeaning,
+      candidateCount: candidates.length,
+      context,
+      example: dictionaryExample,
+    });
+
     let modelExplanation = null;
-    if (needsModelHelp(deterministicMeaning, contextualExample, dictionaryExample)) {
+    if (refineMeaning) {
       try {
         modelExplanation = await explainWordWithModel({
           word,
@@ -284,14 +314,20 @@ export async function GET(request: Request) {
       }
     }
 
-    const useModelMeaning = Boolean(modelExplanation && (!deterministicMeaning || deterministicMeaning.length > 130));
+    const useModelMeaning = Boolean(modelExplanation?.knownEnglishWord);
     const meaning = useModelMeaning ? modelExplanation!.meaning : deterministicMeaning;
-    const example = contextualExample ?? dictionaryExample ?? modelExplanation?.example ?? null;
+    const generatedExample = useModelMeaning ? modelExplanation!.example : null;
+    const example = contextualExample ?? dictionaryExample ?? generatedExample ?? null;
     const alternateExample = contextualExample
-      ? dictionaryExample ?? modelExplanation?.example ?? null
-      : dictionaryExample && modelExplanation?.example && dictionaryExample !== modelExplanation.example
-        ? modelExplanation.example
-        : null;
+      ? generatedExample ?? dictionaryExample ?? null
+      : generatedExample ?? (dictionaryExample && dictionaryExample !== example ? dictionaryExample : null);
+
+    const meaningCanBeRefined = modelWordFallbackEnabled() && (
+      !deterministicMeaning
+      || deterministicMeaning.length > 100
+      || (candidates.length > 1 && Boolean(context))
+      || (!dictionaryExample && Boolean(context))
+    );
 
     return NextResponse.json({
       word,
@@ -309,14 +345,15 @@ export async function GET(request: Request) {
       headword: exactDatamuse?.defHeadword ?? null,
       possibleSpelling: null,
       recognisedWord: true,
+      meaningCanBeRefined: meaningCanBeRefined && !requestExplain,
       explanation: {
-        source: useModelMeaning ? "model" : chosen?.source ?? (modelExplanation ? "model" : "none"),
+        source: useModelMeaning ? "model" : chosen?.source ?? "none",
         modelUsed: Boolean(modelExplanation),
         confidence: modelExplanation?.confidence ?? (chosen ? "high" : "medium"),
       },
       source: useModelMeaning
-        ? "model-fallback"
-        : chosen?.source ?? (modelExplanation ? "model-example" : exactDatamuse ? "datamuse-pronunciation" : "dictionaryapi.dev"),
+        ? "model-context"
+        : chosen?.source ?? (exactDatamuse ? "datamuse-pronunciation" : "dictionaryapi.dev"),
     });
   } catch {
     return NextResponse.json({
@@ -331,6 +368,7 @@ export async function GET(request: Request) {
       headword: null,
       possibleSpelling: null,
       recognisedWord: false,
+      meaningCanBeRefined: modelWordFallbackEnabled() && !requestExplain,
       explanation: {
         source: "none",
         modelUsed: false,
