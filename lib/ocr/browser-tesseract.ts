@@ -11,6 +11,13 @@ type TesseractLine = { words?: TesseractWord[]; text?: string };
 type TesseractParagraph = { lines?: TesseractLine[] };
 type TesseractBlock = { paragraphs?: TesseractParagraph[] };
 
+export type OcrRegion = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
 let workerPromise: Promise<Worker> | null = null;
 
 async function getWorker() {
@@ -63,4 +70,27 @@ export async function recognisePage(
     width,
     height,
   };
+}
+
+export async function recogniseWordRegion(image: string, region: OcrRegion): Promise<string | null> {
+  const worker = await getWorker();
+  const { PSM } = await import("tesseract.js");
+
+  await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_WORD });
+  try {
+    const result = await worker.recognize(
+      image,
+      { rectangle: region },
+      { text: true },
+    );
+    const candidate = result.data.text
+      ?.replace(/\s+/g, " ")
+      .trim()
+      .split(" ")[0]
+      ?.replace(/^[^a-z'-]+|[^a-z'-]+$/gi, "");
+
+    return candidate && /[a-z]/i.test(candidate) ? candidate : null;
+  } finally {
+    await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
+  }
 }
