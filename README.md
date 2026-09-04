@@ -50,25 +50,31 @@ See:
 
 ## Current alpha
 
-The first useful reading loop now exists:
+The first useful reading-and-learning loop now exists:
 
 1. open the device camera;
 2. capture a page;
 3. run OCR locally in the browser;
-4. tap a recognised word directly on the captured page;
+4. tap a recognised word directly on the captured page, or tap an unboxed word for a tighter second OCR pass;
 5. choose **Tell me**, **Give me a clue**, or **Let's work it out**;
-6. hear the word with browser speech;
-7. ask simple voice requests using press-to-talk;
-8. record the encounter in a local Learning Map;
-9. see encountered words in **Words we've met**;
-10. allow Buddy to surface tentative, rejectable observations in **Me** after repeated evidence.
+6. get broad pronunciation, syllable and sound-pattern support;
+7. get a context-sensitive meaning and example when lexical data is available;
+8. hear the word, reading line or example with browser speech;
+9. ask simple voice requests using press-to-talk;
+10. record the encounter in a local Learning Map;
+11. see encountered words in **Words we've met**;
+12. revisit three useful words at a time in **Let's play with words**;
+13. allow Buddy to surface tentative, rejectable observations in **Me** after repeated evidence.
 
-Unknown OCR words are not given invented phonics or definitions. The deterministic literacy layer only gives structured guidance where that guidance is explicitly curated; otherwise Buddy can still say the word and stay honest about what it does not yet know.
+Buddy now uses layered word support rather than a tiny hard-coded vocabulary: curated literacy guidance first, broad lexical/pronunciation data second, cautious deterministic spelling/sound observations, and an optional tightly scoped model fallback for missing or overly complex meanings/examples.
+
+The model fallback is disabled by default and never supplies canonical phonics/pronunciation guidance. See `.env.example` and `docs/IMPLEMENTATION.md`.
 
 ## Current alpha surfaces
 
 - `/` — action-first home.
 - `/read` — live camera capture, local OCR, selectable words, spoken help and child-controlled scaffolding.
+- `/practice` — three encountered words, one at a time, with whichever support the child chooses.
 - `/words` — “Words we've met”, derived from local learning events.
 - `/me` — tentative child-visible observations derived from repeated interactions.
 - `/discover` — initial Brain Quests.
@@ -83,13 +89,16 @@ Unknown OCR words are not given invented phonics or definitions. The determinist
 - Phosphor Icons
 - Atkinson Hyperlegible
 - Tesseract.js 7 for local browser OCR
+- Datamuse + DictionaryAPI.dev for broad lexical/pronunciation lookup
+- optional OpenAI Responses API structured fallback for narrowly scoped word explanations
 
 Shared product primitives live in:
 
 - `lib/buddy-design.ts`
 - `lib/buddy-language.ts`
-- `lib/literacy/engine.ts`
+- `lib/literacy/*`
 - `lib/learning/*`
+- `lib/ai/word-explainer.ts`
 - `lib/device/contract.ts`
 
 ## Multi-surface contract
@@ -123,15 +132,17 @@ Then open `http://localhost:3000`.
 
 Camera access requires a secure context outside localhost, so real phone/tablet testing should use an HTTPS deployment.
 
+Optional model fallback configuration is documented in `.env.example`.
+
 ## Immediate roadmap
 
-1. Put the current Read loop onto a real phone and tablet and co-design from actual use.
-2. Improve capture quality, crop/deskew and OCR confidence handling.
-3. Add a validated lexical/pronunciation data adapter behind the literacy boundary.
+1. Build and run a lexical evaluation set covering common, irregular, ambiguous, complex and rare words.
+2. Improve sound analysis towards a validated grapheme/phoneme representation.
+3. Improve capture quality, crop/deskew and OCR confidence handling.
 4. Add a provider-neutral companion agent layer without giving it unrestricted access to the child's Learning Map.
 5. Upgrade voice where browser speech recognition is unreliable.
 6. Expand `Me` from reading-support observations into explicit strategies and later strengths discovery.
-7. Define child/parent identity and consent boundaries before cloud synchronisation.
+7. Define child/parent identity, consent and privacy boundaries before cloud synchronisation or broader model use.
 8. Implement the first R1/Android tactile adapter using the shared device contract.
 
 ## Product constraint
