@@ -96,10 +96,17 @@ export async function GET(request: Request) {
         wiktionaryInflection.form,
       );
     } else if (
-      morphology.lemma === word
-      && surface.headword
+      surface.headword
       && normaliseWord(surface.headword) !== word
+      && (
+        surface.corpus.entryHit
+        || morphology.lemma === word
+        || morphology.confidence !== "high"
+      )
     ) {
+      // A reviewed local headword is stronger evidence than a heuristic suffix
+      // guess. This matters for forms such as running, where a naive -ing strip
+      // can briefly propose “runn” before the corpus resolves the real lemma.
       morphology = withDetectedLemma(
         morphology,
         surface.headword,
