@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Atkinson_Hyperlegible } from "next/font/google";
+import { WordMotionController } from "@/components/WordMotionController";
 import "./globals.css";
 import "./playful.css";
+import "./mobile.css";
 
 const atkinson = Atkinson_Hyperlegible({
   subsets: ["latin"],
@@ -18,7 +20,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en-GB">
-      <body className={atkinson.variable}>{children}</body>
+      <body className={atkinson.variable}>
+        {children}
+        <WordMotionController />
+      </body>
     </html>
   );
 }
