@@ -80,6 +80,18 @@
   text-transform: lowercase;
 }
 
+.word-uncertain {
+  background:
+    linear-gradient(145deg, rgba(217, 184, 108, 0.1), rgba(251, 248, 242, 0.94) 55%);
+}
+
+.word-correction {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .sound-guide {
   margin-top: 18px;
   padding: 16px;
@@ -245,5 +257,9 @@
 
   .sound-feature {
     grid-template-columns: 44px 1fr;
+  }
+
+  .word-correction {
+    display: grid;
   }
 }
