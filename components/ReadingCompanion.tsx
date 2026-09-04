@@ -22,10 +22,29 @@ type CapturedPage = {
   height: number;
 };
 
+type SoundFeature = {
+  letters: string;
+  note: string;
+};
+
 type WordLookup = {
   meaning: string | null;
   example: string | null;
+  alternateExample?: string | null;
+  contextualExample?: string | null;
   partOfSpeech?: string | null;
+  pronunciation?: {
+    ipa?: string | null;
+    syllables?: number | null;
+    audio?: string | null;
+  };
+  soundGuide?: {
+    syllables?: number | null;
+    ipa?: string | null;
+    features?: SoundFeature[];
+    guidance?: string;
+  };
+  headword?: string | null;
   source: string;
 };
 
@@ -84,7 +103,7 @@ export function ReadingCompanion() {
 
   const support = useMemo(() => (selectedWord ? getWordSupport(selectedWord) : null), [selectedWord]);
   const checkedMeaning = support?.meaning ?? lookup?.meaning ?? null;
-  const checkedExample = support?.example ?? lookup?.example ?? null;
+  const checkedExample = support?.example ?? lookup?.alternateExample ?? lookup?.example ?? null;
   const currentHelp = support ? voiceReply ?? helpText(support, helpDepth, lookup?.meaning) : null;
 
   useEffect(() => {
@@ -95,7 +114,7 @@ export function ReadingCompanion() {
   }, []);
 
   useEffect(() => {
-    if (!support || support.meaning) {
+    if (!support) {
       setLookup(null);
       setLookupState("idle");
       return;
@@ -105,7 +124,10 @@ export function ReadingCompanion() {
     setLookup(null);
     setLookupState("loading");
 
-    fetch(`/api/word?word=${encodeURIComponent(support.word)}`, { signal: controller.signal })
+    const params = new URLSearchParams({ word: support.word });
+    if (selectedContext) params.set("context", selectedContext);
+
+    fetch(`/api/word?${params.toString()}`, { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error("lookup_failed");
         return (await response.json()) as WordLookup;
@@ -120,7 +142,7 @@ export function ReadingCompanion() {
       });
 
     return () => controller.abort();
-  }, [support]);
+  }, [support, selectedContext]);
 
   async function startCamera() {
     setCameraState("starting");
@@ -303,13 +325,17 @@ export function ReadingCompanion() {
     speak(selectedContext);
   }
 
+  function readExample() {
+    if (!checkedExample) return;
+    speak(checkedExample);
+  }
+
   function explainMeaning() {
     if (!support) return;
     recordLearningEvent({ kind: "meaning_requested", word: support.word, helpDepth, source: selectedSource });
 
     if (checkedMeaning) {
-      const reply = `${checkedMeaning}${checkedExample ? ` For example: ${checkedExample}` : ""}`;
-      setVoiceReply(reply);
+      setVoiceReply(checkedMeaning);
       return;
     }
 
@@ -347,6 +373,10 @@ export function ReadingCompanion() {
     const request = transcript.toLocaleLowerCase("en-GB");
     if (/mean|definition|tell me/.test(request)) {
       changeHelpDepth("tell");
+      return;
+    }
+    if (/example|use.*sentence/.test(request) && checkedExample) {
+      readExample();
       return;
     }
     if (/line|sentence|whole bit/.test(request) && selectedContext) {
@@ -519,14 +549,53 @@ export function ReadingCompanion() {
           <section className="selected-word-card" aria-live="polite">
             <span className="selected-kicker">This one?</span>
             <h2>{support.word}</h2>
+            {lookup?.partOfSpeech && <span className="word-kind">{lookup.partOfSpeech}</span>}
             <p className="word-help">{currentHelp}</p>
 
-            {helpDepth === "tell" && lookupState === "loading" && !support.meaning && (
-              <p className="lookup-note">Finding a checked meaning…</p>
+            {lookupState === "loading" && (
+              <p className="lookup-note">Finding its sounds and meaning…</p>
+            )}
+
+            {lookup?.soundGuide && (
+              <div className="sound-guide">
+                <div className="sound-guide-heading">
+                  <strong>How it sounds</strong>
+                  {lookup.soundGuide.syllables ? (
+                    <span>{lookup.soundGuide.syllables} {lookup.soundGuide.syllables === 1 ? "syllable" : "syllables"}</span>
+                  ) : null}
+                </div>
+                <p>{lookup.soundGuide.guidance}</p>
+                {(lookup.soundGuide.features?.length ?? 0) > 0 && (
+                  <div className="sound-features">
+                    {lookup.soundGuide.features?.map((feature) => (
+                      <div className="sound-feature" key={`${feature.letters}-${feature.note}`}>
+                        <strong>{feature.letters}</strong>
+                        <span>{feature.note}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
             {selectedContext && (
-              <p className="context-line">“{selectedContext}”</p>
+              <div className="context-example">
+                <span>In this line</span>
+                <p>“{selectedContext}”</p>
+                <button type="button" className="text-button" onClick={readLine}>
+                  <SpeakerHigh size={17} /> Read this line
+                </button>
+              </div>
+            )}
+
+            {helpDepth === "tell" && checkedExample && checkedExample !== selectedContext && (
+              <div className="meaning-example">
+                <span>Another example</span>
+                <p>“{checkedExample}”</p>
+                <button type="button" className="text-button" onClick={readExample}>
+                  <SpeakerHigh size={17} /> Read example
+                </button>
+              </div>
             )}
 
             {lastTranscript && (
@@ -543,7 +612,7 @@ export function ReadingCompanion() {
                 </button>
               )}
               <button type="button" className="tactile-button" onClick={explainMeaning}>
-                More about it
+                Tell me the meaning
               </button>
               <PressToTalk
                 onListeningChange={(listening) => setBuddyState(listening ? "listening" : "idle")}
