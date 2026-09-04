@@ -12,12 +12,15 @@ type WordResult = {
   alternateExample?: string | null;
   contextualExample?: string | null;
   partOfSpeech?: string | null;
+  possibleSpelling?: string | null;
+  recognisedWord?: boolean;
   pronunciation?: { ipa?: string | null; syllables?: number | null; audio?: string | null };
   soundGuide?: {
     syllables?: number | null;
     ipa?: string | null;
     features?: SoundFeature[];
     guidance?: string;
+    alignment?: "high" | "medium" | "irregular" | "spelling-only";
   };
   explanation?: {
     source?: string;
@@ -90,6 +93,7 @@ export function WordEvaluationLab() {
 
   const ready = Object.values(states).filter((state) => state.status === "ready");
   const modelCalls = ready.filter((state) => state.result?.explanation?.modelUsed).length;
+  const unrecognised = ready.filter((state) => state.result?.recognisedWord === false).length;
 
   return (
     <div className="word-lab">
@@ -104,6 +108,7 @@ export function WordEvaluationLab() {
         <div className="word-lab-summary">
           <span>{ready.length}/{WORD_EVAL_CASES.length} run</span>
           <span>{modelCalls} model-assisted</span>
+          <span>{unrecognised} treated as uncertain</span>
           <button type="button" onClick={runAll} disabled={runningAll}>
             {runningAll ? <ArrowClockwise size={18} /> : <Play size={18} />}
             {runningAll ? "Running…" : "Run all"}
@@ -139,7 +144,12 @@ export function WordEvaluationLab() {
                     <div className="word-lab-result">
                       <div className="word-lab-result-row">
                         <span>Meaning</span>
-                        <p>{result.meaning ?? "No meaning returned"}</p>
+                        <div>
+                          <p>{result.meaning ?? "No meaning returned"}</p>
+                          {result.recognisedWord === false && result.possibleSpelling && (
+                            <small>Possible OCR/spelling correction: <b>{result.possibleSpelling}</b></small>
+                          )}
+                        </div>
                       </div>
 
                       <div className="word-lab-result-row">
@@ -166,16 +176,21 @@ export function WordEvaluationLab() {
                           {(result.soundGuide?.features ?? []).map((feature) => (
                             <small key={`${feature.letters}-${feature.note}`}><b>{feature.letters}</b> — {feature.note}</small>
                           ))}
-                          <button type="button" className="word-lab-speak" onClick={() => speak(item.word)}>
-                            <SpeakerHigh size={16} /> Hear word
-                          </button>
+                          {result.recognisedWord !== false && (
+                            <button type="button" className="word-lab-speak" onClick={() => speak(item.word)}>
+                              <SpeakerHigh size={16} /> Hear word
+                            </button>
+                          )}
                         </div>
                       </div>
 
                       <div className="word-lab-meta">
+                        <span>recognised: {result.recognisedWord === false ? "no" : "yes"}</span>
                         <span>source: {result.source ?? "unknown"}</span>
-                        <span>confidence: {result.explanation?.confidence ?? "unknown"}</span>
+                        <span>meaning confidence: {result.explanation?.confidence ?? "unknown"}</span>
+                        <span>sound alignment: {result.soundGuide?.alignment ?? "unknown"}</span>
                         <span>model: {result.explanation?.modelUsed ? "yes" : "no"}</span>
+                        {result.possibleSpelling && <span>suggestion: {result.possibleSpelling}</span>}
                         {result.partOfSpeech && <span>{result.partOfSpeech}</span>}
                       </div>
                     </div>
