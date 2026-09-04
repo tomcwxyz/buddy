@@ -49,6 +49,12 @@
   backdrop-filter: blur(12px);
 }
 
+.lookup-note {
+  margin: 10px 0 0;
+  color: var(--buddy-ink-soft);
+  font-size: 0.82rem;
+}
+
 .press-to-talk-wrap {
   display: inline-flex;
   align-items: center;
