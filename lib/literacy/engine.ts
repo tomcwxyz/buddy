@@ -6,7 +6,7 @@ export type WordSupport = {
   clue: string | null;
   meaning: string | null;
   example: string | null;
-  source: "curated" | "fallback";
+  source: "curated" | "pattern" | "fallback";
 };
 
 const CURATED: Record<string, Omit<WordSupport, "word" | "source">> = {
@@ -60,10 +60,69 @@ const CURATED: Record<string, Omit<WordSupport, "word" | "source">> = {
   },
 };
 
-function normaliseWord(value: string) {
+const PREFIXES = [
+  "under", "inter", "super", "trans", "over", "extra", "anti", "auto", "dis", "mis", "non", "pre", "pro", "re", "un",
+];
+
+const SUFFIXES = [
+  "ation", "ition", "tion", "sion", "ment", "ness", "less", "able", "ible", "fully", "ful", "ous", "ive", "ing", "est", "ers", "er", "ed", "ly",
+];
+
+const NOTICEABLE_PATTERNS = [
+  "ough", "eigh", "igh", "tion", "sion", "tch", "dge", "ph", "wh", "sh", "ch", "th", "ck", "ng", "ee", "ea", "ai", "ay", "oa", "oo", "ou", "ow", "oi", "oy", "ar", "er", "ir", "ur",
+];
+
+export function normaliseWord(value: string) {
   return value
     .toLocaleLowerCase("en-GB")
     .replace(/^[^a-z'-]+|[^a-z'-]+$/g, "");
+}
+
+function derivePatternSupport(word: string): Pick<WordSupport, "chunks" | "clue" | "source"> {
+  const prefix = PREFIXES.find((candidate) => word.startsWith(candidate) && word.length >= candidate.length + 3);
+  const suffix = SUFFIXES.find((candidate) => word.endsWith(candidate) && word.length >= candidate.length + 3);
+
+  if (prefix && suffix && prefix.length + suffix.length < word.length) {
+    const middle = word.slice(prefix.length, word.length - suffix.length);
+    return {
+      chunks: [prefix, middle, suffix],
+      clue: `I can see ‘${prefix}’ at the start and ‘${suffix}’ at the end. Try the middle bit next.`,
+      source: "pattern",
+    };
+  }
+
+  if (prefix) {
+    const rest = word.slice(prefix.length);
+    return {
+      chunks: [prefix, rest],
+      clue: `Start by spotting ‘${prefix}’. Then try the rest of the word.`,
+      source: "pattern",
+    };
+  }
+
+  if (suffix) {
+    const stem = word.slice(0, word.length - suffix.length);
+    return {
+      chunks: [stem, suffix],
+      clue: `Look at the ending ‘${suffix}’. What does the word look like without that bit?`,
+      source: "pattern",
+    };
+  }
+
+  const pattern = NOTICEABLE_PATTERNS.find((candidate) => word.includes(candidate));
+  if (pattern) {
+    return {
+      chunks: [word],
+      clue: `Spot the ‘${pattern}’ part first. Then look at what comes before and after it.`,
+      source: "pattern",
+    };
+  }
+
+  return {
+    chunks: [word],
+    clue: null,
+    source: "fallback",
+  };
 }
 
 export function getWordSupport(input: string): WordSupport {
@@ -74,26 +133,31 @@ export function getWordSupport(input: string): WordSupport {
     return { word, ...curated, source: "curated" };
   }
 
+  const pattern = derivePatternSupport(word);
   return {
     word,
-    chunks: [word],
-    clue: null,
+    chunks: pattern.chunks,
+    clue: pattern.clue,
     meaning: null,
     example: null,
-    source: "fallback",
+    source: pattern.source,
   };
 }
 
-export function helpText(support: WordSupport, depth: HelpDepth) {
-  if (depth === "tell") return `That's ${support.word}.`;
+export function helpText(support: WordSupport, depth: HelpDepth, checkedMeaning?: string | null) {
+  const meaning = support.meaning ?? checkedMeaning ?? null;
+
+  if (depth === "tell") {
+    return meaning ?? "I’m finding a simple meaning for this one. You can still ask me to say it.";
+  }
 
   if (depth === "clue") {
-    return support.clue ?? "I can say this one, but I don't want to make up a word clue.";
+    return support.clue ?? "I can say this one, but I don’t want to invent a reading clue that might be wrong.";
   }
 
   if (support.chunks.length > 1) {
-    return `Let's use chunks: ${support.chunks.join(" · ")}. Then put them back together.`;
+    return `Let’s use chunks: ${support.chunks.join(" · ")}. Try each bit, then put them back together.`;
   }
 
-  return support.clue ?? "Let's hear the whole word first, then you can decide if you want another kind of help.";
+  return support.clue ?? "Let’s hear the whole word once, then look at the beginning and the ending.";
 }
