@@ -86,11 +86,66 @@
   font-size: clamp(3rem, 7vw, 6rem);
 }
 
+.practice-word-kind {
+  width: fit-content;
+  margin: -8px 0 14px;
+  color: var(--buddy-ink-soft);
+  font-size: 0.82rem;
+}
+
 .practice-prompt {
   margin: 0;
   max-width: 36rem;
   color: var(--buddy-ink-soft);
   font-size: 1.18rem;
+}
+
+.practice-sound-guide {
+  margin-top: 22px;
+  padding: 16px 18px;
+  max-width: 44rem;
+  border-radius: 18px;
+  background: rgba(217, 184, 108, 0.1);
+  border: 1px solid rgba(217, 184, 108, 0.22);
+}
+
+.practice-sound-guide > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.practice-sound-guide > div:first-child span {
+  color: var(--buddy-ink-soft);
+  font-size: 0.8rem;
+}
+
+.practice-sound-guide > p {
+  margin: 7px 0 0;
+  color: var(--buddy-ink-soft);
+  font-size: 0.94rem;
+}
+
+.practice-sound-features {
+  margin-top: 11px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.practice-sound-features > span {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(251, 248, 242, 0.72);
+  color: var(--buddy-ink-soft);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.practice-sound-features strong {
+  color: var(--buddy-ink);
+  font-size: 0.98rem;
 }
 
 .practice-reveal {
@@ -101,6 +156,41 @@
   background: rgba(185, 124, 99, 0.09);
   border: 1px solid rgba(185, 124, 99, 0.15);
   font-size: 1.06rem;
+}
+
+.practice-example {
+  margin-top: 12px;
+  padding: 15px 17px;
+  max-width: 42rem;
+  border-radius: 16px;
+  background: rgba(120, 147, 166, 0.08);
+  border: 1px solid rgba(120, 147, 166, 0.14);
+}
+
+.practice-example > span {
+  display: block;
+  color: var(--buddy-ink-soft);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.practice-example p {
+  margin: 5px 0 0;
+  color: var(--buddy-ink-soft);
+}
+
+.practice-example button {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .practice-help-actions {
