@@ -4,6 +4,7 @@ export type ModelWordExplanation = {
   meaning: string;
   example: string;
   confidence: "high" | "medium" | "low";
+  knownEnglishWord: boolean;
 };
 
 type OpenAIResponse = {
@@ -110,14 +111,14 @@ export async function explainWordWithModel(input: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.BUDDY_EXPLAIN_MODEL || "gpt-5.6",
+      model: process.env.BUDDY_EXPLAIN_MODEL || "gpt-5.6-luna",
       store: false,
       reasoning: { effort: "none" },
       input: [
         {
           role: "system",
           content:
-            "You are the tightly scoped vocabulary explanation layer inside Buddy, a child-facing reading companion. Explain only the selected English word. Use the nearby lexical context only to choose the likely sense. Give one short, concrete, age-appropriate meaning in plain British English and one short example sentence. Do not address the child directly, praise them, ask questions, give advice, discuss personal information, or add anything outside the requested fields. If the word is unusual or the sense is uncertain, be cautious and mark confidence low rather than inventing detail.",
+            "You are the tightly scoped vocabulary explanation layer inside Buddy, a child-facing reading companion. Work only with the selected English word. Use nearby lexical context only to choose the likely sense. A known English word may be common, inflected, borrowed, dialectal, literary, scientific or technical; do not treat proper names, OCR garbage or invented strings as ordinary English words. If the token is not a word you can identify with reasonable confidence, set known_english_word false and leave meaning and example empty. Otherwise give one short, concrete, age-appropriate meaning in plain British English and one short natural example sentence using the same sense. Prefer everyday words in the explanation. Do not address the child directly, praise them, ask questions, give advice, discuss personal information, explain pronunciation, or add anything outside the requested fields. If the sense is uncertain, be cautious and mark confidence low rather than inventing detail.",
         },
         {
           role: "user",
@@ -138,11 +139,12 @@ export async function explainWordWithModel(input: {
           schema: {
             type: "object",
             properties: {
+              known_english_word: { type: "boolean" },
               meaning: { type: "string" },
               example: { type: "string" },
               confidence: { type: "string", enum: ["high", "medium", "low"] },
             },
-            required: ["meaning", "example", "confidence"],
+            required: ["known_english_word", "meaning", "example", "confidence"],
             additionalProperties: false,
           },
         },
@@ -158,8 +160,14 @@ export async function explainWordWithModel(input: {
   if (!text) return null;
 
   try {
-    const parsed = JSON.parse(text) as Partial<ModelWordExplanation>;
+    const parsed = JSON.parse(text) as {
+      known_english_word?: boolean;
+      meaning?: string;
+      example?: string;
+      confidence?: "high" | "medium" | "low";
+    };
     if (
+      typeof parsed.known_english_word !== "boolean" ||
       typeof parsed.meaning !== "string" ||
       typeof parsed.example !== "string" ||
       !["high", "medium", "low"].includes(parsed.confidence ?? "")
@@ -169,11 +177,12 @@ export async function explainWordWithModel(input: {
 
     const meaning = tidy(parsed.meaning, 150);
     const example = tidy(parsed.example, 170);
-    if (!meaning || !example) return null;
+    if (parsed.known_english_word && (!meaning || !example)) return null;
 
     return {
-      meaning,
-      example,
+      knownEnglishWord: parsed.known_english_word,
+      meaning: parsed.known_english_word ? meaning : "",
+      example: parsed.known_english_word ? example : "",
       confidence: parsed.confidence as ModelWordExplanation["confidence"],
     };
   } catch {
