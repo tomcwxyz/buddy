@@ -1,0 +1,289 @@
+{
+  "version": "2026.09.04.1",
+  "locale": "en-GB",
+  "description": "Buddy-authored child-friendly core senses with a pinned British pronunciation evidence layer.",
+  "pronunciationSource": {
+    "name": "Britfone",
+    "version": "3.0.1",
+    "licence": "MIT",
+    "url": "https://github.com/JoseLlarena/Britfone"
+  },
+  "entries": {
+    "bank": {
+      "pronunciations": [
+        { "ipa": "b ˈæ ŋ k" }
+      ],
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "A business that keeps, lends and manages money.",
+          "example": "She put the money into her bank account."
+        },
+        {
+          "partOfSpeech": "noun",
+          "definition": "The land along the side of a river or other water.",
+          "example": "We sat on the river bank and watched the ducks."
+        }
+      ]
+    },
+    "bark": {
+      "pronunciations": [
+        { "ipa": "b ˈɑː k" }
+      ],
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "The short, loud sound a dog makes.",
+          "example": "The dog's bark made us look round."
+        },
+        {
+          "partOfSpeech": "noun",
+          "definition": "The protective outer covering of a tree.",
+          "example": "The bark on the tree felt rough."
+        }
+      ]
+    },
+    "bat": {
+      "pronunciations": [
+        { "ipa": "b ˈæ t" }
+      ],
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "A small flying mammal that is usually active at night.",
+          "example": "A bat flew out of the cave at dusk."
+        },
+        {
+          "partOfSpeech": "noun",
+          "definition": "A piece of sports equipment used to hit a ball.",
+          "example": "She swung the cricket bat and hit the ball."
+        }
+      ]
+    },
+    "record": {
+      "pronunciations": [
+        { "partOfSpeech": "noun", "ipa": "ɹ ˈɛ k ɔː d" },
+        { "partOfSpeech": "verb", "ipa": "ɹ ɪ k ˈɔː d" }
+      ],
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "The best result that has been achieved in an activity.",
+          "example": "The runner broke the school record."
+        },
+        {
+          "partOfSpeech": "verb",
+          "definition": "To capture sound, pictures or information so they can be used later.",
+          "example": "We can record the birdsong and listen to it later."
+        }
+      ]
+    },
+    "sold": {
+      "headword": "sell",
+      "pronunciations": [
+        { "partOfSpeech": "verb", "ipa": "s ˈəʊ l d" }
+      ],
+      "senses": []
+    },
+    "sell": {
+      "senses": [
+        {
+          "partOfSpeech": "verb",
+          "definition": "To give something to someone in exchange for money.",
+          "example": "The shop sells bread and milk."
+        }
+      ]
+    },
+    "went": {
+      "headword": "go",
+      "pronunciations": [
+        { "partOfSpeech": "verb", "ipa": "w ˈɛ n t" }
+      ],
+      "senses": []
+    },
+    "go": {
+      "senses": [
+        {
+          "partOfSpeech": "verb",
+          "definition": "To move or travel from one place to another.",
+          "example": "We go through the gate and follow the path."
+        }
+      ]
+    },
+    "made": {
+      "headword": "make",
+      "pronunciations": [
+        { "partOfSpeech": "verb", "ipa": "m ˈeɪ d" }
+      ],
+      "senses": []
+    },
+    "make": {
+      "senses": [
+        {
+          "partOfSpeech": "verb",
+          "definition": "To create, build or produce something.",
+          "example": "She made a paper boat."
+        }
+      ]
+    },
+    "running": {
+      "headword": "run",
+      "pronunciations": [
+        { "partOfSpeech": "verb", "ipa": "ɹ ˈɐ n ɪ ŋ" }
+      ],
+      "senses": []
+    },
+    "run": {
+      "senses": [
+        {
+          "partOfSpeech": "verb",
+          "definition": "To move quickly on foot, faster than walking.",
+          "example": "The dog ran across the field."
+        }
+      ]
+    },
+    "stories": {
+      "headword": "story",
+      "pronunciations": [
+        { "partOfSpeech": "noun", "ipa": "s t ˈɔː ɹ i z" }
+      ],
+      "senses": []
+    },
+    "story": {
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "An account of events, real or imagined, told to other people.",
+          "example": "We read a funny story before bed."
+        }
+      ]
+    },
+    "through": {
+      "pronunciations": [
+        { "ipa": "θ ɹ ˈuː" }
+      ],
+      "senses": [
+        {
+          "partOfSpeech": "preposition",
+          "definition": "From one side, end or part of something to the other.",
+          "example": "We walked through the woods to the lake."
+        }
+      ]
+    },
+    "enough": {
+      "pronunciations": [
+        { "ipa": "ɪ n ˈɐ f" }
+      ],
+      "senses": [
+        {
+          "partOfSpeech": "determiner",
+          "definition": "As much or as many as is needed.",
+          "example": "There was enough pizza for everyone."
+        }
+      ]
+    },
+    "choir": {
+      "pronunciations": [
+        { "ipa": "k w ˈaɪ ə" }
+      ],
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "A group of people who sing together.",
+          "example": "The school choir sang on the stage."
+        }
+      ]
+    },
+    "yacht": {
+      "pronunciations": [
+        { "ipa": "j ˈɒ t" }
+      ],
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "A boat used for sailing, racing or pleasure.",
+          "example": "The yacht sailed slowly across the bay."
+        }
+      ]
+    },
+    "colonel": {
+      "pronunciations": [
+        { "ipa": "k ˈɜː n ə l" }
+      ],
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "A senior rank for an officer in an army.",
+          "example": "The colonel spoke to the soldiers."
+        }
+      ]
+    },
+    "photograph": {
+      "pronunciations": [
+        { "ipa": "f ˈəʊ t ə g ɹ ˌɑː f" }
+      ],
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "A picture made with a camera.",
+          "example": "I took a photograph of the rainbow."
+        }
+      ]
+    },
+    "station": {
+      "pronunciations": [
+        { "ipa": "s t ˈeɪ ʃ ə n" }
+      ],
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "A place where trains or buses stop so people can get on or off.",
+          "example": "We waited at the station for our train."
+        }
+      ]
+    },
+    "extraordinary": {
+      "pronunciations": [
+        { "ipa": "ɪ k s t ɹ ˈɔː d ɪ n ə ɹ i" },
+        { "ipa": "ˌɛ k s t ɹ ə ˈɔː d ɪ n ə ɹ i" }
+      ],
+      "senses": [
+        {
+          "partOfSpeech": "adjective",
+          "definition": "Very unusual, special or surprising.",
+          "example": "The view from the mountain was extraordinary."
+        }
+      ]
+    },
+    "photosynthesis": {
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "The process plants use to make food from light, water and carbon dioxide.",
+          "example": "Plants use photosynthesis to make food using sunlight."
+        }
+      ]
+    },
+    "onomatopoeia": {
+      "pronunciations": [
+        { "ipa": "ˌɒ n ə m ˌæ t ə p ˈiː ə" }
+      ],
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "The use of a word that sounds like the noise it describes.",
+          "example": "Buzz and hiss are examples of onomatopoeia."
+        }
+      ]
+    },
+    "serendipity": {
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "A lucky or useful discovery made by chance.",
+          "example": "Finding the hidden beach by accident was serendipity."
+        }
+      ]
+    }
+  }
+}

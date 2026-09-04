@@ -5,6 +5,10 @@ import {
   type LexicalCandidate,
   type LexicalRelation,
 } from "@/lib/literacy/lexicon";
+import {
+  lookupLocalCorpusWord,
+  type LocalCorpusMetadata,
+} from "@/lib/literacy/local-corpus";
 
 type DictionaryDefinition = {
   definition?: string;
@@ -63,6 +67,9 @@ export type LexicalLookupBundle = {
   headword: string | null;
   possibleSpelling: string | null;
   providers: string[];
+  corpus: LocalCorpusMetadata & {
+    remoteFallback: boolean;
+  };
 };
 
 const POS_LABELS: Record<string, string> = {
@@ -190,8 +197,28 @@ export async function lookupLexicalWord(
   wordInput: string,
   context: string,
   relation: LexicalRelation,
+  preferredPartOfSpeech?: string | null,
 ): Promise<LexicalLookupBundle> {
   const word = normaliseWord(wordInput);
+  const local = lookupLocalCorpusWord(word, context, relation, preferredPartOfSpeech);
+  const localHasMeaningRoute = local.candidates.length > 0 || Boolean(local.headword);
+  const needsSurfacePronunciation = relation === "surface" && !local.pronunciation.ipa;
+  const remoteFallback = !local.recognised || !localHasMeaningRoute || needsSurfacePronunciation;
+
+  if (!remoteFallback) {
+    return {
+      word,
+      recognised: true,
+      candidates: local.candidates,
+      pronunciation: local.pronunciation,
+      preferredPartOfSpeech: local.preferredPartOfSpeech,
+      headword: local.headword,
+      possibleSpelling: null,
+      providers: ["buddy-corpus"],
+      corpus: { ...local.metadata, remoteFallback: false },
+    };
+  }
+
   const neighbours = contextNeighbours(context, relation === "surface" ? word : "");
   const datamuseParams = new URLSearchParams({
     sp: word,
@@ -227,7 +254,7 @@ export async function lookupLexicalWord(
   let datamuse: DatamuseWord[] = [];
   let dictionary: DictionaryEntry[] = [];
   let wiktionary: WiktionaryPayload = {};
-  const providers: string[] = [];
+  const providers: string[] = local.metadata.entryHit ? ["buddy-corpus"] : [];
 
   if (datamuseResponse.status === "fulfilled" && datamuseResponse.value.ok) {
     datamuse = (await datamuseResponse.value.json()) as DatamuseWord[];
@@ -251,6 +278,7 @@ export async function lookupLexicalWord(
     .map((raw, index) => parseDatamuseDefinition(raw, word, relation, index))
     .filter((item): item is LexicalCandidate => Boolean(item));
   const candidates = [
+    ...local.candidates,
     ...wiktionaryCandidates(wiktionary, word, relation),
     ...dictionaryCandidates(dictionary, word, relation),
     ...datamuseCandidates,
@@ -267,20 +295,28 @@ export async function lookupLexicalWord(
   );
   const preferredPosCode = exactDatamuse?.tags?.find((tag) => Object.hasOwn(POS_LABELS, tag)) ?? null;
 
-  const recognised = Boolean(exactDatamuse || exactDictionary || exactWiktionary);
+  const recognised = Boolean(local.recognised || exactDatamuse || exactDictionary || exactWiktionary);
+  const ipa = local.pronunciation.ipa ?? dictionaryIpa ?? datamusePronunciation;
+  const syllables = local.pronunciation.ipa
+    ? local.pronunciation.syllables
+    : exactDatamuse?.numSyllables ?? null;
 
   return {
     word,
     recognised,
     candidates,
     pronunciation: {
-      ipa: dictionaryIpa ?? datamusePronunciation,
-      syllables: exactDatamuse?.numSyllables ?? null,
-      audio: normaliseAudio(dictionaryPhonetics.find((item) => item.audio)?.audio),
+      ipa,
+      syllables,
+      audio: local.pronunciation.ipa
+        ? null
+        : normaliseAudio(dictionaryPhonetics.find((item) => item.audio)?.audio),
     },
-    preferredPartOfSpeech: preferredPosCode ? POS_LABELS[preferredPosCode] : null,
-    headword: exactDatamuse?.defHeadword ?? null,
+    preferredPartOfSpeech: local.preferredPartOfSpeech
+      ?? (preferredPosCode ? POS_LABELS[preferredPosCode] : null),
+    headword: local.headword ?? exactDatamuse?.defHeadword ?? null,
     possibleSpelling: recognised ? null : plausibleSuggestion(word, datamuse[0]?.word),
     providers,
+    corpus: { ...local.metadata, remoteFallback: true },
   };
 }

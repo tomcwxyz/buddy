@@ -47,6 +47,7 @@ See:
 - [`docs/DESIGN.md`](docs/DESIGN.md) — full product and interaction design.
 - [`docs/BRAND.md`](docs/BRAND.md) — visual and verbal language system.
 - [`docs/IMPLEMENTATION.md`](docs/IMPLEMENTATION.md) — current implementation architecture and next slice.
+- [`docs/LEXICAL_CORPUS.md`](docs/LEXICAL_CORPUS.md) — local-first Word Library and corpus architecture.
 
 ## Current alpha
 
@@ -69,21 +70,24 @@ The first useful reading-and-learning loop now exists:
 
 ### Word Library v2
 
-Buddy's lexical layer is now deliberately separate from the child-facing UI. A selected token moves through:
+Buddy's lexical layer is deliberately separate from the child-facing UI. A selected token moves through:
 
 > printed form → morphology / lemma → contextual part of speech → candidate senses → simple meaning → pronunciation-aware sound guidance
 
-This matters for forms such as `sold`: Buddy should understand that the printed word can be the past tense or past participle of `sell`, use that grammatical evidence to choose the correct sense in the sentence, but still pronounce and explain the spelling of the actual printed word `sold`.
+This matters for forms such as `sold`: Buddy understands that the printed word can be the past tense or past participle of `sell`, uses that grammatical evidence to choose the correct sense in the sentence, but still pronounces and explains the spelling of the actual printed word `sold`.
 
-The resolver is layered rather than relying on one dictionary:
+The resolver is now **local first**:
 
-- English Wiktionary structured definitions add broad vocabulary, parts of speech and inflection evidence;
-- DictionaryAPI.dev adds definitions, examples and pronunciation/audio where available;
-- Datamuse adds broad lexical, syllable, pronunciation and headword evidence;
-- Buddy's own curated literacy layer wins for deliberately checked chunks, clues and explanations;
+- a versioned `en-GB` corpus provides reviewed child-friendly meanings, lemma links and British pronunciation for important/common regression vocabulary;
+- Britfone 3.0.1 supplies the pinned British-English IPA evidence used by the current core corpus;
+- a local entry with both a meaning route and surface pronunciation needs no network lexical request;
+- Wiktionary, DictionaryAPI.dev and Datamuse remain broad long-tail and incomplete-entry fallbacks;
+- Buddy's curated literacy layer still wins for deliberately checked chunks and clues;
 - an optional tightly scoped model can simplify or disambiguate lexical evidence, but it does not invent canonical pronunciation or phonics guidance.
 
-Wiktionary-derived text is attributed as **Wiktionary / CC BY-SA** in resolver metadata so consuming surfaces can expose source information where required.
+The first checked-in corpus is intentionally a reviewed seed rather than pretending to be the finished dictionary. The repository also contains a pinned Britfone importer so the next step can promote the 16,000+ British pronunciation entries into sharded runtime data without forcing one large dictionary into every surface.
+
+Wiktionary-derived text is attributed as **Wiktionary / CC BY-SA** in resolver metadata. Britfone-derived pronunciation data retains its MIT attribution in `data/lexicon/THIRD_PARTY_NOTICES.md`.
 
 The model fallback is disabled by default and never supplies canonical phonics/pronunciation guidance. See `.env.example` and `docs/IMPLEMENTATION.md`.
 
@@ -96,7 +100,7 @@ The model fallback is disabled by default and never supplies canonical phonics/p
 - `/me` — tentative child-visible observations derived from repeated interactions.
 - `/discover` — initial Brain Quests.
 - `/help` — general voice/vision help entry.
-- `/lab/words` — internal lexical, morphology, sense and pronunciation regression surface.
+- `/lab/words` — internal lexical, morphology, corpus coverage, sense and pronunciation regression surface.
 
 ## Stack
 
@@ -107,7 +111,9 @@ The model fallback is disabled by default and never supplies canonical phonics/p
 - Phosphor Icons
 - Atkinson Hyperlegible
 - Tesseract.js 7 for local browser OCR
-- Wiktionary + DictionaryAPI.dev + Datamuse for layered lexical lookup
+- versioned local `en-GB` lexical/pronunciation corpus
+- Britfone for pinned British-English IPA evidence
+- Wiktionary + DictionaryAPI.dev + Datamuse as layered lexical fallbacks
 - optional OpenAI Responses API structured fallback for narrowly scoped word explanations
 
 Shared product primitives live in:
@@ -115,6 +121,7 @@ Shared product primitives live in:
 - `lib/buddy-design.ts`
 - `lib/buddy-language.ts`
 - `lib/literacy/morphology.ts`
+- `lib/literacy/local-corpus.ts`
 - `lib/literacy/lexicon.ts`
 - `lib/literacy/lexical-providers.ts`
 - `lib/literacy/sound-map.ts`
@@ -156,11 +163,17 @@ Camera access requires a secure context outside localhost, so real phone/tablet 
 
 Optional model fallback configuration is documented in `.env.example`.
 
+To build the pinned Britfone pronunciation index for corpus work:
+
+```bash
+npm run lexicon:britfone
+```
+
 ## Immediate roadmap
 
 1. Grow the lexical evaluation set from real reading failures and make them permanent regressions.
-2. Add a versioned, pre-indexed broad lexical corpus for production so common lookups do not depend on several live third-party requests; keep provider adapters as refresh/fallback sources.
-3. Add the British-English pronunciation override layer and measure coverage across common vocabulary.
+2. Promote the generated Britfone 3.0.1 pronunciation index into sharded runtime data and measure British-pronunciation coverage across the evaluation/common-word set.
+3. Ingest a broader versioned lexical/frequency corpus so common meanings and sense priors are local rather than dependent on live providers.
 4. Improve sound analysis towards a validated grapheme/phoneme representation.
 5. Improve capture quality, crop/deskew and OCR confidence handling.
 6. Add a provider-neutral companion agent layer without giving it unrestricted access to the child's Learning Map.

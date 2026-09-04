@@ -1,6 +1,6 @@
 import type { MorphologyAnalysis } from "@/lib/literacy/morphology";
 
-export type LexicalSource = "wiktionary" | "dictionaryapi.dev" | "datamuse";
+export type LexicalSource = "buddy-corpus" | "wiktionary" | "dictionaryapi.dev" | "datamuse";
 export type LexicalRelation = "surface" | "lemma";
 
 export type LexicalCandidate = {
@@ -24,6 +24,7 @@ const STOP_WORDS = new Set([
 ]);
 
 const SOURCE_SCORE: Record<LexicalSource, number> = {
+  "buddy-corpus": 6,
   "dictionaryapi.dev": 3,
   wiktionary: 2,
   datamuse: 1,
