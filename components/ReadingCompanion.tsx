@@ -45,6 +45,8 @@ type WordLookup = {
     guidance?: string;
   };
   headword?: string | null;
+  possibleSpelling?: string | null;
+  recognisedWord?: boolean;
   source: string;
 };
 
@@ -79,13 +81,14 @@ function makeOcrImage(source: HTMLCanvasElement) {
     pixels[index + 2] = contrasted;
   }
 
-  context.putImageData(imageData, 0, 0);
+  context.putImageData(imageData, 0, canvas.width ? 0 : 0);
   return canvas.toDataURL("image/png");
 }
 
 export function ReadingCompanion() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const recordedSelectionRef = useRef<string | null>(null);
   const [cameraState, setCameraState] = useState<CameraState>("idle");
   const [ocrState, setOcrState] = useState<OcrState>("idle");
   const [capturedPage, setCapturedPage] = useState<CapturedPage | null>(null);
@@ -104,7 +107,14 @@ export function ReadingCompanion() {
   const support = useMemo(() => (selectedWord ? getWordSupport(selectedWord) : null), [selectedWord]);
   const checkedMeaning = support?.meaning ?? lookup?.meaning ?? null;
   const checkedExample = support?.example ?? lookup?.alternateExample ?? lookup?.example ?? null;
-  const currentHelp = support ? voiceReply ?? helpText(support, helpDepth, lookup?.meaning) : null;
+  const lookupUnknown = lookupState === "ready" && lookup?.recognisedWord === false;
+  const currentHelp = support
+    ? lookupUnknown
+      ? lookup?.possibleSpelling
+        ? `I'm not sure I read that right. Could it be “${lookup.possibleSpelling}”?`
+        : "I'm not sure I read that word correctly. Try tapping it again."
+      : voiceReply ?? helpText(support, helpDepth, lookup?.meaning)
+    : null;
 
   useEffect(() => {
     return () => {
@@ -135,6 +145,19 @@ export function ReadingCompanion() {
       .then((result) => {
         setLookup(result);
         setLookupState("ready");
+
+        if (result.recognisedWord !== false) {
+          const selectionKey = `${support.word}|${selectedContext ?? ""}|${selectedSource}`;
+          if (recordedSelectionRef.current !== selectionKey) {
+            recordLearningEvent({
+              kind: "word_selected",
+              word: support.word,
+              source: selectedSource,
+              helpDepth,
+            });
+            recordedSelectionRef.current = selectionKey;
+          }
+        }
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -142,7 +165,7 @@ export function ReadingCompanion() {
       });
 
     return () => controller.abort();
-  }, [support, selectedContext]);
+  }, [support, selectedContext, selectedSource, helpDepth]);
 
   async function startCamera() {
     setCameraState("starting");
@@ -153,6 +176,7 @@ export function ReadingCompanion() {
     setSelectedContext(null);
     setVoiceReply(null);
     setTapLookupMessage(null);
+    recordedSelectionRef.current = null;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -190,6 +214,7 @@ export function ReadingCompanion() {
     setLookup(null);
     setLookupState("idle");
     setTapLookupMessage(null);
+    recordedSelectionRef.current = null;
   }
 
   async function capturePage() {
@@ -236,7 +261,7 @@ export function ReadingCompanion() {
     setLookup(null);
     setLookupState("idle");
     setTapLookupMessage(null);
-    recordLearningEvent({ kind: "word_selected", word: cleanWord, source, helpDepth });
+    recordedSelectionRef.current = null;
   }
 
   function chooseDemoWord() {
@@ -297,7 +322,7 @@ export function ReadingCompanion() {
   function changeHelpDepth(depth: HelpDepth) {
     setHelpDepth(depth);
     setVoiceReply(null);
-    if (selectedWord) {
+    if (selectedWord && !lookupUnknown) {
       recordLearningEvent({ kind: "help_depth_changed", word: selectedWord, helpDepth: depth, source: selectedSource });
     }
   }
@@ -314,14 +339,16 @@ export function ReadingCompanion() {
   }
 
   function speakWord() {
-    if (!support) return;
+    if (!support || lookupUnknown) return;
     recordLearningEvent({ kind: "word_heard", word: support.word, helpDepth, source: selectedSource });
     speak(support.word);
   }
 
   function readLine() {
     if (!support || !selectedContext) return;
-    recordLearningEvent({ kind: "line_heard", word: support.word, helpDepth, source: selectedSource });
+    if (!lookupUnknown) {
+      recordLearningEvent({ kind: "line_heard", word: support.word, helpDepth, source: selectedSource });
+    }
     speak(selectedContext);
   }
 
@@ -332,6 +359,13 @@ export function ReadingCompanion() {
 
   function explainMeaning() {
     if (!support) return;
+    if (lookupUnknown) {
+      setVoiceReply(lookup?.possibleSpelling
+        ? `I might have read that wrong. Could it be ${lookup.possibleSpelling}?`
+        : "I might have read that word wrong. Try tapping it again.");
+      return;
+    }
+
     recordLearningEvent({ kind: "meaning_requested", word: support.word, helpDepth, source: selectedSource });
 
     if (checkedMeaning) {
@@ -346,8 +380,19 @@ export function ReadingCompanion() {
     );
   }
 
+  function retrySelection() {
+    setSelectedWord(null);
+    setSelectedContext(null);
+    setVoiceReply(null);
+    setLastTranscript(null);
+    setLookup(null);
+    setLookupState("idle");
+    recordedSelectionRef.current = null;
+    setTapLookupMessage("Tap the word again, right in the middle.");
+  }
+
   function moveOn() {
-    if (selectedWord) {
+    if (selectedWord && !lookupUnknown) {
       recordLearningEvent({ kind: "moved_on", word: selectedWord, helpDepth, source: selectedSource });
     }
     setSelectedWord(null);
@@ -356,11 +401,17 @@ export function ReadingCompanion() {
     setLastTranscript(null);
     setLookup(null);
     setLookupState("idle");
+    recordedSelectionRef.current = null;
   }
 
   function handleTranscript(transcript: string) {
     setLastTranscript(transcript);
     if (!support) return;
+
+    if (lookupUnknown) {
+      if (/again|retry|wrong/.test(transcript.toLocaleLowerCase("en-GB"))) retrySelection();
+      return;
+    }
 
     recordLearningEvent({
       kind: "voice_request",
@@ -538,6 +589,7 @@ export function ReadingCompanion() {
                 type="button"
                 className={helpDepth === depth ? "active" : ""}
                 onClick={() => changeHelpDepth(depth)}
+                disabled={lookupUnknown}
               >
                 {helpLabels[depth]}
               </button>
@@ -546,17 +598,34 @@ export function ReadingCompanion() {
         </section>
 
         {support ? (
-          <section className="selected-word-card" aria-live="polite">
-            <span className="selected-kicker">This one?</span>
+          <section className={`selected-word-card${lookupUnknown ? " word-uncertain" : ""}`} aria-live="polite">
+            <span className="selected-kicker">{lookupUnknown ? "I might have misread this" : "This one?"}</span>
             <h2>{support.word}</h2>
-            {lookup?.partOfSpeech && <span className="word-kind">{lookup.partOfSpeech}</span>}
+            {!lookupUnknown && lookup?.partOfSpeech && <span className="word-kind">{lookup.partOfSpeech}</span>}
             <p className="word-help">{currentHelp}</p>
 
             {lookupState === "loading" && (
               <p className="lookup-note">Finding its sounds and meaning…</p>
             )}
 
-            {lookup?.soundGuide && (
+            {lookupUnknown && (
+              <div className="word-correction">
+                {lookup?.possibleSpelling ? (
+                  <button
+                    type="button"
+                    className="tactile-button dark"
+                    onClick={() => chooseWord(lookup.possibleSpelling!, selectedSource, selectedContext ?? undefined)}
+                  >
+                    Yes — {lookup.possibleSpelling}
+                  </button>
+                ) : null}
+                <button type="button" className="tactile-button" onClick={retrySelection}>
+                  Tap it again
+                </button>
+              </div>
+            )}
+
+            {!lookupUnknown && lookup?.soundGuide && (
               <div className="sound-guide">
                 <div className="sound-guide-heading">
                   <strong>How it sounds</strong>
@@ -588,7 +657,7 @@ export function ReadingCompanion() {
               </div>
             )}
 
-            {helpDepth === "tell" && checkedExample && checkedExample !== selectedContext && (
+            {!lookupUnknown && helpDepth === "tell" && checkedExample && checkedExample !== selectedContext && (
               <div className="meaning-example">
                 <span>Another example</span>
                 <p>“{checkedExample}”</p>
@@ -598,32 +667,36 @@ export function ReadingCompanion() {
               </div>
             )}
 
-            {lastTranscript && (
+            {lastTranscript && !lookupUnknown && (
               <p className="heard-you"><span>You said</span> “{lastTranscript}”</p>
             )}
 
-            <div className="word-actions">
-              <button type="button" className="tactile-button dark" onClick={speakWord}>
-                <SpeakerHigh size={22} /> Say it
-              </button>
-              {selectedContext && (
-                <button type="button" className="tactile-button" onClick={readLine}>
-                  <TextAlignLeft size={21} /> Read the line
+            {!lookupUnknown && (
+              <div className="word-actions">
+                <button type="button" className="tactile-button dark" onClick={speakWord}>
+                  <SpeakerHigh size={22} /> Say it
                 </button>
-              )}
-              <button type="button" className="tactile-button" onClick={explainMeaning}>
-                Tell me the meaning
-              </button>
-              <PressToTalk
-                onListeningChange={(listening) => setBuddyState(listening ? "listening" : "idle")}
-                onTranscript={handleTranscript}
-              />
-            </div>
+                {selectedContext && (
+                  <button type="button" className="tactile-button" onClick={readLine}>
+                    <TextAlignLeft size={21} /> Read the line
+                  </button>
+                )}
+                <button type="button" className="tactile-button" onClick={explainMeaning}>
+                  Tell me the meaning
+                </button>
+                <PressToTalk
+                  onListeningChange={(listening) => setBuddyState(listening ? "listening" : "idle")}
+                  onTranscript={handleTranscript}
+                />
+              </div>
+            )}
 
-            <div className="move-on">
-              <span>Got it?</span>
-              <button type="button" className="text-button" onClick={moveOn}>Yep, keep going</button>
-            </div>
+            {!lookupUnknown && (
+              <div className="move-on">
+                <span>Got it?</span>
+                <button type="button" className="text-button" onClick={moveOn}>Yep, keep going</button>
+              </div>
+            )}
           </section>
         ) : (
           <section className="selected-word-card quiet">
