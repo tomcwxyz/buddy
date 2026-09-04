@@ -10,6 +10,7 @@ export type OcrWord = {
   text: string;
   confidence: number;
   bbox: OcrBox;
+  lineText?: string;
 };
 
 export type OcrResult = {
