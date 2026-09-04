@@ -25,6 +25,8 @@ type WordLookup = {
   example: string | null;
   alternateExample?: string | null;
   partOfSpeech?: string | null;
+  recognisedWord?: boolean;
+  meaningCanBeRefined?: boolean;
   soundGuide?: {
     syllables?: number | null;
     features?: SoundFeature[];
@@ -112,10 +114,26 @@ export function PracticeSession() {
     });
   }
 
-  function showMeaning() {
-    if (!current) return;
+  async function showMeaning() {
+    if (!current || !support) return;
     setReveal("meaning");
     recordLearningEvent({ kind: "meaning_requested", word: current.word, source: "practice" });
+
+    if (support.meaning || (lookup?.meaning && !lookup.meaningCanBeRefined)) return;
+
+    setLookupLoading(true);
+    setBuddyState("thinking");
+    try {
+      const response = await fetch(`/api/word?word=${encodeURIComponent(current.word)}&explain=1`);
+      if (!response.ok) throw new Error("lookup_failed");
+      const result = (await response.json()) as WordLookup;
+      setLookup(result);
+    } catch {
+      // Keep the deterministic lookup if the optional explanation layer is unavailable.
+    } finally {
+      setLookupLoading(false);
+      setBuddyState("idle");
+    }
   }
 
   function nextWord(known = false) {
@@ -176,7 +194,7 @@ export function PracticeSession() {
       : reveal === "meaning"
         ? lookupLoading
           ? "Finding a simple meaning…"
-          : meaning ?? "I couldn't find a checked meaning for this one just now."
+          : meaning ?? "I couldn't get a reliable meaning for this one just now."
         : null;
 
   return (
@@ -239,7 +257,7 @@ export function PracticeSession() {
           <button type="button" onClick={workTogether}>
             <Ear size={22} /> Work it out with me
           </button>
-          <button type="button" onClick={showMeaning}>What does it mean?</button>
+          <button type="button" onClick={() => void showMeaning()}>What does it mean?</button>
         </div>
 
         <div className="practice-next">
