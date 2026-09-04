@@ -139,6 +139,18 @@ function normaliseAudio(value?: string) {
   return value.startsWith("https://") ? value : null;
 }
 
+function usableIpa(value?: string | null) {
+  const clean = value?.trim() ?? "";
+  if (!clean) return null;
+
+  // Datamuse may expose CMU/ARPAbet-style codes in the `pron:` tag even when
+  // IPA metadata is requested (for example `S OW1 L D`). That is useful
+  // pronunciation evidence, but it is not IPA and must not be sent into the
+  // IPA grapheme/phoneme aligner.
+  if (/^[A-Z0-9\s]+$/.test(clean)) return null;
+  return clean;
+}
+
 function editDistance(a: string, b: string) {
   const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
   for (let i = 1; i <= a.length; i += 1) {
@@ -235,10 +247,14 @@ export async function lookupLexicalWord(
   ];
 
   const dictionaryPhonetics = dictionary.flatMap((entry) => entry.phonetics ?? []);
-  const dictionaryIpa = dictionary.find((entry) => entry.phonetic)?.phonetic
-    ?? dictionaryPhonetics.find((item) => item.text)?.text
-    ?? null;
-  const datamuseIpa = exactDatamuse?.tags?.find((tag) => tag.startsWith("pron:"))?.slice(5) ?? null;
+  const dictionaryIpa = usableIpa(
+    dictionary.find((entry) => entry.phonetic)?.phonetic
+      ?? dictionaryPhonetics.find((item) => item.text)?.text
+      ?? null,
+  );
+  const datamusePronunciation = usableIpa(
+    exactDatamuse?.tags?.find((tag) => tag.startsWith("pron:"))?.slice(5) ?? null,
+  );
   const preferredPosCode = exactDatamuse?.tags?.find((tag) => Object.hasOwn(POS_LABELS, tag)) ?? null;
 
   const recognised = Boolean(exactDatamuse || exactDictionary || exactWiktionary);
@@ -248,7 +264,7 @@ export async function lookupLexicalWord(
     recognised,
     candidates,
     pronunciation: {
-      ipa: datamuseIpa || dictionaryIpa,
+      ipa: dictionaryIpa ?? datamusePronunciation,
       syllables: exactDatamuse?.numSyllables ?? null,
       audio: normaliseAudio(dictionaryPhonetics.find((item) => item.audio)?.audio),
     },
