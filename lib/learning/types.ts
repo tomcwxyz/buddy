@@ -4,6 +4,7 @@ export type LearningEventKind =
   | "word_selected"
   | "help_depth_changed"
   | "word_heard"
+  | "line_heard"
   | "meaning_requested"
   | "voice_request"
   | "moved_on";
