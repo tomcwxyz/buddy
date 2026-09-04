@@ -1,13 +1,15 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
+
+type BuddyPresenceState = "idle" | "listening" | "thinking" | "speaking";
 
 type BuddyPresenceProps = {
-  state?: "idle" | "listening" | "thinking" | "speaking";
+  state?: BuddyPresenceState;
   label?: string;
 };
 
-const stateMotion = {
+const stateMotion: Record<BuddyPresenceState, Variants["animate"]> = {
   idle: {
     scale: [1, 1.035, 1],
     rotate: [0, 1.5, 0],
