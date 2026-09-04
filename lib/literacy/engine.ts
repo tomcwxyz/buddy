@@ -1,3 +1,5 @@
+import { analyseWordSounds } from "@/lib/literacy/sound-map";
+
 export type HelpDepth = "tell" | "clue" | "together";
 
 export type WordSupport = {
@@ -68,10 +70,6 @@ const SUFFIXES = [
   "ation", "ition", "tion", "sion", "ment", "ness", "less", "able", "ible", "fully", "ful", "ous", "ive", "ing", "est", "ers", "er", "ed", "ly",
 ];
 
-const NOTICEABLE_PATTERNS = [
-  "ough", "eigh", "igh", "tion", "sion", "tch", "dge", "ph", "wh", "sh", "ch", "th", "ck", "ng", "ee", "ea", "ai", "ay", "oa", "oo", "ou", "ow", "oi", "oy", "ar", "er", "ir", "ur",
-];
-
 export function normaliseWord(value: string) {
   return value
     .toLocaleLowerCase("en-GB")
@@ -106,11 +104,12 @@ function derivePatternSupport(word: string): Pick<WordSupport, "chunks" | "clue"
     };
   }
 
-  const pattern = NOTICEABLE_PATTERNS.find((candidate) => word.includes(candidate));
-  if (pattern) {
+  const sounds = analyseWordSounds(word);
+  const feature = sounds.features[0];
+  if (feature) {
     return {
       chunks: [word],
-      clue: `Spot the ‘${pattern}’ part first. Then look at what comes before and after it.`,
+      clue: `Look at ‘${feature.letters}’. It ${feature.note}. Then listen to how it fits into the whole word.`,
       source: "pattern",
     };
   }
@@ -149,12 +148,12 @@ export function helpText(support: WordSupport, depth: HelpDepth, checkedMeaning?
   }
 
   if (depth === "clue") {
-    return support.clue ?? "I can say this one, but I don’t want to invent a reading clue that might be wrong.";
+    return support.clue ?? "Let's hear the word, then look carefully at how the letters and sounds fit together.";
   }
 
   if (support.source === "curated" && support.chunks.length > 1) {
     return `Let’s use chunks: ${support.chunks.join(" · ")}. Try each bit, then put them back together.`;
   }
 
-  return support.clue ?? "Let’s hear the whole word once, then look at the beginning and the ending.";
+  return support.clue ?? "Let’s hear the whole word once, then look at the letters from left to right.";
 }
