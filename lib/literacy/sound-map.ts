@@ -1,3 +1,5 @@
+import { alignGraphemesToPhonemes } from "@/lib/literacy/grapheme-phoneme";
+
 export type SoundFeature = {
   letters: string;
   note: string;
@@ -8,6 +10,7 @@ export type SoundGuide = {
   ipa: string | null;
   features: SoundFeature[];
   guidance: string;
+  alignment: "high" | "medium" | "irregular" | "spelling-only";
 };
 
 const SOUND_PATTERNS: Array<{ pattern: string; note: string }> = [
@@ -42,7 +45,7 @@ const SOUND_PATTERNS: Array<{ pattern: string; note: string }> = [
 
 function uniqueFeatures(word: string) {
   const found: SoundFeature[] = [];
-  let occupied = new Set<number>();
+  const occupied = new Set<number>();
 
   for (const item of SOUND_PATTERNS) {
     let start = word.indexOf(item.pattern);
@@ -64,19 +67,51 @@ export function analyseWordSounds(
   syllables?: number | null,
   ipa?: string | null,
 ): SoundGuide {
-  const features = uniqueFeatures(word.toLocaleLowerCase("en-GB"));
+  const cleanWord = word.toLocaleLowerCase("en-GB");
+  const cleanIpa = ipa?.trim() || null;
+  const alignment = cleanIpa ? alignGraphemesToPhonemes(cleanWord, cleanIpa) : null;
 
+  if (cleanIpa && alignment) {
+    const features = alignment.segments
+      .filter((segment) => segment.note && (segment.letters.length > 1 || segment.phonemes.length > 1))
+      .map((segment) => ({ letters: segment.letters, note: segment.note! }))
+      .filter((feature, index, all) => all.findIndex((item) => item.letters === feature.letters && item.note === feature.note) === index)
+      .slice(0, 3);
+
+    return {
+      syllables: typeof syllables === "number" && syllables > 0 ? syllables : null,
+      ipa: cleanIpa,
+      features,
+      guidance: features.length
+        ? "These letter patterns match the pronunciation of this word."
+        : "The letters and sounds in this word match up fairly neatly.",
+      alignment: alignment.confidence,
+    };
+  }
+
+  if (cleanIpa && !alignment) {
+    return {
+      syllables: typeof syllables === "number" && syllables > 0 ? syllables : null,
+      ipa: cleanIpa,
+      features: [],
+      guidance: "This spelling does not fit Buddy's simple sound rules neatly. Hearing the whole word is more useful here.",
+      alignment: "irregular",
+    };
+  }
+
+  const features = uniqueFeatures(cleanWord);
   let guidance = "Hear the whole word first, then look at the letters from left to right.";
   if (features.length === 1) {
     guidance = `There’s one useful letter pattern to notice: ‘${features[0].letters}’.`;
   } else if (features.length > 1) {
-    guidance = "There are a few useful letter patterns hiding in this word.";
+    guidance = "There are a few possible letter patterns to notice. Hearing the word will help check them.";
   }
 
   return {
     syllables: typeof syllables === "number" && syllables > 0 ? syllables : null,
-    ipa: ipa?.trim() || null,
+    ipa: null,
     features,
     guidance,
+    alignment: "spelling-only",
   };
 }
