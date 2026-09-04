@@ -1,13 +1,44 @@
-import { BottomNav } from "@/components/BottomNav";
+"use client";
 
-const words = [
-  { word: "extraordinary", note: "A long one we broke into two useful parts." },
-  { word: "because", note: "One worth seeing again in a few different sentences." },
-  { word: "through", note: "A sneaky spelling. Hearing it first seemed useful." },
-  { word: "adventure", note: "You knew what it meant before you wanted help reading it." },
-];
+import { useEffect, useState } from "react";
+import { BottomNav } from "@/components/BottomNav";
+import {
+  LEARNING_UPDATED_EVENT,
+  readLearningEvents,
+  summariseRememberedWords,
+} from "@/lib/learning/local-store";
+import type { RememberedWord } from "@/lib/learning/types";
+
+function noteFor(word: RememberedWord) {
+  if (word.meaningCount > 0 && word.heardCount > 0) {
+    return "We said this one out loud and explored what it means.";
+  }
+  if (word.heardCount > 0) {
+    return "Hearing this one has been useful before.";
+  }
+  if (word.helpDepths.includes("together")) {
+    return "We spent a little time working this one out together.";
+  }
+  if (word.helpDepths.includes("clue")) {
+    return "A clue helped us explore this one.";
+  }
+  return "A word we met while reading.";
+}
 
 export default function WordsPage() {
+  const [words, setWords] = useState<RememberedWord[]>([]);
+
+  useEffect(() => {
+    const refresh = () => setWords(summariseRememberedWords(readLearningEvents()));
+    refresh();
+    window.addEventListener(LEARNING_UPDATED_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener(LEARNING_UPDATED_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -21,14 +52,21 @@ export default function WordsPage() {
           <p>Not mistakes. Just interesting words worth another look sometimes.</p>
         </header>
 
-        <section className="word-grid" aria-label="Words Buddy remembers">
-          {words.map((item) => (
-            <article className="word-panel" key={item.word}>
-              <strong>{item.word}</strong>
-              <span>{item.note}</span>
-            </article>
-          ))}
-        </section>
+        {words.length > 0 ? (
+          <section className="word-grid" aria-label="Words Buddy remembers">
+            {words.map((item) => (
+              <article className="word-panel" key={item.word}>
+                <strong>{item.word}</strong>
+                <span>{noteFor(item)}</span>
+              </article>
+            ))}
+          </section>
+        ) : (
+          <section className="word-panel empty-memory">
+            <strong>Nothing here yet.</strong>
+            <span>When you ask Buddy for help with a word while reading, it can appear here.</span>
+          </section>
+        )}
       </main>
       <BottomNav />
     </div>
