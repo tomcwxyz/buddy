@@ -76,20 +76,20 @@ Buddy's lexical layer is deliberately separate from the child-facing UI. A selec
 
 This matters for forms such as `sold`: Buddy understands that the printed word can be the past tense or past participle of `sell`, uses that grammatical evidence to choose the correct sense in the sentence, but still pronounces and explains the spelling of the actual printed word `sold`.
 
-The resolver is now **local first**:
+The resolver is now **local first** across both meaning and pronunciation:
 
-- a versioned `en-GB` corpus provides reviewed child-friendly meanings, lemma links and British pronunciation for important/common regression vocabulary;
-- the full Britfone 3.0.1 pronunciation dictionary is available server-side at runtime, lazily parsed and cached;
-- reviewed Buddy pronunciations win where context or part of speech matters, such as noun/verb `record`;
+- a versioned `en-GB` corpus provides reviewed child-friendly meanings, lemma links and context-sensitive pronunciation for important regression vocabulary;
+- Buddy-curated literacy meanings provide deliberately simple explanations for words such as `because`, `through`, `enough` and `friend`;
+- packaged **Princeton WordNet 3.1** provides broad local semantic coverage and sense-order priors for nouns, verbs, adjectives and adverbs;
+- the full **Britfone 3.0.1** pronunciation dictionary provides broad server-side British-English IPA evidence;
+- reviewed Buddy evidence wins over generic corpus evidence;
 - broad Britfone pronunciation is used only when the headword has one unambiguous variant;
-- a local entry with both a meaning route and surface pronunciation needs no network lexical request;
-- Wiktionary, DictionaryAPI.dev and Datamuse remain broad long-tail and incomplete-entry fallbacks;
-- Buddy's curated literacy layer still wins for deliberately checked chunks and clues;
+- Wiktionary, DictionaryAPI.dev and Datamuse remain long-tail and incomplete-evidence fallbacks rather than the normal route for common content words;
 - an optional tightly scoped model can simplify or disambiguate lexical evidence, but it does not invent canonical pronunciation or phonics guidance.
 
-The checked-in corpus is intentionally a reviewed lexical seed rather than pretending to be the finished dictionary. Broad British pronunciation now comes from the packaged Britfone runtime without forcing that dictionary into the browser/client bundle.
+WordNet is deliberately treated as **semantic evidence rather than child-facing authority**. Its broad coverage makes common meanings local, while Buddy's reviewed and curated layers stay responsible for important context failures and for making explanations genuinely useful to a child.
 
-Wiktionary-derived text is attributed as **Wiktionary / CC BY-SA** in resolver metadata. Britfone-derived pronunciation data retains its MIT attribution in `data/lexicon/THIRD_PARTY_NOTICES.md`.
+Wiktionary-derived text is attributed as **Wiktionary / CC BY-SA** in resolver metadata. WordNet and Britfone notices are retained in `data/lexicon/THIRD_PARTY_NOTICES.md`.
 
 The model fallback is disabled by default and never supplies canonical phonics/pronunciation guidance. See `.env.example` and `docs/IMPLEMENTATION.md`.
 
@@ -102,7 +102,7 @@ The model fallback is disabled by default and never supplies canonical phonics/p
 - `/me` — tentative child-visible observations derived from repeated interactions.
 - `/discover` — initial Brain Quests.
 - `/help` — general voice/vision help entry.
-- `/lab/words` — internal lexical, morphology, corpus coverage, sense and pronunciation regression surface.
+- `/lab/words` — internal lexical, morphology, local-semantics, corpus coverage, sense and pronunciation regression surface.
 
 ## Stack
 
@@ -113,7 +113,8 @@ The model fallback is disabled by default and never supplies canonical phonics/p
 - Phosphor Icons
 - Atkinson Hyperlegible
 - Tesseract.js 7 for local browser OCR
-- versioned local `en-GB` lexical/pronunciation corpus
+- versioned reviewed `en-GB` lexical/pronunciation corpus
+- Princeton WordNet 3.1 for broad local semantic evidence
 - full Britfone 3.0.1 server-side runtime for British-English IPA evidence
 - Wiktionary + DictionaryAPI.dev + Datamuse as layered lexical fallbacks
 - optional OpenAI Responses API structured fallback for narrowly scoped word explanations
@@ -124,6 +125,7 @@ Shared product primitives live in:
 - `lib/buddy-language.ts`
 - `lib/literacy/morphology.ts`
 - `lib/literacy/britfone.ts`
+- `lib/literacy/wordnet.ts`
 - `lib/literacy/local-corpus.ts`
 - `lib/literacy/lexicon.ts`
 - `lib/literacy/lexical-providers.ts`
@@ -175,7 +177,7 @@ npm run lexicon:britfone
 ## Immediate roadmap
 
 1. Grow the lexical evaluation set from real reading failures and make them permanent regressions.
-2. Ingest a broader versioned lexical/frequency corpus so common meanings and sense priors are local rather than dependent on live providers.
+2. Measure high-frequency/common words whose local WordNet sense is wrong, too adult or incomplete and promote those cases into reviewed Buddy evidence.
 3. Add a reviewed resolver for common multi-pronunciation/heteronym words so broad Britfone variants can be selected safely from context.
 4. Improve sound analysis towards a validated grapheme/phoneme representation.
 5. Improve capture quality, crop/deskew and OCR confidence handling.
