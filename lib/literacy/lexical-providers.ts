@@ -1,4 +1,4 @@
-import { normaliseWord } from "@/lib/literacy/engine";
+import { getCuratedWordSupport, normaliseWord } from "@/lib/literacy/engine";
 import {
   normalisePartOfSpeech,
   plainLexicalText,
@@ -9,6 +9,7 @@ import {
   lookupLocalCorpusWord,
   type LocalCorpusMetadata,
 } from "@/lib/literacy/local-corpus";
+import { lookupWordNetWord } from "@/lib/literacy/wordnet";
 
 type DictionaryDefinition = {
   definition?: string;
@@ -69,6 +70,12 @@ export type LexicalLookupBundle = {
   providers: string[];
   corpus: LocalCorpusMetadata & {
     remoteFallback: boolean;
+    curatedMeaningHit: boolean;
+    wordnetAvailable: boolean;
+    wordnetVersion: string | null;
+    wordnetEntryHit: boolean;
+    wordnetSenseCount: number;
+    wordnetTaggedSenseCount: number;
   };
 };
 
@@ -193,6 +200,20 @@ function plausibleSuggestion(word: string, candidate?: string) {
   return editDistance(word, suggestion) <= maximumDistance ? suggestion : null;
 }
 
+function curatedCandidate(word: string, relation: LexicalRelation): LexicalCandidate | null {
+  const support = getCuratedWordSupport(word);
+  if (!support?.meaning) return null;
+  return {
+    definition: support.meaning,
+    example: support.example,
+    partOfSpeech: null,
+    source: "buddy-curated",
+    lookupWord: word,
+    relation,
+    rank: 0,
+  };
+}
+
 export async function lookupLexicalWord(
   wordInput: string,
   context: string,
@@ -201,21 +222,48 @@ export async function lookupLexicalWord(
 ): Promise<LexicalLookupBundle> {
   const word = normaliseWord(wordInput);
   const local = lookupLocalCorpusWord(word, context, relation, preferredPartOfSpeech);
-  const localHasMeaningRoute = local.candidates.length > 0 || Boolean(local.headword);
+  const curated = curatedCandidate(word, relation);
+  const wordnet = lookupWordNetWord(
+    word,
+    relation,
+    preferredPartOfSpeech ?? local.preferredPartOfSpeech,
+  );
+  const localCandidates = [
+    ...local.candidates,
+    ...(curated ? [curated] : []),
+    ...wordnet.candidates,
+  ];
+  const localRecognised = local.recognised || Boolean(curated) || wordnet.recognised;
+  const localHasMeaningRoute = localCandidates.length > 0 || Boolean(local.headword);
   const needsSurfacePronunciation = relation === "surface" && !local.pronunciation.ipa;
-  const remoteFallback = !local.recognised || !localHasMeaningRoute || needsSurfacePronunciation;
+  const remoteFallback = !localRecognised || !localHasMeaningRoute || needsSurfacePronunciation;
+  const corpusMetadata = {
+    ...local.metadata,
+    curatedMeaningHit: Boolean(curated),
+    wordnetAvailable: wordnet.metadata.available,
+    wordnetVersion: wordnet.metadata.version,
+    wordnetEntryHit: wordnet.metadata.entryHit,
+    wordnetSenseCount: wordnet.metadata.senseCount,
+    wordnetTaggedSenseCount: wordnet.metadata.taggedSenseCount,
+  };
 
   if (!remoteFallback) {
+    const providers: string[] = [];
+    if (local.metadata.entryHit) providers.push("buddy-corpus");
+    if (curated) providers.push("buddy-curated");
+    if (wordnet.recognised) providers.push("wordnet");
+    if (local.metadata.britfoneEntryHit && !local.metadata.entryHit) providers.push("britfone");
+
     return {
       word,
       recognised: true,
-      candidates: local.candidates,
+      candidates: localCandidates,
       pronunciation: local.pronunciation,
-      preferredPartOfSpeech: local.preferredPartOfSpeech,
+      preferredPartOfSpeech: local.preferredPartOfSpeech ?? wordnet.preferredPartOfSpeech,
       headword: local.headword,
       possibleSpelling: null,
-      providers: ["buddy-corpus"],
-      corpus: { ...local.metadata, remoteFallback: false },
+      providers,
+      corpus: { ...corpusMetadata, remoteFallback: false },
     };
   }
 
@@ -256,6 +304,8 @@ export async function lookupLexicalWord(
   let wiktionary: WiktionaryPayload = {};
   const providers: string[] = [];
   if (local.metadata.entryHit) providers.push("buddy-corpus");
+  if (curated) providers.push("buddy-curated");
+  if (wordnet.recognised) providers.push("wordnet");
   if (local.metadata.britfoneEntryHit && !local.metadata.entryHit) providers.push("britfone");
 
   if (datamuseResponse.status === "fulfilled" && datamuseResponse.value.ok) {
@@ -275,12 +325,15 @@ export async function lookupLexicalWord(
   const exactDictionary = dictionary.some((entry) => normaliseWord(entry.word ?? "") === word);
   const englishWiktionary = wiktionary.en ?? [];
   const exactWiktionary = englishWiktionary.length > 0;
+  const wiktionaryPreferredPos = englishWiktionary
+    .map((entry) => normalisePartOfSpeech(entry.partOfSpeech))
+    .find(Boolean) ?? null;
 
   const datamuseCandidates = (exactDatamuse?.defs ?? [])
     .map((raw, index) => parseDatamuseDefinition(raw, word, relation, index))
     .filter((item): item is LexicalCandidate => Boolean(item));
   const candidates = [
-    ...local.candidates,
+    ...localCandidates,
     ...wiktionaryCandidates(wiktionary, word, relation),
     ...dictionaryCandidates(dictionary, word, relation),
     ...datamuseCandidates,
@@ -304,7 +357,7 @@ export async function lookupLexicalWord(
   // exact source/local corpus.
   const datamuseHasLexicalEvidence = datamuseCandidates.length > 0;
   const recognised = Boolean(
-    local.recognised
+    localRecognised
     || exactDictionary
     || exactWiktionary
     || datamuseHasLexicalEvidence
@@ -326,10 +379,12 @@ export async function lookupLexicalWord(
         : normaliseAudio(dictionaryPhonetics.find((item) => item.audio)?.audio),
     },
     preferredPartOfSpeech: local.preferredPartOfSpeech
+      ?? wordnet.preferredPartOfSpeech
+      ?? wiktionaryPreferredPos
       ?? (preferredPosCode ? POS_LABELS[preferredPosCode] : null),
     headword: recognised ? local.headword ?? exactDatamuse?.defHeadword ?? null : null,
     possibleSpelling: recognised ? null : plausibleSuggestion(word, datamuse[0]?.word),
     providers,
-    corpus: { ...local.metadata, remoteFallback: true },
+    corpus: { ...corpusMetadata, remoteFallback: true },
   };
 }
