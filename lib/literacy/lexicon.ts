@@ -1,6 +1,6 @@
 import type { MorphologyAnalysis } from "@/lib/literacy/morphology";
 
-export type LexicalSource = "buddy-corpus" | "wiktionary" | "dictionaryapi.dev" | "datamuse";
+export type LexicalSource = "buddy-curated" | "buddy-corpus" | "wordnet" | "wiktionary" | "dictionaryapi.dev" | "datamuse";
 export type LexicalRelation = "surface" | "lemma";
 
 export type LexicalCandidate = {
@@ -24,7 +24,9 @@ const STOP_WORDS = new Set([
 ]);
 
 const SOURCE_SCORE: Record<LexicalSource, number> = {
-  "buddy-corpus": 6,
+  "buddy-curated": 8,
+  "buddy-corpus": 7,
+  wordnet: 4,
   "dictionaryapi.dev": 3,
   wiktionary: 2,
   datamuse: 1,
@@ -161,9 +163,10 @@ function definitionQualityPenalty(definition: string, morphology: MorphologyAnal
 }
 
 function senseRankBonus(rank: number) {
-  // Dictionary order is useful weak evidence: established lexical sources tend
-  // to place common/core senses before specialist extensions. It must never
-  // overpower strong context, but it is a better tie-break than “shortest wins”.
+  // Dictionary order is useful weak evidence. WordNet's sense order is itself
+  // estimated from semantically tagged corpus frequency where available, so
+  // preserving rank gives Buddy a local common-sense prior without overpowering
+  // grammatical or sentence context.
   return Math.max(0, 6 - Math.min(Math.max(rank, 0), 6));
 }
 
@@ -220,12 +223,22 @@ export function chooseLexicalSense(
 }
 
 export function lexicalAttribution(candidate: LexicalCandidate | null): LexicalAttribution | null {
-  if (!candidate || candidate.source !== "wiktionary") return null;
-  return {
-    label: "Wiktionary",
-    url: `https://en.wiktionary.org/wiki/${encodeURIComponent(candidate.lookupWord)}`,
-    licence: "CC BY-SA",
-  };
+  if (!candidate) return null;
+  if (candidate.source === "wiktionary") {
+    return {
+      label: "Wiktionary",
+      url: `https://en.wiktionary.org/wiki/${encodeURIComponent(candidate.lookupWord)}`,
+      licence: "CC BY-SA",
+    };
+  }
+  if (candidate.source === "wordnet") {
+    return {
+      label: "Princeton WordNet",
+      url: "https://wordnet.princeton.edu/",
+      licence: "Princeton WordNet License",
+    };
+  }
+  return null;
 }
 
 export function morphologyLabel(morphology: MorphologyAnalysis) {
