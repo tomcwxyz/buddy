@@ -97,13 +97,26 @@ const IRREGULAR_FORMS: Record<string, IrregularForm> = {
   written: { lemma: "write", partOfSpeech: "verb", form: "past participle", confidence: "high" },
 };
 
-const AUXILIARIES = new Set([
-  "am", "are", "be", "been", "being", "can", "could", "did", "do", "does", "had", "has", "have", "is", "may", "might", "must", "shall", "should", "was", "were", "will", "would",
+// Copular forms of “be” are deliberately not treated as generic verb cues.
+// In “the bag was light”, the following word is usually an adjective; in
+// “the dog was running”, the -ing shape itself supplies the participle evidence.
+// This avoids forcing ordinary adjectives and nouns into verb senses.
+const VERB_AUXILIARIES = new Set([
+  "can", "could", "did", "do", "does", "had", "has", "have", "may", "might", "must", "shall", "should", "will", "would",
+]);
+
+const COPULAR_BE = new Set([
+  "am", "are", "be", "been", "being", "is", "was", "were",
 ]);
 
 const DETERMINERS = new Set([
   "a", "an", "another", "any", "each", "every", "her", "his", "its", "my", "our", "some", "that", "the", "their", "these", "this", "those", "your",
 ]);
+
+function looksLikeParticiple(word: string) {
+  return (word.endsWith("ing") && word.length > 5)
+    || (word.endsWith("ed") && word.length > 4);
+}
 
 function contextPartOfSpeech(word: string, context: string) {
   const tokens = context.toLocaleLowerCase("en-GB").match(/[a-z]+(?:['-][a-z]+)*/g) ?? [];
@@ -111,7 +124,8 @@ function contextPartOfSpeech(word: string, context: string) {
   if (index < 0) return null;
 
   const left = index > 0 ? normaliseWord(tokens[index - 1]) : null;
-  if (left === "to" || (left && AUXILIARIES.has(left))) return "verb" as const;
+  if (left === "to" || (left && VERB_AUXILIARIES.has(left))) return "verb" as const;
+  if (left && COPULAR_BE.has(left) && looksLikeParticiple(word)) return "verb" as const;
   if (left && DETERMINERS.has(left)) return "noun" as const;
   return null;
 }
@@ -132,31 +146,30 @@ function regularCandidates(word: string, contextPos: "verb" | "noun" | null): Mo
     candidates.push({ lemma, partOfSpeech, form, confidence: contextPos === partOfSpeech ? "medium" : "low", reason: "suffix" });
   };
 
-  if (word.endsWith("ied") && word.length > 4) push(`${word.slice(0, -3)}y`, "verb", "past tense / past participle");
-  if (word.endsWith("ies") && word.length > 4) {
-    push(`${word.slice(0, -3)}y`, contextPos === "verb" ? "verb" : "noun", contextPos === "verb" ? "present form" : "plural");
-  }
-
-  if (word.endsWith("ing") && word.length > 5) {
-    const stem = word.slice(0, -3);
-    push(stem, "verb", "present participle");
-    push(`${stem}e`, "verb", "present participle");
-    if (stem.length > 2 && stem.at(-1) === stem.at(-2)) push(stem.slice(0, -1), "verb", "present participle");
-  }
-
-  if (word.endsWith("ed") && word.length > 4) {
+  if (word.endsWith("ied") && word.length > 4) {
+    push(`${word.slice(0, -3)}y`, "verb", "past tense / past participle");
+  } else if (word.endsWith("ed") && word.length > 4) {
     const stem = word.slice(0, -2);
+    if (stem.length > 2 && stem.at(-1) === stem.at(-2)) push(stem.slice(0, -1), "verb", "past tense / past participle");
     push(stem, "verb", "past tense / past participle");
     push(`${stem}e`, "verb", "past tense / past participle");
-    if (stem.length > 2 && stem.at(-1) === stem.at(-2)) push(stem.slice(0, -1), "verb", "past tense / past participle");
   }
 
-  if (word.endsWith("es") && word.length > 4) {
+  if (word.endsWith("ies") && word.length > 4) {
+    push(`${word.slice(0, -3)}y`, contextPos === "verb" ? "verb" : "noun", contextPos === "verb" ? "present form" : "plural");
+  } else if (word.endsWith("es") && word.length > 4) {
     const stem = word.slice(0, -2);
     push(stem, contextPos === "verb" ? "verb" : "noun", contextPos === "verb" ? "present form" : "plural");
     push(word.slice(0, -1), contextPos === "verb" ? "verb" : "noun", contextPos === "verb" ? "present form" : "plural");
   } else if (word.endsWith("s") && word.length > 3 && !word.endsWith("ss")) {
     push(word.slice(0, -1), contextPos === "verb" ? "verb" : "noun", contextPos === "verb" ? "present form" : "plural");
+  }
+
+  if (word.endsWith("ing") && word.length > 5) {
+    const stem = word.slice(0, -3);
+    if (stem.length > 2 && stem.at(-1) === stem.at(-2)) push(stem.slice(0, -1), "verb", "present participle");
+    push(stem, "verb", "present participle");
+    push(`${stem}e`, "verb", "present participle");
   }
 
   return candidates;
@@ -182,11 +195,16 @@ export function analyseMorphology(input: string, context = ""): MorphologyAnalys
   }
 
   const unique = dedupe(candidates);
+  const mediumCandidates = unique.filter((candidate) => candidate.confidence === "medium");
   const preferred = unique.find((candidate) => candidate.confidence === "high")
-    ?? unique.find((candidate) => candidate.confidence === "medium")
-    ?? unique[0]
+    ?? (mediumCandidates.length === 1 ? mediumCandidates[0] : null)
+    ?? unique.find((candidate) => candidate.reason === "context")
     ?? null;
 
+  // A suffix shape is only a proposal until sentence structure or lexical
+  // evidence supports it. Words such as “spring” and “morning” happen to end in
+  // -ing but are commonly base-form nouns. Keeping low-confidence suffix guesses
+  // out of the selected analysis prevents invented lemmas such as “spr”.
   return {
     surface,
     lemma: preferred?.lemma ?? surface,
