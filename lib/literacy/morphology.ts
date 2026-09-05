@@ -224,10 +224,19 @@ export function withDetectedLemma(
   const lemma = normaliseWord(lemmaInput);
   if (!lemma || lemma === analysis.surface) return analysis;
 
+  // Lexical evidence can validate one of the earlier suffix proposals. Preserve
+  // the grammatical form attached to that exact proposal rather than only the
+  // lemma. This lets conservative analysis keep `spring` as a base noun while a
+  // reviewed headword can still confirm `running → run` as a present participle
+  // and `stories → story` as a plural.
+  const matchingProposal = analysis.candidates.find((candidate) => candidate.lemma === lemma) ?? null;
+  const resolvedPartOfSpeech = partOfSpeech ?? matchingProposal?.partOfSpeech ?? analysis.partOfSpeech;
+  const resolvedForm = form ?? matchingProposal?.form ?? analysis.form;
+
   const detected: MorphologyCandidate = {
     lemma,
-    partOfSpeech,
-    form,
+    partOfSpeech: resolvedPartOfSpeech,
+    form: resolvedForm,
     confidence: "high",
     reason: "wiktionary",
   };
@@ -235,8 +244,8 @@ export function withDetectedLemma(
   return {
     ...analysis,
     lemma,
-    partOfSpeech: partOfSpeech ?? analysis.partOfSpeech,
-    form: form ?? analysis.form,
+    partOfSpeech: resolvedPartOfSpeech,
+    form: resolvedForm,
     confidence: "high",
     candidates: dedupe([detected, ...analysis.candidates]),
   };
