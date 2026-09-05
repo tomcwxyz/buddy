@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.05.1",
+  "version": "2026.09.05.2",
   "locale": "en-GB",
   "description": "Buddy-authored child-friendly core senses with a pinned British pronunciation evidence layer.",
   "pronunciationSource": {
@@ -154,6 +154,15 @@
           "partOfSpeech": "verb",
           "definition": "To move quickly on foot, faster than walking.",
           "example": "The dog ran across the field."
+        }
+      ]
+    },
+    "carry": {
+      "senses": [
+        {
+          "partOfSpeech": "verb",
+          "definition": "To hold or support something while moving it from one place to another.",
+          "example": "She carries the bag to school each morning."
         }
       ]
     },
