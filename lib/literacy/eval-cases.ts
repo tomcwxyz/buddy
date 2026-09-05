@@ -1,9 +1,21 @@
+export type WordEvalAssertions = {
+  recognised?: boolean;
+  partOfSpeech?: string;
+  lemma?: string;
+  sourceOneOf?: string[];
+  networkFallback?: boolean;
+  meaningIncludes?: string[];
+  meaningIncludesAny?: string[];
+  meaningExcludes?: string[];
+};
+
 export type WordEvalCase = {
   id: string;
-  group: "context" | "irregular" | "pattern" | "complex" | "rare" | "guardrail";
+  group: "common" | "context" | "irregular" | "pattern" | "complex" | "rare" | "guardrail";
   word: string;
   context: string;
   expectation: string;
+  assertions?: WordEvalAssertions;
 };
 
 export const WORD_EVAL_CASES: WordEvalCase[] = [
@@ -69,6 +81,12 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     word: "mountain",
     context: "We climbed the mountain and looked across the valley.",
     expectation: "The physical landform sense. A quoted example on the less-common ‘a mountain of…’ sense must not outweigh WordNet's primary sense ordering by itself.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      meaningIncludesAny: ["land mass", "landform"],
+      networkFallback: false,
+    },
   },
   {
     id: "plant-living",
@@ -76,6 +94,13 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     word: "plant",
     context: "The plant grew towards the window and opened a flower.",
     expectation: "The living growing thing, not a factory. Reviewed common-sense examples should beat WordNet's industrial sense in this context.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludes: ["living", "grows"],
+      networkFallback: false,
+    },
   },
   {
     id: "plant-factory",
@@ -83,6 +108,13 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     word: "plant",
     context: "The car plant makes engines and other vehicle parts.",
     expectation: "The factory sense, not the living organism.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludes: ["factory"],
+      networkFallback: false,
+    },
   },
   {
     id: "plant-verb",
@@ -90,13 +122,214 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     word: "plant",
     context: "We plant seeds in the garden every spring.",
     expectation: "The verb meaning to put seeds or a young plant into soil so it can grow.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "verb",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludes: ["seed", "soil"],
+      networkFallback: false,
+    },
   },
+
+  // High-frequency/common-word semantic audit. These are deliberately ordinary
+  // reading contexts where a technically valid dictionary sense is not enough.
+  {
+    id: "spring-season",
+    group: "common",
+    word: "spring",
+    context: "Flowers appear in spring when the weather gets warmer.",
+    expectation: "The season after winter. The spelling ending must not be misread as a present participle or invent the lemma ‘spr’.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      lemma: "spring",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludes: ["season", "winter"],
+      networkFallback: false,
+    },
+  },
+  {
+    id: "spring-coil",
+    group: "common",
+    word: "spring",
+    context: "The spring inside the pen pushes the button back out.",
+    expectation: "The coiled mechanism inside the pen, not the season or a jump.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      lemma: "spring",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludesAny: ["coiled", "metal"],
+      networkFallback: false,
+    },
+  },
+  {
+    id: "morning-base-form",
+    group: "common",
+    word: "morning",
+    context: "We woke early in the morning and watched the sunrise.",
+    expectation: "A base-form noun for the early part of the day. The -ing ending alone must not create the lemma ‘morn’.",
+    assertions: {
+      recognised: true,
+      lemma: "morning",
+      partOfSpeech: "noun",
+      meaningIncludesAny: ["morning", "noon", "day"],
+    },
+  },
+  {
+    id: "light-illumination",
+    group: "common",
+    word: "light",
+    context: "Please turn on the light so we can see the page.",
+    expectation: "A child-simple illumination meaning, not a physics definition of electromagnetic radiation.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludesAny: ["see", "sunlight", "lamp"],
+      meaningExcludes: ["electromagnetic"],
+      networkFallback: false,
+    },
+  },
+  {
+    id: "light-weight",
+    group: "common",
+    word: "light",
+    context: "The empty bag was light enough for me to carry.",
+    expectation: "The adjective meaning not heavy, not the verb meaning to brighten something.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "adjective",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludesAny: ["not heavy", "easy to lift", "easy to carry"],
+      networkFallback: false,
+    },
+  },
+  {
+    id: "match-sport",
+    group: "common",
+    word: "match",
+    context: "We watched the football match after school.",
+    expectation: "A sports game or contest, not the verb meaning to be compatible.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludesAny: ["game", "contest"],
+      networkFallback: false,
+    },
+  },
+  {
+    id: "match-flame",
+    group: "common",
+    word: "match",
+    context: "She struck a match and lit the candle.",
+    expectation: "The small stick used to make a flame.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludesAny: ["stick", "flame"],
+      networkFallback: false,
+    },
+  },
+  {
+    id: "ring-jewellery",
+    group: "common",
+    word: "ring",
+    context: "She wore a silver ring on her finger.",
+    expectation: "The circular band worn on a finger, not a characteristic sound.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludesAny: ["band", "finger"],
+      networkFallback: false,
+    },
+  },
+  {
+    id: "ring-verb",
+    group: "common",
+    word: "ring",
+    context: "The phone began to ring during dinner.",
+    expectation: "The verb for a phone or bell making its sound.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "verb",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludesAny: ["sound", "telephone", "call"],
+      networkFallback: false,
+    },
+  },
+  {
+    id: "current-river",
+    group: "common",
+    word: "current",
+    context: "The river current was strong after the rain.",
+    expectation: "Moving water, not electric current.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludes: ["water"],
+      networkFallback: false,
+    },
+  },
+  {
+    id: "current-electric",
+    group: "common",
+    word: "current",
+    context: "Electric current flows through the wire to the lamp.",
+    expectation: "The flow of electricity through the circuit.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludes: ["electricity"],
+      networkFallback: false,
+    },
+  },
+  {
+    id: "current-now",
+    group: "common",
+    word: "current",
+    context: "This plan is current and is still being used now.",
+    expectation: "The adjective meaning happening, used or true now.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "adjective",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludes: ["now"],
+      networkFallback: false,
+    },
+  },
+  {
+    id: "wave-water-baseline",
+    group: "common",
+    word: "wave",
+    context: "A large wave crashed onto the rocks.",
+    expectation: "The moving ridge of water. This is a baseline case WordNet currently handles well without review data.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      sourceOneOf: ["wordnet", "buddy-curated", "buddy-corpus"],
+      meaningIncludesAny: ["water", "liquid", "surface"],
+      networkFallback: false,
+    },
+  },
+
   {
     id: "sold-verb",
     group: "irregular",
     word: "sold",
     context: "The most Old Peculier ever sold in a day was sold there, I believe.",
     expectation: "Past tense / past participle of sell. It must not choose the obsolete noun meaning salary or military pay.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "verb",
+      lemma: "sell",
+      meaningExcludes: ["salary", "military pay"],
+    },
   },
   {
     id: "went-verb",
@@ -104,6 +337,11 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     word: "went",
     context: "We went through the gate and followed the path downhill.",
     expectation: "Past tense of go, with the movement sense selected from the lemma.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "verb",
+      lemma: "go",
+    },
   },
   {
     id: "made-verb",
@@ -118,6 +356,11 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     word: "running",
     context: "The dog was running across the field towards us.",
     expectation: "Present participle of run; the resolver should understand the inflected form while pronunciation remains for running.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "verb",
+      lemma: "run",
+    },
   },
   {
     id: "stories-plural",
@@ -125,6 +368,11 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     word: "stories",
     context: "We read two funny stories before bed.",
     expectation: "Plural of story, with a meaning based on the noun lemma rather than treating the ending as a separate word.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      lemma: "story",
+    },
   },
   {
     id: "through",
@@ -146,6 +394,11 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     word: "rainbow",
     context: "We saw a bright rainbow after the rain.",
     expectation: "Meaning should resolve from local WordNet evidence and British pronunciation from Britfone, with no live lexical fallback needed.",
+    assertions: {
+      recognised: true,
+      sourceOneOf: ["wordnet", "buddy-curated", "buddy-corpus"],
+      networkFallback: false,
+    },
   },
   {
     id: "planet-curated-current-meaning",
@@ -153,6 +406,14 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     word: "planet",
     context: "Mars is a planet that travels around the Sun.",
     expectation: "Buddy's reviewed child-friendly meaning should outrank WordNet's outdated ‘nine planets’ wording while local Britfone still supplies pronunciation.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludes: ["space", "star"],
+      meaningExcludes: ["nine"],
+      networkFallback: false,
+    },
   },
   {
     id: "because-curated-meaning",
@@ -160,6 +421,11 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     word: "because",
     context: "I stayed inside because it was raining.",
     expectation: "Buddy's child-friendly curated meaning — that it tells us the reason something happened — should outrank adult dictionary wording; Britfone may still report multiple unresolved pronunciation variants.",
+    assertions: {
+      recognised: true,
+      sourceOneOf: ["buddy-curated"],
+      meaningIncludes: ["reason"],
+    },
   },
   {
     id: "choir",
@@ -230,5 +496,8 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     word: "marnivorous",
     context: "The creature was described as marnivorous in the blurry text.",
     expectation: "Should remain uncertain rather than confidently inventing a definition for a likely OCR error.",
+    assertions: {
+      recognised: false,
+    },
   },
 ];

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowClockwise, CheckCircle, Play, SpeakerHigh } from "@phosphor-icons/react";
+import { ArrowClockwise, CheckCircle, Play, SpeakerHigh, WarningCircle } from "@phosphor-icons/react";
 import { WORD_EVAL_CASES, type WordEvalCase } from "@/lib/literacy/eval-cases";
 
 type SoundFeature = { letters: string; note: string };
@@ -72,7 +72,13 @@ type CaseState = {
   error?: string;
 };
 
+type AssertionResult = {
+  passed: boolean;
+  failures: string[];
+};
+
 const groupLabels: Record<WordEvalCase["group"], string> = {
+  common: "High-frequency / common meanings",
   context: "Context / multiple meanings",
   irregular: "Irregular spelling",
   pattern: "Useful sound patterns",
@@ -80,6 +86,49 @@ const groupLabels: Record<WordEvalCase["group"], string> = {
   rare: "Less common words",
   guardrail: "Guardrails",
 };
+
+function evaluateAssertions(item: WordEvalCase, result: WordResult): AssertionResult | null {
+  const assertions = item.assertions;
+  if (!assertions) return null;
+
+  const failures: string[] = [];
+  const meaning = result.meaning?.toLocaleLowerCase("en-GB") ?? "";
+  const source = result.source ?? "";
+
+  if (typeof assertions.recognised === "boolean" && Boolean(result.recognisedWord) !== assertions.recognised) {
+    failures.push(`recognised should be ${assertions.recognised ? "yes" : "no"}`);
+  }
+  if (assertions.partOfSpeech && result.partOfSpeech !== assertions.partOfSpeech) {
+    failures.push(`part of speech should be ${assertions.partOfSpeech}`);
+  }
+  if (assertions.lemma && result.morphology?.lemma !== assertions.lemma) {
+    failures.push(`lemma should be ${assertions.lemma}`);
+  }
+  if (assertions.sourceOneOf?.length && !assertions.sourceOneOf.includes(source)) {
+    failures.push(`source should be ${assertions.sourceOneOf.join(" or ")}`);
+  }
+  if (typeof assertions.networkFallback === "boolean" && result.corpus?.remoteFallback !== assertions.networkFallback) {
+    failures.push(`network fallback should be ${assertions.networkFallback ? "yes" : "no"}`);
+  }
+  for (const fragment of assertions.meaningIncludes ?? []) {
+    if (!meaning.includes(fragment.toLocaleLowerCase("en-GB"))) {
+      failures.push(`meaning should include “${fragment}”`);
+    }
+  }
+  if (assertions.meaningIncludesAny?.length) {
+    const matches = assertions.meaningIncludesAny.some((fragment) =>
+      meaning.includes(fragment.toLocaleLowerCase("en-GB")),
+    );
+    if (!matches) failures.push(`meaning should include one of: ${assertions.meaningIncludesAny.join(", ")}`);
+  }
+  for (const fragment of assertions.meaningExcludes ?? []) {
+    if (meaning.includes(fragment.toLocaleLowerCase("en-GB"))) {
+      failures.push(`meaning should not include “${fragment}”`);
+    }
+  }
+
+  return { passed: failures.length === 0, failures };
+}
 
 export function WordEvaluationLab() {
   const [states, setStates] = useState<Record<string, CaseState>>({});
@@ -156,6 +205,15 @@ export function WordEvaluationLab() {
     ?.result?.corpus?.britfoneRuntimeEntryCount ?? 0;
   const wordnetVersion = ready.find((state) => state.result?.corpus?.wordnetAvailable)
     ?.result?.corpus?.wordnetVersion ?? null;
+  const assertionTotal = WORD_EVAL_CASES.filter((item) => item.assertions).length;
+  const assertionResults = WORD_EVAL_CASES.flatMap((item) => {
+    const result = states[item.id]?.result;
+    if (!result || !item.assertions) return [];
+    const evaluation = evaluateAssertions(item, result);
+    return evaluation ? [evaluation] : [];
+  });
+  const assertionPassed = assertionResults.filter((item) => item.passed).length;
+  const assertionNeedsReview = assertionResults.filter((item) => !item.passed).length;
 
   return (
     <div className="word-lab">
@@ -164,11 +222,13 @@ export function WordEvaluationLab() {
           <p className="eyebrow">Internal alpha lab</p>
           <h1>Does Buddy understand the word?</h1>
           <p>
-            Fixed cases for morphology, sense, meaning, examples and sound guidance. This is an evaluation surface, not a child-facing score.
+            Fixed cases for morphology, sense, meaning, examples and sound guidance. Common regressions now include executable checks as well as human review notes. This is an evaluation surface, not a child-facing score.
           </p>
         </div>
         <div className="word-lab-summary">
           <span>{ready.length}/{WORD_EVAL_CASES.length} run</span>
+          <span>{assertionPassed}/{assertionTotal} checked cases passing</span>
+          {assertionNeedsReview > 0 && <span>{assertionNeedsReview} checked cases need review</span>}
           {wordnetVersion && <span>WordNet {wordnetVersion} local semantics</span>}
           {britfoneRuntimeEntries > 0 && <span>{britfoneRuntimeEntries.toLocaleString("en-GB")} Britfone headwords indexed</span>}
           <span>{offlineReady} fully local</span>
@@ -195,6 +255,7 @@ export function WordEvaluationLab() {
             {cases.map((item) => {
               const state = states[item.id] ?? { status: "idle" as const };
               const result = state.result;
+              const evaluation = result ? evaluateAssertions(item, result) : null;
               return (
                 <article className="word-lab-card" key={item.id}>
                   <div className="word-lab-card-head">
@@ -203,12 +264,28 @@ export function WordEvaluationLab() {
                       <span>{item.context}</span>
                     </div>
                     <button type="button" className="word-lab-run" onClick={() => runCase(item)} disabled={state.status === "loading"}>
-                      {state.status === "loading" ? <ArrowClockwise size={18} /> : state.status === "ready" ? <CheckCircle size={18} /> : <Play size={18} />}
-                      {state.status === "loading" ? "Running" : state.status === "ready" ? "Again" : "Run"}
+                      {state.status === "loading"
+                        ? <ArrowClockwise size={18} />
+                        : evaluation?.passed === false
+                          ? <WarningCircle size={18} />
+                          : state.status === "ready"
+                            ? <CheckCircle size={18} />
+                            : <Play size={18} />}
+                      {state.status === "loading"
+                        ? "Running"
+                        : evaluation
+                          ? evaluation.passed ? "Pass" : "Review"
+                          : state.status === "ready" ? "Again" : "Run"}
                     </button>
                   </div>
 
                   <p className="word-lab-expect"><b>We expect:</b> {item.expectation}</p>
+                  {evaluation && (
+                    <p className="word-lab-expect">
+                      <b>Automated checks:</b>{" "}
+                      {evaluation.passed ? "pass" : `review — ${evaluation.failures.join("; ")}`}
+                    </p>
+                  )}
 
                   {state.status === "error" && <div className="word-lab-error">{state.error}</div>}
 

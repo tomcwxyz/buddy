@@ -174,6 +174,18 @@ function senseRankBonus(rank: number, source: LexicalSource) {
   return Math.max(0, 6 - safeRank);
 }
 
+function partOfSpeechEvidence(confidence: MorphologyAnalysis["confidence"], matches: boolean) {
+  if (matches) {
+    if (confidence === "high") return 18;
+    if (confidence === "medium") return 10;
+    return 4;
+  }
+
+  if (confidence === "high") return -14;
+  if (confidence === "medium") return -7;
+  return -2;
+}
+
 export function chooseLexicalSense(
   candidates: LexicalCandidate[],
   context: string,
@@ -192,9 +204,8 @@ export function chooseLexicalSense(
       const candidateTerms = new Set(wordsIn(`${definition} ${item.example ?? ""}`));
       const overlap = [...contextTerms].filter((term) => candidateTerms.has(term)).length;
       const partOfSpeech = normalisePartOfSpeech(item.partOfSpeech);
-      const posMatch = preferredPos && partOfSpeech === preferredPos ? 18 : 0;
-      const posMismatch = preferredPos && partOfSpeech && partOfSpeech !== preferredPos
-        ? morphology.confidence === "high" ? -14 : -4
+      const posEvidence = preferredPos && partOfSpeech
+        ? partOfSpeechEvidence(morphology.confidence, partOfSpeech === preferredPos)
         : 0;
       const lemmaBonus = item.relation === "lemma" && item.lookupWord === morphology.lemma ? 6 : 0;
       const surfaceBonus = item.relation === "surface" ? 1 : 0;
@@ -210,8 +221,7 @@ export function chooseLexicalSense(
         item,
         score:
           overlap * 3
-          + posMatch
-          + posMismatch
+          + posEvidence
           + lemmaBonus
           + surfaceBonus
           + exampleBonus
