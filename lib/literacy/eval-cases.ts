@@ -71,6 +71,27 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     expectation: "The physical landform sense. A quoted example on the less-common ‘a mountain of…’ sense must not outweigh WordNet's primary sense ordering by itself.",
   },
   {
+    id: "plant-living",
+    group: "context",
+    word: "plant",
+    context: "The plant grew towards the window and opened a flower.",
+    expectation: "The living growing thing, not a factory. Reviewed common-sense examples should beat WordNet's industrial sense in this context.",
+  },
+  {
+    id: "plant-factory",
+    group: "context",
+    word: "plant",
+    context: "The car plant makes engines and other vehicle parts.",
+    expectation: "The factory sense, not the living organism.",
+  },
+  {
+    id: "plant-verb",
+    group: "context",
+    word: "plant",
+    context: "We plant seeds in the garden every spring.",
+    expectation: "The verb meaning to put seeds or a young plant into soil so it can grow.",
+  },
+  {
     id: "sold-verb",
     group: "irregular",
     word: "sold",
