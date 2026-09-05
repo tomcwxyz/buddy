@@ -2,13 +2,10 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { normaliseWord } from "@/lib/literacy/engine";
 
-type BritfonePackage = {
-  main: string;
-};
-
 type BritfoneIndex = Map<string, string[]>;
 
 const require = createRequire(import.meta.url);
+const BRITFONE_DATA_MODULE = "britfone/britfone.main.3.0.1.csv";
 let cachedIndex: BritfoneIndex | null = null;
 let cachedEntryCount = 0;
 let loadAttempted = false;
@@ -27,8 +24,12 @@ function loadBritfoneIndex() {
   loadAttempted = true;
 
   try {
-    const britfone = require("britfone") as BritfonePackage;
-    const source = readFileSync(britfone.main, "utf8");
+    // Resolve the packaged data file directly instead of requiring Britfone's
+    // index.js. Next can bundle that tiny CommonJS wrapper and rewrite its
+    // __dirname, which makes the wrapper point at the compiled API directory.
+    // Resolving the real package asset keeps the data path tied to node_modules.
+    const dataPath = require.resolve(BRITFONE_DATA_MODULE);
+    const source = readFileSync(dataPath, "utf8");
     const index: BritfoneIndex = new Map();
 
     for (const rawLine of source.split(/\r?\n/u)) {
