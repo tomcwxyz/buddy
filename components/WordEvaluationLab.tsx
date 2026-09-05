@@ -46,6 +46,7 @@ type WordResult = {
     surfacePronunciationHit: boolean;
     surfaceBritfoneHit: boolean;
     surfaceBritfoneVariants: number;
+    britfoneRuntimeEntryCount: number;
     lemmaEntryHit: boolean | null;
     lemmaLexicalHit: boolean | null;
     lemmaBritfoneHit: boolean | null;
@@ -131,6 +132,8 @@ export function WordEvaluationLab() {
   const britfoneCoverage = ready.filter((state) => state.result?.corpus?.surfaceBritfoneHit).length;
   const ambiguousBritfone = ready.filter((state) => (state.result?.corpus?.surfaceBritfoneVariants ?? 0) > 1).length;
   const offlineReady = ready.filter((state) => state.result?.corpus && !state.result.corpus.remoteFallback).length;
+  const britfoneRuntimeEntries = ready.find((state) => (state.result?.corpus?.britfoneRuntimeEntryCount ?? 0) > 0)
+    ?.result?.corpus?.britfoneRuntimeEntryCount ?? 0;
 
   return (
     <div className="word-lab">
@@ -144,6 +147,7 @@ export function WordEvaluationLab() {
         </div>
         <div className="word-lab-summary">
           <span>{ready.length}/{WORD_EVAL_CASES.length} run</span>
+          {britfoneRuntimeEntries > 0 && <span>{britfoneRuntimeEntries.toLocaleString("en-GB")} Britfone headwords indexed</span>}
           <span>{offlineReady} fully local</span>
           <span>{localMeanings} local meanings</span>
           <span>{britfoneCoverage} in Britfone</span>

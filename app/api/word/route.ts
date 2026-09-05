@@ -68,6 +68,7 @@ function corpusMetadata(
     surfacePronunciationHit: surface.corpus.pronunciationHit,
     surfaceBritfoneHit: surface.corpus.britfoneEntryHit,
     surfaceBritfoneVariants: surface.corpus.britfoneVariantCount,
+    britfoneRuntimeEntryCount: surface.corpus.britfoneRuntimeEntryCount,
     lemmaEntryHit: lemmaLookup?.corpus.entryHit ?? null,
     lemmaLexicalHit: lemmaLookup?.corpus.lexicalHit ?? null,
     lemmaBritfoneHit: lemmaLookup?.corpus.britfoneEntryHit ?? null,

@@ -113,11 +113,18 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     expectation: "As much as is needed; sound guidance should not treat ‘ough’ as regular.",
   },
   {
-    id: "because-runtime-pronunciation",
+    id: "rainbow-runtime-pronunciation",
+    group: "pattern",
+    word: "rainbow",
+    context: "We saw a bright rainbow after the rain.",
+    expectation: "Meaning may come from a fallback lexical provider, while the single British pronunciation should come from the full Britfone runtime and align cleanly with ai + ow.",
+  },
+  {
+    id: "because-runtime-variants",
     group: "pattern",
     word: "because",
     context: "I stayed inside because it was raining.",
-    expectation: "Meaning may come from a fallback lexical provider, but British pronunciation should be supplied by the full Britfone runtime rather than Datamuse/US-first evidence.",
+    expectation: "Britfone should report its multiple pronunciation variants, but Buddy should not guess between unlabeled variants until there is reviewed/context-aware evidence.",
   },
   {
     id: "choir",
