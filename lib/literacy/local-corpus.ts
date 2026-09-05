@@ -1,5 +1,9 @@
 import corpusJson from "@/data/lexicon/core.en-GB.v1.json";
 import { britfoneRuntimeManifest, lookupBritfonePronunciations } from "@/lib/literacy/britfone";
+import {
+  CURRICULUM_CORPUS_VERSION,
+  CURRICULUM_ENTRIES,
+} from "@/lib/literacy/curriculum-corpus";
 import { normaliseWord } from "@/lib/literacy/engine";
 import type { LexicalCandidate, LexicalRelation } from "@/lib/literacy/lexicon";
 
@@ -49,9 +53,12 @@ const NOUN_LEFT_CUES = new Set([
 
 const IPA_VOWEL = /[aeiouæɑɒɔəɛɜɪʊɐ]/;
 
-export const LOCAL_CORPUS_VERSION = corpus.version;
+export const LOCAL_CORPUS_VERSION = `${corpus.version}+${CURRICULUM_CORPUS_VERSION}`;
 export const LOCAL_CORPUS_LOCALE = corpus.locale;
-export const LOCAL_CORPUS_ENTRY_COUNT = Object.keys(corpus.entries).length;
+export const LOCAL_CORPUS_ENTRY_COUNT = new Set([
+  ...Object.keys(corpus.entries),
+  ...Object.keys(CURRICULUM_ENTRIES),
+]).size;
 
 export type LocalCorpusMetadata = {
   version: string;
@@ -120,13 +127,21 @@ export function lookupLocalCorpusWord(
   preferredPartOfSpeech?: string | null,
 ): LocalCorpusLookup {
   const word = normaliseWord(wordInput);
-  const entry = corpus.entries[word] ?? null;
+  const coreEntry = corpus.entries[word] ?? null;
+  const curriculumEntry = CURRICULUM_ENTRIES[word] ?? null;
   const contextPos = contextPartOfSpeech(word, context);
   const preferredPos = preferredPartOfSpeech ?? contextPos;
   const britfonePronunciations = lookupBritfonePronunciations(word);
   const britfoneManifest = britfoneRuntimeManifest();
 
-  const senses = entry?.senses ?? [];
+  // Curriculum senses are reviewed specifically for school-age reading, so
+  // they come before broad core senses for the same word. Common competing
+  // meanings live in the curriculum tier too, allowing the normal contextual
+  // ranker to choose rather than forcing a school meaning unconditionally.
+  const senses: CorpusSense[] = [
+    ...(curriculumEntry?.senses ?? []),
+    ...(coreEntry?.senses ?? []),
+  ];
   const candidates: LexicalCandidate[] = senses.map((sense, rank) => ({
     definition: sense.definition,
     example: sense.example,
@@ -137,7 +152,7 @@ export function lookupLocalCorpusWord(
     rank,
   }));
 
-  const reviewedPronunciation = choosePronunciation(entry?.pronunciations ?? [], preferredPos);
+  const reviewedPronunciation = choosePronunciation(coreEntry?.pronunciations ?? [], preferredPos);
 
   // Britfone contains some headwords with multiple pronunciations but does not
   // label those variants by part of speech. A reviewed core entry can resolve
@@ -154,12 +169,14 @@ export function lookupLocalCorpusWord(
     ?? reviewedPronunciation?.partOfSpeech
     ?? null;
 
+  const recognisedEntry = Boolean(coreEntry || curriculumEntry);
+
   return {
     word,
     // Pronunciation evidence alone must not make an OCR token a recognised
     // lexical word. Recognition still requires a reviewed local entry or one of
     // the definition-bearing fallback providers.
-    recognised: Boolean(entry),
+    recognised: recognisedEntry,
     candidates,
     pronunciation: {
       ipa,
@@ -167,11 +184,15 @@ export function lookupLocalCorpusWord(
       audio: null,
     },
     preferredPartOfSpeech: inferredPos,
-    headword: entry?.headword ? normaliseWord(entry.headword) : null,
+    headword: coreEntry?.headword
+      ? normaliseWord(coreEntry.headword)
+      : curriculumEntry?.headword
+        ? normaliseWord(curriculumEntry.headword)
+        : null,
     metadata: {
-      version: corpus.version,
+      version: LOCAL_CORPUS_VERSION,
       locale: corpus.locale,
-      entryHit: Boolean(entry),
+      entryHit: recognisedEntry,
       lexicalHit: candidates.length > 0,
       pronunciationHit: Boolean(ipa),
       pronunciationSource: ipa
@@ -186,11 +207,15 @@ export function lookupLocalCorpusWord(
 
 export function localCorpusManifest() {
   return {
-    version: corpus.version,
+    version: LOCAL_CORPUS_VERSION,
     locale: corpus.locale,
-    description: corpus.description,
+    description: `${corpus.description} Includes reviewed ${CURRICULUM_CORPUS_VERSION} school-age semantic coverage.`,
     entryCount: LOCAL_CORPUS_ENTRY_COUNT,
     pronunciationSource: corpus.pronunciationSource,
+    curriculumSemanticTier: {
+      version: CURRICULUM_CORPUS_VERSION,
+      entryCount: Object.keys(CURRICULUM_ENTRIES).length,
+    },
     britfoneRuntime: britfoneRuntimeManifest(),
   };
 }
