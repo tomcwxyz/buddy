@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { normaliseWord } from "@/lib/literacy/engine";
 
 type BritfoneIndex = Map<string, string[]>;
@@ -23,11 +24,12 @@ function loadBritfoneIndex() {
   loadAttempted = true;
 
   try {
-    // Resolve the packaged data file directly instead of requiring Britfone's
-    // index.js. Next can bundle that tiny CommonJS wrapper and rewrite its
-    // __dirname, which makes the wrapper point at the compiled API directory.
-    // A literal subpath lets Node/Next trace the actual package asset.
-    const dataPath = require.resolve("britfone/britfone.main.3.0.1.csv");
+    // Resolve a normal JS/JSON package asset first, then derive the CSV path.
+    // Requiring the CSV subpath directly makes webpack try to parse it as a
+    // JavaScript module. Keeping Britfone external preserves this native Node
+    // package path while Vercel's tracing rule carries the data file with it.
+    const packageJsonPath = require.resolve("britfone/package.json");
+    const dataPath = join(dirname(packageJsonPath), "britfone.main.3.0.1.csv");
     const source = readFileSync(dataPath, "utf8");
     const index: BritfoneIndex = new Map();
 
