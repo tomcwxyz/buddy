@@ -126,6 +126,14 @@ const DETERMINERS = new Set([
   "a", "an", "another", "any", "each", "every", "her", "his", "its", "my", "our", "some", "that", "the", "their", "these", "this", "those", "your",
 ]);
 
+const PLURAL_NOUN_QUANTIFIERS = new Set([
+  "all", "both", "few", "many", "most", "several",
+]);
+
+const PREPOSITIONS = new Set([
+  "about", "across", "after", "against", "along", "around", "at", "before", "behind", "below", "beneath", "beside", "between", "by", "down", "for", "from", "in", "into", "near", "of", "off", "on", "onto", "over", "past", "through", "to", "towards", "under", "up", "with", "without",
+]);
+
 // A subject pronoun immediately before a lexical word is strong, ordinary
 // sentence-structure evidence for a verb: “she carries”, “I object”, “they
 // record”. Keeping this separate from possessive determiners avoids treating
@@ -139,6 +147,23 @@ function looksLikeParticiple(word: string) {
     || (word.endsWith("ed") && word.length > 4);
 }
 
+function looksLikePluralForm(word: string) {
+  return word.length > 3 && word.endsWith("s") && !word.endsWith("ss");
+}
+
+function looksLikeFinitePastContext(word: string, tokens: string[], index: number) {
+  if (!word.endsWith("ed") || word.length <= 4 || index < 2) return false;
+
+  const left2 = normaliseWord(tokens[index - 2]);
+  if (!DETERMINERS.has(left2)) return false;
+
+  const right = index < tokens.length - 1 ? normaliseWord(tokens[index + 1]) : null;
+  return !right
+    || PREPOSITIONS.has(right)
+    || DETERMINERS.has(right)
+    || right.endsWith("ly");
+}
+
 function contextPartOfSpeech(word: string, context: string) {
   const tokens = context.toLocaleLowerCase("en-GB").match(/[a-z]+(?:['-][a-z]+)*/g) ?? [];
   const index = tokens.findIndex((token) => normaliseWord(token) === word);
@@ -148,6 +173,8 @@ function contextPartOfSpeech(word: string, context: string) {
   if (left === "to" || (left && VERB_AUXILIARIES.has(left))) return "verb" as const;
   if (left && SUBJECT_PRONOUNS.has(left)) return "verb" as const;
   if (left && COPULAR_BE.has(left) && looksLikeParticiple(word)) return "verb" as const;
+  if (left && PLURAL_NOUN_QUANTIFIERS.has(left) && looksLikePluralForm(word)) return "noun" as const;
+  if (looksLikeFinitePastContext(word, tokens, index)) return "verb" as const;
   if (left && DETERMINERS.has(left)) return "noun" as const;
   return null;
 }
