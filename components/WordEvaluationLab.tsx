@@ -44,8 +44,11 @@ type WordResult = {
     surfaceEntryHit: boolean;
     surfaceLexicalHit: boolean;
     surfacePronunciationHit: boolean;
+    surfaceBritfoneHit: boolean;
+    surfaceBritfoneVariants: number;
     lemmaEntryHit: boolean | null;
     lemmaLexicalHit: boolean | null;
+    lemmaBritfoneHit: boolean | null;
     remoteFallback: boolean;
     pronunciationSource: string | null;
   } | null;
@@ -125,6 +128,8 @@ export function WordEvaluationLab() {
     state.result?.corpus?.surfaceLexicalHit || state.result?.corpus?.lemmaLexicalHit,
   )).length;
   const britishPronunciations = ready.filter((state) => state.result?.corpus?.surfacePronunciationHit).length;
+  const britfoneCoverage = ready.filter((state) => state.result?.corpus?.surfaceBritfoneHit).length;
+  const ambiguousBritfone = ready.filter((state) => (state.result?.corpus?.surfaceBritfoneVariants ?? 0) > 1).length;
   const offlineReady = ready.filter((state) => state.result?.corpus && !state.result.corpus.remoteFallback).length;
 
   return (
@@ -141,7 +146,9 @@ export function WordEvaluationLab() {
           <span>{ready.length}/{WORD_EVAL_CASES.length} run</span>
           <span>{offlineReady} fully local</span>
           <span>{localMeanings} local meanings</span>
-          <span>{britishPronunciations} British pronunciations</span>
+          <span>{britfoneCoverage} in Britfone</span>
+          <span>{britishPronunciations} resolved British pronunciations</span>
+          {ambiguousBritfone > 0 && <span>{ambiguousBritfone} pronunciation variants need resolving</span>}
           <span>{lemmatised} resolved to a lemma</span>
           <span>{modelCalls} model-assisted</span>
           <span>{unrecognised} treated as uncertain</span>
@@ -245,6 +252,9 @@ export function WordEvaluationLab() {
                         {result.corpus && <span>corpus: {result.corpus.version} ({result.corpus.locale})</span>}
                         {result.corpus?.surfaceLexicalHit && <span>local surface meaning: yes</span>}
                         {result.corpus?.lemmaLexicalHit && <span>local lemma meaning: yes</span>}
+                        {result.corpus?.surfaceBritfoneHit && (
+                          <span>Britfone runtime: {result.corpus.surfaceBritfoneVariants} variant{result.corpus.surfaceBritfoneVariants === 1 ? "" : "s"}</span>
+                        )}
                         {result.corpus?.surfacePronunciationHit && (
                           <span>British pronunciation: {result.corpus.pronunciationSource ?? "local"}</span>
                         )}
