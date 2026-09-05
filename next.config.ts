@@ -1,13 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Britfone exposes data files via a tiny CommonJS wrapper that depends on
-  // package-local __dirname. Keep the package external on the server so Node
-  // resolves it from node_modules rather than bundling that wrapper into the
-  // API route.
-  serverExternalPackages: ["britfone"],
+  // Britfone and WordNet expose package-local data files that should stay on
+  // the Node server side. Keeping them external avoids bundling large lexical
+  // datasets into application code and preserves their native filesystem paths.
+  serverExternalPackages: ["britfone", "wordnet-db"],
   outputFileTracingIncludes: {
-    "/api/word": ["./node_modules/britfone/**/*"],
+    "/api/word": [
+      "./node_modules/britfone/**/*",
+      "./node_modules/wordnet-db/**/*",
+    ],
   },
 };
 
