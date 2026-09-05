@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.04.1",
+  "version": "2026.09.05.1",
   "locale": "en-GB",
   "description": "Buddy-authored child-friendly core senses with a pinned British pronunciation evidence layer.",
   "pronunciationSource": {
@@ -77,6 +77,21 @@
           "example": "We can record the birdsong and listen to it later."
         }
       ]
+    },
+    "subject": {
+      "pronunciations": [
+        { "partOfSpeech": "noun", "ipa": "s ˈɐ b dʒ ɪ k t" },
+        { "partOfSpeech": "adjective", "ipa": "s ˈɐ b dʒ ɪ k t" },
+        { "partOfSpeech": "verb", "ipa": "s ə b dʒ ˈɛ k t" }
+      ],
+      "senses": []
+    },
+    "object": {
+      "pronunciations": [
+        { "partOfSpeech": "noun", "ipa": "ˈɒ b dʒ ɛ k t" },
+        { "partOfSpeech": "verb", "ipa": "ə b dʒ ˈɛ k t" }
+      ],
+      "senses": []
     },
     "sold": {
       "headword": "sell",

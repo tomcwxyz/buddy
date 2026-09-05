@@ -1,6 +1,10 @@
 import { reviewedCommonCandidates } from "@/lib/literacy/curated-lexicon";
 import { getCuratedWordSupport, normaliseWord } from "@/lib/literacy/engine";
-import type { LexicalCandidate, LexicalRelation } from "@/lib/literacy/lexicon";
+import {
+  normalisePartOfSpeech,
+  type LexicalCandidate,
+  type LexicalRelation,
+} from "@/lib/literacy/lexicon";
 import { lookupLocalCorpusWord } from "@/lib/literacy/local-corpus";
 import type { LexicalLookupBundle } from "@/lib/literacy/lexical-providers";
 import { lookupWordNetWord } from "@/lib/literacy/wordnet";
@@ -19,6 +23,15 @@ function literacyCuratedCandidate(word: string, relation: LexicalRelation): Lexi
   };
 }
 
+function consensusPartOfSpeech(candidates: LexicalCandidate[]) {
+  const partsOfSpeech = new Set(
+    candidates
+      .map((candidate) => normalisePartOfSpeech(candidate.partOfSpeech))
+      .filter((value): value is string => Boolean(value)),
+  );
+  return partsOfSpeech.size === 1 ? [...partsOfSpeech][0] : null;
+}
+
 /**
  * Build the same lexical bundle as the normal provider pipeline, but from
  * deterministic local evidence only. This is intentionally separate from the
@@ -32,18 +45,36 @@ export function lookupLocalLexicalWord(
   preferredPartOfSpeech?: string | null,
 ): LexicalLookupBundle {
   const word = normaliseWord(wordInput);
-  const local = lookupLocalCorpusWord(word, context, relation, preferredPartOfSpeech);
+  const initialLocal = lookupLocalCorpusWord(word, context, relation, preferredPartOfSpeech);
   const literacyCurated = literacyCuratedCandidate(word, relation);
   const reviewedCommon = reviewedCommonCandidates(word, relation);
   const curatedCandidates = [
     ...reviewedCommon,
     ...(literacyCurated ? [literacyCurated] : []),
   ];
-  const wordnet = lookupWordNetWord(
+
+  const initialWordnet = lookupWordNetWord(
     word,
     relation,
-    preferredPartOfSpeech ?? local.preferredPartOfSpeech,
+    preferredPartOfSpeech ?? initialLocal.preferredPartOfSpeech,
   );
+  const curatedPartOfSpeech = consensusPartOfSpeech(curatedCandidates);
+  const semanticPartOfSpeech = preferredPartOfSpeech
+    ?? initialLocal.preferredPartOfSpeech
+    ?? curatedPartOfSpeech
+    ?? initialWordnet.preferredPartOfSpeech;
+
+  // Some Britfone headwords have multiple stress patterns because the noun and
+  // verb are pronounced differently. Once reviewed/local semantics give us an
+  // unambiguous part of speech, ask the core pronunciation layer again with
+  // that evidence rather than falling through to a generic remote dictionary.
+  const local = semanticPartOfSpeech && semanticPartOfSpeech !== initialLocal.preferredPartOfSpeech
+    ? lookupLocalCorpusWord(word, context, relation, semanticPartOfSpeech)
+    : initialLocal;
+  const wordnet = semanticPartOfSpeech && semanticPartOfSpeech !== initialWordnet.preferredPartOfSpeech
+    ? lookupWordNetWord(word, relation, semanticPartOfSpeech)
+    : initialWordnet;
+
   const candidates = [
     ...local.candidates,
     ...curatedCandidates,
@@ -63,7 +94,7 @@ export function lookupLocalLexicalWord(
     recognised,
     candidates,
     pronunciation: local.pronunciation,
-    preferredPartOfSpeech: local.preferredPartOfSpeech ?? wordnet.preferredPartOfSpeech,
+    preferredPartOfSpeech: semanticPartOfSpeech ?? wordnet.preferredPartOfSpeech,
     headword: local.headword,
     possibleSpelling: null,
     providers,
