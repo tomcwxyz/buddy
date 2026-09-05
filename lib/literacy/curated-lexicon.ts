@@ -141,6 +141,110 @@ const REVIEWED_COMMON_SENSES: Record<string, ReviewedSense[]> = {
       rank: 0,
     },
   ],
+  coach: [
+    {
+      partOfSpeech: "noun",
+      definition: "A person who teaches or trains a player or team in a sport.",
+      example: "The football coach showed us how to pass the ball.",
+      rank: 0,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "A large bus used for longer journeys.",
+      example: "We travelled to the museum by coach.",
+      rank: 1,
+    },
+    {
+      partOfSpeech: "verb",
+      definition: "To teach, train or help someone improve at an activity.",
+      example: "She helps coach the school football team.",
+      rank: 0,
+    },
+  ],
+  club: [
+    {
+      partOfSpeech: "noun",
+      definition: "A group of people who meet because they share an activity or interest.",
+      example: "I go to the chess club after school on Tuesdays.",
+      rank: 0,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "A sports team or organisation whose members play or compete together.",
+      example: "The football club trains at the ground twice a week.",
+      rank: 1,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "A heavy stick used for hitting.",
+      example: "The old picture showed a wooden club beside the shield.",
+      rank: 2,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "One of the four suits in playing cards, shown by a black three-leaf shape.",
+      example: "She picked up the queen of clubs from the cards.",
+      rank: 3,
+    },
+  ],
+  pitch: [
+    {
+      partOfSpeech: "noun",
+      definition: "An area of ground marked out for playing a sport such as football or cricket.",
+      example: "The players ran onto the football pitch before the match.",
+      rank: 0,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "How high or low a sound seems.",
+      example: "The singer changed the pitch of the note from low to high.",
+      rank: 1,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "A short talk or presentation meant to persuade someone about an idea.",
+      example: "The group gave a short pitch for their project idea.",
+      rank: 2,
+    },
+    {
+      partOfSpeech: "verb",
+      definition: "To throw something through the air.",
+      example: "He pitched the ball gently towards his friend.",
+      rank: 0,
+    },
+    {
+      partOfSpeech: "verb",
+      definition: "To put up and prepare a tent for use.",
+      example: "We pitched the tent on a flat patch of grass.",
+      rank: 1,
+    },
+  ],
+  board: [
+    {
+      partOfSpeech: "noun",
+      definition: "A flat surface used for writing, drawing or displaying information.",
+      example: "The teacher wrote the answer on the board.",
+      rank: 0,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "A long, flat piece of wood or another stiff material.",
+      example: "We laid a wooden board across the gap.",
+      rank: 1,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "A group of people who meet to make decisions for an organisation.",
+      example: "The board met to decide the charity's plans for the year.",
+      rank: 2,
+    },
+    {
+      partOfSpeech: "verb",
+      definition: "To get onto a bus, train, ship or aircraft for a journey.",
+      example: "We waited for our turn to board the train.",
+      rank: 0,
+    },
+  ],
 };
 
 export function reviewedCommonCandidates(
