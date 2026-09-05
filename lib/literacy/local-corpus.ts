@@ -39,6 +39,10 @@ const VERB_LEFT_CUES = new Set([
   "can", "could", "did", "do", "does", "may", "might", "must", "please", "shall", "should", "to", "will", "would",
 ]);
 
+const SUBJECT_PRONOUNS = new Set([
+  "he", "i", "it", "she", "they", "we", "you",
+]);
+
 const NOUN_LEFT_CUES = new Set([
   "a", "an", "another", "any", "each", "every", "her", "his", "its", "my", "our", "some", "that", "the", "their", "these", "this", "those", "your",
 ]);
@@ -82,6 +86,7 @@ function contextPartOfSpeech(word: string, context: string) {
 
   const left = index > 0 ? normaliseWord(tokens[index - 1]) : null;
   if (left && VERB_LEFT_CUES.has(left)) return "verb";
+  if (left && SUBJECT_PRONOUNS.has(left)) return "verb";
   if (left && NOUN_LEFT_CUES.has(left)) return "noun";
   return null;
 }
