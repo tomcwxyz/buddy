@@ -95,6 +95,19 @@ const IRREGULAR_FORMS: Record<string, IrregularForm> = {
   won: { lemma: "win", partOfSpeech: "verb", form: "past tense / past participle", confidence: "high" },
   wrote: { lemma: "write", partOfSpeech: "verb", form: "past tense", confidence: "high" },
   written: { lemma: "write", partOfSpeech: "verb", form: "past participle", confidence: "high" },
+
+  // Common irregular noun plurals are deterministic morphology, not a reason
+  // to query the network. Keeping them here lets the same local lemma validator
+  // used for regular suffixes resolve their meaning while pronunciation remains
+  // attached to the printed plural form.
+  children: { lemma: "child", partOfSpeech: "noun", form: "plural", confidence: "high" },
+  feet: { lemma: "foot", partOfSpeech: "noun", form: "plural", confidence: "high" },
+  geese: { lemma: "goose", partOfSpeech: "noun", form: "plural", confidence: "high" },
+  men: { lemma: "man", partOfSpeech: "noun", form: "plural", confidence: "high" },
+  mice: { lemma: "mouse", partOfSpeech: "noun", form: "plural", confidence: "high" },
+  people: { lemma: "person", partOfSpeech: "noun", form: "plural", confidence: "high" },
+  teeth: { lemma: "tooth", partOfSpeech: "noun", form: "plural", confidence: "high" },
+  women: { lemma: "woman", partOfSpeech: "noun", form: "plural", confidence: "high" },
 };
 
 // Copular forms of “be” are deliberately not treated as generic verb cues.

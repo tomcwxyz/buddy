@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.05.2",
+  "version": "2026.09.05.3",
   "locale": "en-GB",
   "description": "Buddy-authored child-friendly core senses with a pinned British pronunciation evidence layer.",
   "pronunciationSource": {
@@ -306,6 +306,134 @@
           "partOfSpeech": "noun",
           "definition": "A lucky or useful discovery made by chance.",
           "example": "Finding the hidden beach by accident was serendipity."
+        }
+      ]
+    },
+    "right": {
+      "senses": [
+        {
+          "partOfSpeech": "adjective",
+          "definition": "Correct or true.",
+          "example": "Your answer is right, so move on to the next question."
+        },
+        {
+          "partOfSpeech": "noun",
+          "definition": "The direction or side opposite left.",
+          "example": "Turn right at the end of the road."
+        }
+      ]
+    },
+    "mean": {
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "In maths, an average found by adding the numbers and dividing by how many numbers there are.",
+          "example": "The mean of 4, 6 and 8 is 6."
+        },
+        {
+          "partOfSpeech": "verb",
+          "definition": "To intend or want something to happen.",
+          "example": "I did not mean to knock over your drink."
+        }
+      ]
+    },
+    "kind": {
+      "senses": [
+        {
+          "partOfSpeech": "adjective",
+          "definition": "Caring and helpful towards other people.",
+          "example": "It was kind of Sam to help the new pupil."
+        },
+        {
+          "partOfSpeech": "noun",
+          "definition": "A type or sort of thing.",
+          "example": "What kind of animal is a dolphin?"
+        }
+      ]
+    },
+    "factor": {
+      "senses": [
+        {
+          "partOfSpeech": "noun",
+          "definition": "In maths, a number that divides another number exactly with no remainder.",
+          "example": "Three is a factor of twelve."
+        },
+        {
+          "partOfSpeech": "noun",
+          "definition": "One of the things that helps cause or affect a result.",
+          "example": "Weather was one factor in deciding where to hold the event."
+        }
+      ]
+    },
+    "although": {
+      "senses": [
+        {
+          "partOfSpeech": "conjunction",
+          "definition": "Used to show that something is true even though another fact might make it seem surprising.",
+          "example": "Although it was raining, we still went for a walk."
+        }
+      ]
+    },
+    "however": {
+      "senses": [
+        {
+          "partOfSpeech": "adverb",
+          "definition": "Used to introduce an idea that contrasts with what was just said.",
+          "example": "The first route was shorter; however, the second was safer."
+        }
+      ]
+    },
+    "therefore": {
+      "senses": [
+        {
+          "partOfSpeech": "adverb",
+          "definition": "For that reason; used to show a result or conclusion.",
+          "example": "The path was flooded, therefore we took another route."
+        }
+      ]
+    },
+    "unless": {
+      "senses": [
+        {
+          "partOfSpeech": "conjunction",
+          "definition": "Except if something happens or is true.",
+          "example": "You cannot enter unless you have a ticket."
+        }
+      ]
+    },
+    "between": {
+      "senses": [
+        {
+          "partOfSpeech": "preposition",
+          "definition": "In the space that separates two people, places or things.",
+          "example": "The ball rolled between the two chairs."
+        }
+      ]
+    },
+    "during": {
+      "senses": [
+        {
+          "partOfSpeech": "preposition",
+          "definition": "At some time within an event or period of time.",
+          "example": "We stayed indoors during the storm."
+        }
+      ]
+    },
+    "without": {
+      "senses": [
+        {
+          "partOfSpeech": "preposition",
+          "definition": "Not having, using or doing something.",
+          "example": "She finished the puzzle without any help."
+        }
+      ]
+    },
+    "towards": {
+      "senses": [
+        {
+          "partOfSpeech": "preposition",
+          "definition": "In the direction of someone or something.",
+          "example": "The dog ran towards the gate."
         }
       ]
     }
