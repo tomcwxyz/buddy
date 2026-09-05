@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "@phosphor-icons/react/dist/ssr";
+import { RecentWordRegressionPack } from "@/components/RecentWordRegressionPack";
 import { WordEvaluationLab } from "@/components/WordEvaluationLab";
 
 export default function WordLabPage() {
@@ -13,6 +14,7 @@ export default function WordLabPage() {
       </header>
       <main className="main">
         <WordEvaluationLab />
+        <RecentWordRegressionPack />
       </main>
     </div>
   );
