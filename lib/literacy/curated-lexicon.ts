@@ -245,6 +245,170 @@ const REVIEWED_COMMON_SENSES: Record<string, ReviewedSense[]> = {
       rank: 0,
     },
   ],
+  volume: [
+    {
+      partOfSpeech: "noun",
+      definition: "How loud or quiet a sound is.",
+      example: "Turn the volume down because the music is too loud.",
+      rank: 0,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "The amount of three-dimensional space that something takes up.",
+      example: "We calculated the volume of the box in cubic centimetres.",
+      rank: 1,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "One book in a set or series of books.",
+      example: "The second volume of the history series is about the Romans.",
+      rank: 2,
+    },
+  ],
+  sentence: [
+    {
+      partOfSpeech: "noun",
+      definition: "A group of words that expresses a complete idea, usually beginning with a capital letter and ending with punctuation.",
+      example: "Write one sentence that uses the word because.",
+      rank: 0,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "A punishment decided by a court for someone who has broken the law.",
+      example: "The judge explained the sentence the court had decided.",
+      rank: 1,
+    },
+    {
+      partOfSpeech: "verb",
+      definition: "For a court or judge to decide what punishment someone will receive.",
+      example: "The judge will sentence the person after hearing the case.",
+      rank: 0,
+    },
+  ],
+  subject: [
+    {
+      partOfSpeech: "noun",
+      definition: "An area of learning studied at school, such as maths, science or history.",
+      example: "Maths is my favourite subject at school.",
+      rank: 0,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "The topic or thing that someone is talking, writing or learning about.",
+      example: "The subject of the book is life in the ocean.",
+      rank: 1,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "In grammar, the person or thing that does or is something in a sentence.",
+      example: "In ‘The dog ran’, the dog is the subject of the sentence.",
+      rank: 2,
+    },
+    {
+      partOfSpeech: "adjective",
+      definition: "Likely or able to be changed, affected or controlled by something else.",
+      example: "The trip is subject to change if the weather becomes unsafe.",
+      rank: 0,
+    },
+    {
+      partOfSpeech: "verb",
+      definition: "To make someone or something experience or go through something.",
+      example: "The test should not subject the material to more heat than it can safely take.",
+      rank: 0,
+    },
+  ],
+  object: [
+    {
+      partOfSpeech: "noun",
+      definition: "A thing that you can see or touch.",
+      example: "Choose one object from the table and describe its shape.",
+      rank: 0,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "In grammar, the person or thing that receives the action of a verb.",
+      example: "In ‘Mia kicked the ball’, the ball is the object.",
+      rank: 1,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "The purpose, aim or thing someone is trying to achieve.",
+      example: "The object of the game is to reach the finish first.",
+      rank: 2,
+    },
+    {
+      partOfSpeech: "verb",
+      definition: "To say that you disagree with or oppose something.",
+      example: "I object to changing the rules halfway through the game.",
+      rank: 0,
+    },
+  ],
+  scale: [
+    {
+      partOfSpeech: "noun",
+      definition: "On a map or drawing, the relationship between a measured distance and the real distance it represents.",
+      example: "Use the map scale to work out how far apart the towns are.",
+      rank: 0,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "A set of numbers or levels used for measuring or comparing something.",
+      example: "Rate the pain on a scale from zero to ten.",
+      rank: 1,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "A small, thin plate that covers part of the skin of a fish or reptile.",
+      example: "Each silver scale on the fish reflected the light.",
+      rank: 2,
+    },
+    {
+      partOfSpeech: "verb",
+      definition: "To climb up something steep or high.",
+      example: "The climbers began to scale the rock face carefully.",
+      rank: 0,
+    },
+    {
+      partOfSpeech: "verb",
+      definition: "To change the size of something while keeping its proportions.",
+      example: "Scale the drawing up so it fills the page without changing its shape.",
+      rank: 1,
+    },
+  ],
+  pupil: [
+    {
+      partOfSpeech: "noun",
+      definition: "A child or young person who is learning at a school.",
+      example: "The pupil finished her maths work before lunch.",
+      rank: 0,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "The dark opening in the centre of the eye that lets light in.",
+      example: "The doctor shone a light and looked at the pupil of my eye.",
+      rank: 1,
+    },
+  ],
+  cell: [
+    {
+      partOfSpeech: "noun",
+      definition: "The smallest basic unit that makes up living things such as plants and animals.",
+      example: "A cell is a tiny living unit that makes up plants and animals.",
+      rank: 0,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "A small room, especially one used to hold a prisoner.",
+      example: "The old prison cell had a narrow bed and a heavy door.",
+      rank: 1,
+    },
+    {
+      partOfSpeech: "noun",
+      definition: "A single unit in a battery that produces electrical energy.",
+      example: "The torch uses two cells to provide electrical energy.",
+      rank: 2,
+    },
+  ],
 };
 
 export function reviewedCommonCandidates(
