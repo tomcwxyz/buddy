@@ -170,12 +170,21 @@ function contextPartOfSpeech(word: string, context: string) {
   if (index < 0) return null;
 
   const left = index > 0 ? normaliseWord(tokens[index - 1]) : null;
+  const right = index < tokens.length - 1 ? normaliseWord(tokens[index + 1]) : null;
   if (left === "to" || (left && VERB_AUXILIARIES.has(left))) return "verb" as const;
   if (left && SUBJECT_PRONOUNS.has(left)) return "verb" as const;
   if (left && COPULAR_BE.has(left) && looksLikeParticiple(word)) return "verb" as const;
   if (left && PLURAL_NOUN_QUANTIFIERS.has(left) && looksLikePluralForm(word)) return "noun" as const;
   if (looksLikeFinitePastContext(word, tokens, index)) return "verb" as const;
-  if (left && DETERMINERS.has(left)) return "noun" as const;
+  if (left && DETERMINERS.has(left)) {
+    // A determiner usually signals a noun, but `the painted wall` and `the
+    // running water` are common adjective/participle constructions. When an
+    // -ed/-ing target is followed by another lexical token, leave POS open so
+    // the surface dictionary evidence can decide rather than forcing a noun or
+    // prematurely validating a verb lemma.
+    if (right && looksLikeParticiple(word)) return null;
+    return "noun" as const;
+  }
   return null;
 }
 
