@@ -32,6 +32,14 @@ function consensusPartOfSpeech(candidates: LexicalCandidate[]) {
   return partsOfSpeech.size === 1 ? [...partsOfSpeech][0] : null;
 }
 
+function candidatesForPartOfSpeech(candidates: LexicalCandidate[], partOfSpeech?: string | null) {
+  const preferred = normalisePartOfSpeech(partOfSpeech ?? null);
+  if (!preferred) return candidates;
+  return candidates.filter(
+    (candidate) => normalisePartOfSpeech(candidate.partOfSpeech) === preferred,
+  );
+}
+
 /**
  * Build the same lexical bundle as the normal provider pipeline, but from
  * deterministic local evidence only. This is intentionally separate from the
@@ -75,18 +83,31 @@ export function lookupLocalLexicalWord(
     ? lookupWordNetWord(word, relation, semanticPartOfSpeech)
     : initialWordnet;
 
+  // When the caller has explicit grammatical POS evidence, do not let a
+  // different-POS WordNet surface entry block morphology resolution. This is
+  // especially important for inflected forms that also happen to exist as an
+  // adjective, such as `stopped`: in “the bus stopped beside the school” the
+  // verb cue should allow `stopped → stop` to be validated locally instead of
+  // accepting WordNet's adjective sense “blocked”. If no explicit POS was
+  // supplied, preserve WordNet's normal broad evidence.
+  const wordnetCandidates = preferredPartOfSpeech
+    ? candidatesForPartOfSpeech(wordnet.candidates, preferredPartOfSpeech)
+    : wordnet.candidates;
+  const wordnetRecognised = wordnet.recognised
+    && (!preferredPartOfSpeech || wordnetCandidates.length > 0);
+
   const candidates = [
     ...local.candidates,
     ...curatedCandidates,
-    ...wordnet.candidates,
+    ...wordnetCandidates,
   ];
   const curatedMeaningHit = curatedCandidates.length > 0;
-  const recognised = local.recognised || curatedMeaningHit || wordnet.recognised;
+  const recognised = local.recognised || curatedMeaningHit || wordnetRecognised;
   const providers: string[] = [];
 
   if (local.metadata.entryHit) providers.push("buddy-corpus");
   if (curatedMeaningHit) providers.push("buddy-curated");
-  if (wordnet.recognised) providers.push("wordnet");
+  if (wordnetRecognised) providers.push("wordnet");
   if (local.metadata.britfoneEntryHit && !local.metadata.entryHit) providers.push("britfone");
 
   return {
