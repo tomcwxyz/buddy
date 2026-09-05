@@ -14,6 +14,17 @@ The benchmark currently spans five evidence groups:
 
 The source cases live in `lib/literacy/coverage-cases.ts`. They are intentionally separate from the smaller regression suite: a coverage failure is a discovery signal, not proof that the resolver should gain a one-off special case.
 
+## Reviewed curriculum semantic tier
+
+The first broad runs showed a repeated pattern: WordNet often recognises a school word and supplies a technically valid definition, but its primary sense or wording is not the meaning a pupil is most likely to need in classroom reading. Examples included `term`, `class`, `field`, `product`, `force`, `mass`, `matter` and `decimal`.
+
+`lib/literacy/curriculum-corpus.ts` is a small reviewed semantic tier for this class of failure. It currently covers the school-vocabulary benchmark across maths, science and general classroom language. The tier follows two rules:
+
+- definitions should be short enough to help a child continue reading without replacing the surrounding teaching;
+- ambiguous words keep ordinary competing meanings alongside the curriculum sense, so sentence context still decides. For example, `product` retains both the multiplication result and an item that is made or sold, while `matter` retains both physical material and the verb meaning “to be important”.
+
+These entries are merged into the local lexical corpus before WordNet. Britfone remains the pronunciation source unless a reviewed pronunciation is required, and the existing OCR recognition rule is unchanged: pronunciation evidence by itself never proves that an OCR token is a real word.
+
 ## How to read the results
 
 The benchmark tracks:
