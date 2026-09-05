@@ -64,6 +64,13 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     expectation: "A verb meaning to capture or store sound or information, not a best result.",
   },
   {
+    id: "mountain-primary-sense",
+    group: "context",
+    word: "mountain",
+    context: "We climbed the mountain and looked across the valley.",
+    expectation: "The physical landform sense. A quoted example on the less-common ‘a mountain of…’ sense must not outweigh WordNet's primary sense ordering by itself.",
+  },
+  {
     id: "sold-verb",
     group: "irregular",
     word: "sold",
@@ -120,11 +127,11 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     expectation: "Meaning should resolve from local WordNet evidence and British pronunciation from Britfone, with no live lexical fallback needed.",
   },
   {
-    id: "planet-local-semantics",
+    id: "planet-curated-current-meaning",
     group: "pattern",
     word: "planet",
     context: "Mars is a planet that travels around the Sun.",
-    expectation: "A broad everyday word outside Buddy's reviewed seed should be recognised from local WordNet semantics rather than requiring a live dictionary lookup.",
+    expectation: "Buddy's reviewed child-friendly meaning should outrank WordNet's outdated ‘nine planets’ wording while local Britfone still supplies pronunciation.",
   },
   {
     id: "because-curated-meaning",
