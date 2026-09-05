@@ -1,3 +1,4 @@
+import { reviewedCommonCandidates } from "@/lib/literacy/curated-lexicon";
 import { getCuratedWordSupport, normaliseWord } from "@/lib/literacy/engine";
 import {
   normalisePartOfSpeech,
@@ -200,7 +201,7 @@ function plausibleSuggestion(word: string, candidate?: string) {
   return editDistance(word, suggestion) <= maximumDistance ? suggestion : null;
 }
 
-function curatedCandidate(word: string, relation: LexicalRelation): LexicalCandidate | null {
+function literacyCuratedCandidate(word: string, relation: LexicalRelation): LexicalCandidate | null {
   const support = getCuratedWordSupport(word);
   if (!support?.meaning) return null;
   return {
@@ -222,7 +223,12 @@ export async function lookupLexicalWord(
 ): Promise<LexicalLookupBundle> {
   const word = normaliseWord(wordInput);
   const local = lookupLocalCorpusWord(word, context, relation, preferredPartOfSpeech);
-  const curated = curatedCandidate(word, relation);
+  const literacyCurated = literacyCuratedCandidate(word, relation);
+  const reviewedCommon = reviewedCommonCandidates(word, relation);
+  const curatedCandidates = [
+    ...reviewedCommon,
+    ...(literacyCurated ? [literacyCurated] : []),
+  ];
   const wordnet = lookupWordNetWord(
     word,
     relation,
@@ -230,16 +236,17 @@ export async function lookupLexicalWord(
   );
   const localCandidates = [
     ...local.candidates,
-    ...(curated ? [curated] : []),
+    ...curatedCandidates,
     ...wordnet.candidates,
   ];
-  const localRecognised = local.recognised || Boolean(curated) || wordnet.recognised;
+  const curatedMeaningHit = curatedCandidates.length > 0;
+  const localRecognised = local.recognised || curatedMeaningHit || wordnet.recognised;
   const localHasMeaningRoute = localCandidates.length > 0 || Boolean(local.headword);
   const needsSurfacePronunciation = relation === "surface" && !local.pronunciation.ipa;
   const remoteFallback = !localRecognised || !localHasMeaningRoute || needsSurfacePronunciation;
   const corpusMetadata = {
     ...local.metadata,
-    curatedMeaningHit: Boolean(curated),
+    curatedMeaningHit,
     wordnetAvailable: wordnet.metadata.available,
     wordnetVersion: wordnet.metadata.version,
     wordnetEntryHit: wordnet.metadata.entryHit,
@@ -250,7 +257,7 @@ export async function lookupLexicalWord(
   if (!remoteFallback) {
     const providers: string[] = [];
     if (local.metadata.entryHit) providers.push("buddy-corpus");
-    if (curated) providers.push("buddy-curated");
+    if (curatedMeaningHit) providers.push("buddy-curated");
     if (wordnet.recognised) providers.push("wordnet");
     if (local.metadata.britfoneEntryHit && !local.metadata.entryHit) providers.push("britfone");
 
@@ -304,7 +311,7 @@ export async function lookupLexicalWord(
   let wiktionary: WiktionaryPayload = {};
   const providers: string[] = [];
   if (local.metadata.entryHit) providers.push("buddy-corpus");
-  if (curated) providers.push("buddy-curated");
+  if (curatedMeaningHit) providers.push("buddy-curated");
   if (wordnet.recognised) providers.push("wordnet");
   if (local.metadata.britfoneEntryHit && !local.metadata.entryHit) providers.push("britfone");
 

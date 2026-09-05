@@ -162,12 +162,16 @@ function definitionQualityPenalty(definition: string, morphology: MorphologyAnal
   return penalty;
 }
 
-function senseRankBonus(rank: number) {
-  // Dictionary order is useful weak evidence. WordNet's sense order is itself
-  // estimated from semantically tagged corpus frequency where available, so
-  // preserving rank gives Buddy a local common-sense prior without overpowering
-  // grammatical or sentence context.
-  return Math.max(0, 6 - Math.min(Math.max(rank, 0), 6));
+function senseRankBonus(rank: number, source: LexicalSource) {
+  const safeRank = Math.min(Math.max(rank, 0), 6);
+
+  // WordNet's ordering carries explicit (although sparse) corpus-frequency
+  // evidence. Give adjacent WordNet senses enough separation that a quoted
+  // example cannot, by itself, promote a less common metaphorical sense above
+  // sense 1. Sentence overlap and grammatical evidence can still override it.
+  if (source === "wordnet") return Math.max(0, 8 - safeRank * 2);
+
+  return Math.max(0, 6 - safeRank);
 }
 
 export function chooseLexicalSense(
@@ -199,7 +203,7 @@ export function chooseLexicalSense(
       const discouragedPenalty = discouraged.test(definition) ? -14 : 0;
       const inflectionPenalty = isInflectionDefinition(definition) ? -8 : 0;
       const qualityPenalty = definitionQualityPenalty(definition, morphology, item.lookupWord);
-      const rankBonus = senseRankBonus(item.rank);
+      const rankBonus = senseRankBonus(item.rank, item.source);
       const sourceScore = SOURCE_SCORE[item.source];
 
       return {

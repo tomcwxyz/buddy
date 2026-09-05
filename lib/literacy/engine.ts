@@ -54,6 +54,12 @@ const CURATED: Record<string, Omit<WordSupport, "word" | "source">> = {
     meaning: "More than one person.",
     example: "Lots of people came to the park.",
   },
+  planet: {
+    chunks: ["planet"],
+    clue: "Hear the whole word once, then look across the letters from left to right.",
+    meaning: "A large, round object in space that travels around a star. Earth is a planet.",
+    example: "Mars is a planet that travels around the Sun.",
+  },
   adventure: {
     chunks: ["ad", "venture"],
     clue: "The ending ‘venture’ is a useful chunk to spot.",
