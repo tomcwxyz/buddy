@@ -1,5 +1,5 @@
 import corpusJson from "@/data/lexicon/core.en-GB.v1.json";
-import { lookupBritfonePronunciations } from "@/lib/literacy/britfone";
+import { britfoneRuntimeManifest, lookupBritfonePronunciations } from "@/lib/literacy/britfone";
 import { normaliseWord } from "@/lib/literacy/engine";
 import type { LexicalCandidate, LexicalRelation } from "@/lib/literacy/lexicon";
 
@@ -58,6 +58,7 @@ export type LocalCorpusMetadata = {
   pronunciationSource: string | null;
   britfoneEntryHit: boolean;
   britfoneVariantCount: number;
+  britfoneRuntimeEntryCount: number;
 };
 
 export type LocalCorpusLookup = {
@@ -118,6 +119,7 @@ export function lookupLocalCorpusWord(
   const contextPos = contextPartOfSpeech(word, context);
   const preferredPos = preferredPartOfSpeech ?? contextPos;
   const britfonePronunciations = lookupBritfonePronunciations(word);
+  const britfoneManifest = britfoneRuntimeManifest();
 
   const senses = entry?.senses ?? [];
   const candidates: LexicalCandidate[] = senses.map((sense, rank) => ({
@@ -172,6 +174,7 @@ export function lookupLocalCorpusWord(
         : null,
       britfoneEntryHit: britfonePronunciations.length > 0,
       britfoneVariantCount: britfonePronunciations.length,
+      britfoneRuntimeEntryCount: britfoneManifest.entryCount,
     },
   };
 }
@@ -183,5 +186,6 @@ export function localCorpusManifest() {
     description: corpus.description,
     entryCount: LOCAL_CORPUS_ENTRY_COUNT,
     pronunciationSource: corpus.pronunciationSource,
+    britfoneRuntime: britfoneRuntimeManifest(),
   };
 }
