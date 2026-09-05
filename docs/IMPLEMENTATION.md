@@ -12,7 +12,8 @@ Buddy treats visual language, verbal language, learning memory and multi-surface
 - `components/BottomNav.tsx` — deliberately small child navigation.
 - `components/ReadingCompanion.tsx` — end-to-end reading interaction.
 - `lib/literacy/morphology.ts` — resolves common inflected printed forms into likely lemmas and grammatical forms.
-- `lib/literacy/local-corpus.ts` — versioned local `en-GB` lexical and pronunciation evidence.
+- `lib/literacy/britfone.ts` — lazy server-side index over the full Britfone 3.0.1 British pronunciation dictionary.
+- `lib/literacy/local-corpus.ts` — versioned local `en-GB` lexical evidence plus reviewed/broad British pronunciation resolution.
 - `lib/literacy/lexical-providers.ts` — local-first resolver with remote long-tail fallbacks.
 - `lib/literacy/lexicon.ts` — candidate normalisation, sense ranking and source attribution.
 - `lib/literacy/sound-map.ts` — child-friendly spelling/sound observations.
@@ -30,8 +31,8 @@ The alpha now supports:
 4. word bounding boxes rendered as tappable regions over the captured page;
 5. a targeted second OCR pass when a user taps a word the full-page pass missed;
 6. morphology/lemma analysis for the printed word;
-7. local `en-GB` lexical and British-English pronunciation lookup;
-8. remote Wiktionary, DictionaryAPI.dev and Datamuse fallback when the local entry is missing or incomplete;
+7. local `en-GB` lexical lookup plus full British-English pronunciation lookup from the reviewed core and Britfone runtime;
+8. remote Wiktionary, DictionaryAPI.dev and Datamuse fallback when the local lexical entry is missing or incomplete;
 9. context-sensitive sense selection using nearby OCR text, part of speech, lemma evidence and weak dictionary-sense priors;
 10. pronunciation-aware grapheme/phoneme alignment before sound clues are shown;
 11. browser text-to-speech for the word, reading line and example sentences;
@@ -47,13 +48,14 @@ Page images are not uploaded by Buddy in this alpha. OCR runs in the browser. Te
 Buddy uses a layered resolver rather than asking a general model to invent literacy guidance.
 
 1. **Curated literacy data** wins when a word has deliberately checked chunks, spelling guidance or examples.
-2. **The versioned local corpus** supplies reviewed child-friendly meanings, lemma links and British pronunciation evidence for covered vocabulary.
-3. **Morphology/lemma resolution** lets the printed form and lexical headword stay separate. For example, `sold` can obtain meaning from `sell` while sound guidance remains attached to the printed word.
-4. **Wiktionary / DictionaryAPI.dev / Datamuse** provide long-tail vocabulary and fill gaps when the local corpus does not have a complete meaning/pronunciation route.
-5. **`lib/literacy/grapheme-phoneme.ts`** attempts to account for the known pronunciation using the actual spelling. It does not predict the word's pronunciation; it only explains pronunciation data already obtained from lexical evidence.
-6. **`lib/literacy/sound-map.ts`** exposes child-friendly observations only when the spelling/pronunciation alignment supports them. If an IPA-backed word cannot be explained safely by the current alignment table, Buddy calls the spelling irregular and recommends hearing the whole word rather than guessing.
-7. **Browser speech synthesis** remains the primary audible pronunciation path.
-8. **Optional model fallback** is reserved for missing or overly complex meanings/examples. It is not the canonical source for phonics or pronunciation.
+2. **The versioned local corpus** supplies reviewed child-friendly meanings, lemma links and context-sensitive British pronunciation evidence for covered vocabulary.
+3. **The full Britfone runtime** supplies broad British-English IPA/stress evidence for 16,000+ headwords without putting the whole pronunciation dictionary into the browser bundle.
+4. **Morphology/lemma resolution** lets the printed form and lexical headword stay separate. For example, `sold` can obtain meaning from `sell` while sound guidance remains attached to the printed word.
+5. **Wiktionary / DictionaryAPI.dev / Datamuse** provide long-tail vocabulary and fill meaning gaps when the local corpus does not have a complete lexical route.
+6. **`lib/literacy/grapheme-phoneme.ts`** attempts to account for the known pronunciation using the actual spelling. It does not predict the word's pronunciation; it only explains pronunciation data already obtained from lexical evidence.
+7. **`lib/literacy/sound-map.ts`** exposes child-friendly observations only when the spelling/pronunciation alignment supports them. If an IPA-backed word cannot be explained safely by the current alignment table, Buddy calls the spelling irregular and recommends hearing the whole word rather than guessing.
+8. **Browser speech synthesis** remains the primary audible pronunciation path.
+9. **Optional model fallback** is reserved for missing or overly complex meanings/examples. It is not the canonical source for phonics or pronunciation.
 
 This matters for words such as `choir`, `colonel`, `yacht` and `ough` words: a visible letter pattern is not enough evidence for Buddy to claim a sound rule.
 
@@ -61,9 +63,9 @@ The UI should prefer simple phrases such as “How it sounds”, “Here it mean
 
 ### Local lexical corpus
 
-The first runtime corpus is `data/lexicon/core.en-GB.v1.json`.
+The reviewed lexical seed is `data/lexicon/core.en-GB.v1.json`.
 
-It is deliberately small and reviewed. Its purpose is to establish the production architecture and make important lexical regressions deterministic before promoting larger generated datasets. The current seed includes:
+It is deliberately small and reviewed. Its purpose is to establish the production architecture and make important lexical regressions deterministic while broad open data fills pronunciation and long-tail meaning coverage underneath it. The current seed includes:
 
 - context-sensitive words such as `bank`, `bark`, `bat` and noun/verb `record`;
 - important inflected forms such as `sold → sell`, `went → go`, `made → make`, `running → run` and `stories → story`;
@@ -73,11 +75,11 @@ It is deliberately small and reviewed. Its purpose is to establish the productio
 A local entry is considered **fully local** when Buddy has both:
 
 - a local meaning route — a sense on the surface form or a local lemma/headword link; and
-- local pronunciation for the printed surface form.
+- resolved local British pronunciation for the printed surface form.
 
-When both are present, `lookupLexicalWord` does not make network lexical requests. If either is missing, remote providers are queried and merged beneath local evidence.
+When both are present, `lookupLexicalWord` does not make network lexical requests. If the meaning route is absent, remote providers are still queried even when Britfone already supplies pronunciation.
 
-The API exposes corpus version/coverage metadata to the internal evaluation surface. `/lab/words` reports local meaning coverage, British pronunciation coverage, fully local cases and network-fallback use.
+The API exposes corpus version/coverage metadata to the internal evaluation surface. `/lab/words` reports local meaning coverage, full Britfone headword coverage, resolved British pronunciation coverage, ambiguous pronunciation variants, fully local cases and network-fallback use.
 
 See `docs/LEXICAL_CORPUS.md` for the full corpus architecture and versioning rules.
 
@@ -85,7 +87,7 @@ See `docs/LEXICAL_CORPUS.md` for the full corpus architecture and versioning rul
 
 Broad word coverage must not turn OCR noise into invented vocabulary.
 
-The word resolver distinguishes an **exact lexical match** from a merely similar fallback result. If neither the local corpus nor fallback lexical evidence recognises the selected spelling:
+The word resolver distinguishes an **exact lexical match** from a merely similar fallback result. A Britfone pronunciation hit is not enough on its own to recognise a word. If neither the local corpus nor fallback definition-bearing lexical evidence recognises the selected spelling:
 
 - the model fallback is not called automatically;
 - no definition is invented;
@@ -132,17 +134,20 @@ For child-facing deployments, enabling a model is a privacy/safety deployment de
 
 Buddy is UK-first rather than silently treating an American pronunciation dictionary as canonical.
 
-The current core corpus uses **Britfone 3.0.1**, an MIT-licensed British English pronunciation dictionary with 16,000+ entries and IPA/stress data, as its pinned pronunciation evidence source.
+The pronunciation evidence is pinned to **Britfone 3.0.1**, an MIT-licensed British English pronunciation dictionary with 16,000+ entries and IPA/stress data.
 
 The current architecture is:
 
-1. reviewed local British-English pronunciation for covered runtime words;
-2. broad dictionary/Datamuse pronunciation coverage underneath it when local pronunciation is absent;
-3. browser `en-GB` speech for audible output;
-4. grapheme/phoneme alignment for child-facing spelling guidance;
-5. cautious fallback for words whose spelling cannot be safely explained.
+1. reviewed local British-English pronunciation for important/context-sensitive words;
+2. the full packaged Britfone 3.0.1 dictionary, parsed lazily on the server and cached for the function instance;
+3. remote dictionary pronunciation only when local British pronunciation cannot be resolved safely;
+4. browser `en-GB` speech for audible output;
+5. grapheme/phoneme alignment for child-facing spelling guidance;
+6. cautious fallback for words whose spelling cannot be safely explained.
 
-`scripts/lexicon/import-britfone.mjs` can turn the pinned Britfone 3.0.1 source into a compact full pronunciation index. That generated 16k+ layer is **not yet loaded automatically at runtime**; the next data step is to ship it as sharded static data so a surface only loads the pronunciation slice it needs.
+Some Britfone headwords have multiple pronunciations but no part-of-speech label tying each numbered variant to a sense. Buddy does not blindly choose variant 1 in those cases. Reviewed entries such as noun/verb `record` resolve the variant explicitly; unreviewed multi-variant words fall through to broader lexical evidence until a safe mapping exists.
+
+`scripts/lexicon/import-britfone.mjs` remains available to produce compact versioned pronunciation indexes for corpus work and future offline/browser/Android packs.
 
 Buddy must not be reduced to the Britfone vocabulary: it is a pronunciation evidence layer, not the complete lexical dictionary.
 
@@ -152,13 +157,14 @@ Buddy must not be reduced to the Britfone vocabulary: it is a pronunciation evid
 
 - context-dependent senses (`bank`, `bark`, `bat`, noun/verb `record`);
 - morphology (`sold`, `went`, `made`, `running`, `stories`);
+- broad runtime British pronunciation (`because`);
 - irregular spelling (`through`, `enough`, `choir`, `yacht`, `colonel`);
 - useful patterns (`photograph`, `station`);
 - long/technical words (`extraordinary`, `photosynthesis`);
 - less common words (`onomatopoeia`, `serendipity`);
 - an OCR-like nonsense spelling that should remain uncertain.
 
-Each case exposes the returned meaning, example, word form, sound guidance, recognition state, source, meaning confidence, pronunciation-alignment status, model use, local corpus version/coverage and whether network lexical fallback was needed. This is an internal evaluation surface, not a child score.
+Each case exposes the returned meaning, example, word form, sound guidance, recognition state, source, meaning confidence, pronunciation-alignment status, model use, local corpus version/coverage, full Britfone coverage and whether network lexical fallback was needed. This is an internal evaluation surface, not a child score.
 
 ### Learning Map alpha
 
@@ -213,7 +219,8 @@ The store is intentionally not framed as errors or correctness. It is enough to 
 - OCR accuracy depends heavily on lighting, framing, page curvature and text size.
 - Browser speech recognition support varies by browser and operating system.
 - Grapheme/phoneme alignment is an alpha explanatory layer, not yet a complete validated structured-literacy engine.
-- The current runtime `en-GB` corpus is a small reviewed seed; the full Britfone pronunciation index is buildable but not yet sharded into runtime data.
+- The reviewed `en-GB` meaning corpus is still a small seed even though British pronunciation coverage is now much broader through Britfone.
+- Multi-pronunciation words need reviewed/context-aware variant mappings before broad Britfone IPA can safely be treated as canonical.
 - Long-tail lexical meanings can still depend on network providers, and their definitions can be too adult or formal.
 - The optional model fallback can simplify some meanings when explicitly enabled, but it is not pronunciation/phonics authority.
 - The Learning Map is device-local and is not yet synchronised.
@@ -222,8 +229,8 @@ The store is intentionally not framed as errors or correctness. It is enough to 
 ## Next implementation slice
 
 1. run and review `/lab/words`, adding regression cases whenever real reading exposes a poor explanation;
-2. promote the generated Britfone 3.0.1 index into sharded runtime pronunciation data and measure coverage;
-3. ingest broader open lexical/frequency evidence into the versioned local corpus so common meanings and sense priors are local;
+2. ingest broader open lexical/frequency evidence into the versioned local corpus so common meanings and sense priors are local;
+3. add reviewed/context-aware mappings for common Britfone multi-pronunciation/heteronym words;
 4. evolve grapheme/phoneme alignment against validated structured-literacy mappings rather than expanding rules ad hoc;
 5. improve image crop/deskew and OCR confidence behaviour;
 6. add a provider-neutral companion agent interface with strict child-safe tool capabilities;
