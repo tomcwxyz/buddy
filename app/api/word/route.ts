@@ -9,7 +9,8 @@ import {
   normalisePartOfSpeech,
   simplifyDefinition,
 } from "@/lib/literacy/lexicon";
-import { lookupLexicalWord } from "@/lib/literacy/lexical-providers";
+import { lookupLocalLexicalWord } from "@/lib/literacy/local-lexical";
+import { lookupLexicalWord, type LexicalLookupBundle } from "@/lib/literacy/lexical-providers";
 import { analyseMorphology, withDetectedLemma, type MorphologyAnalysis } from "@/lib/literacy/morphology";
 import { analyseWordSounds } from "@/lib/literacy/sound-map";
 
@@ -37,6 +38,72 @@ function safeMorphologyPartOfSpeech(value: string | null) {
   const normalised = normalisePartOfSpeech(value);
   if (normalised === "verb" || normalised === "noun" || normalised === "adjective") return normalised;
   return null;
+}
+
+type LocalLemmaValidation = {
+  candidate: MorphologyAnalysis["candidates"][number];
+  lookup: LexicalLookupBundle;
+};
+
+function localCandidatePartOfSpeechIsSafe(
+  candidate: MorphologyAnalysis["candidates"][number],
+  lookup: LexicalLookupBundle,
+) {
+  if (candidate.confidence !== "low") return true;
+  if (!candidate.partOfSpeech) return false;
+
+  const partsOfSpeech = new Set(
+    lookup.candidates
+      .map((item) => normalisePartOfSpeech(item.partOfSpeech))
+      .filter((value): value is string => Boolean(value)),
+  );
+
+  // A bare -s/-es/-ies ending can be either a noun plural or a verb form.
+  // Only promote a low-confidence suffix proposal when the local lexical
+  // evidence itself is unambiguous about that part of speech. Otherwise the
+  // remote inflection sources still get a chance to resolve it.
+  return partsOfSpeech.size === 1 && partsOfSpeech.has(candidate.partOfSpeech);
+}
+
+function validateLocalMorphologyLemma(
+  morphology: MorphologyAnalysis,
+  context: string,
+): LocalLemmaValidation | null {
+  const matches = morphology.candidates.flatMap((candidate) => {
+    if (
+      candidate.lemma === morphology.surface
+      || !candidate.form
+      || candidate.reason === "context"
+    ) {
+      return [];
+    }
+
+    const lookup = lookupLocalLexicalWord(
+      candidate.lemma,
+      context,
+      "lemma",
+      candidate.partOfSpeech,
+    );
+
+    if (
+      !lookup.recognised
+      || lookup.candidates.length === 0
+      || !localCandidatePartOfSpeechIsSafe(candidate, lookup)
+    ) {
+      return [];
+    }
+
+    return [{ candidate, lookup }];
+  });
+
+  const uniqueByLemma = [...new Map(
+    matches.map((match) => [match.candidate.lemma, match]),
+  ).values()];
+
+  if (uniqueByLemma.length === 1) return uniqueByLemma[0];
+
+  const stronger = uniqueByLemma.filter((match) => match.candidate.confidence !== "low");
+  return stronger.length === 1 ? stronger[0] : null;
 }
 
 function shouldRefineMeaning(input: {
@@ -98,7 +165,29 @@ export async function GET(request: Request) {
 
   try {
     let morphology = analyseMorphology(word, context);
-    const surface = await lookupLexicalWord(word, context, "surface", morphology.partOfSpeech);
+    const localSurface = lookupLocalLexicalWord(word, context, "surface", morphology.partOfSpeech);
+    let surface: LexicalLookupBundle;
+    let prevalidatedLemmaLookup: LexicalLookupBundle | null = null;
+
+    if (localSurface.recognised && localSurface.pronunciation.ipa) {
+      surface = localSurface;
+    } else if (!localSurface.recognised && localSurface.pronunciation.ipa) {
+      const localLemma = validateLocalMorphologyLemma(morphology, context);
+      if (localLemma) {
+        morphology = withDetectedLemma(
+          morphology,
+          localLemma.candidate.lemma,
+          localLemma.candidate.partOfSpeech,
+          localLemma.candidate.form,
+        );
+        prevalidatedLemmaLookup = localLemma.lookup;
+        surface = localSurface;
+      } else {
+        surface = await lookupLexicalWord(word, context, "surface", morphology.partOfSpeech);
+      }
+    } else {
+      surface = await lookupLexicalWord(word, context, "surface", morphology.partOfSpeech);
+    }
 
     const wiktionaryInflection = detectedInflectionLemma(surface.candidates, morphology);
     if (wiktionaryInflection) {
@@ -134,7 +223,9 @@ export async function GET(request: Request) {
       || Boolean(surface.headword)
     );
     const lemmaLookup = shouldLookupLemma
-      ? await lookupLexicalWord(morphology.lemma, context, "lemma", morphology.partOfSpeech)
+      ? prevalidatedLemmaLookup?.word === morphology.lemma
+        ? prevalidatedLemmaLookup
+        : await lookupLexicalWord(morphology.lemma, context, "lemma", morphology.partOfSpeech)
       : null;
 
     const candidates = [
