@@ -155,6 +155,20 @@ const CASES: RegressionCase[] = [
     },
   },
   {
+    id: "subject-verb",
+    word: "subject",
+    context: "They subject the material to intense heat.",
+    expectation: "The verb meaning to make something undergo an experience, with verb stress and no remote fallback.",
+    assertion: {
+      recognised: true,
+      partOfSpeech: "verb",
+      source: "buddy-curated",
+      remoteFallback: false,
+      meaningIncludes: ["experience", "something"],
+      pronunciation: "s ə b dʒ ˈɛ k t",
+    },
+  },
+  {
     id: "object-grammar",
     word: "object",
     context: "Circle the object in the sentence that receives the action.",
@@ -166,6 +180,20 @@ const CASES: RegressionCase[] = [
       remoteFallback: false,
       meaningIncludes: ["grammar", "action"],
       pronunciation: "ˈɒ b dʒ ɛ k t",
+    },
+  },
+  {
+    id: "object-verb",
+    word: "object",
+    context: "I object to that rule because it is unfair.",
+    expectation: "The verb meaning to disagree or oppose, with verb stress and no remote fallback.",
+    assertion: {
+      recognised: true,
+      partOfSpeech: "verb",
+      source: "buddy-curated",
+      remoteFallback: false,
+      meaningIncludes: ["disagree", "oppose"],
+      pronunciation: "ə b dʒ ˈɛ k t",
     },
   },
   {
@@ -184,16 +212,18 @@ const CASES: RegressionCase[] = [
     },
   },
   {
-    id: "carries-ambiguous-local-form",
+    id: "carries-local-form",
     word: "carries",
     context: "She carries the bag to school each morning.",
-    expectation: "Resolve to carry, but keep the network fallback because the local -ies proposal is grammatically ambiguous.",
+    expectation: "Present form of carry resolved locally from the subject-pronoun verb cue, with a child-simple meaning.",
     assertion: {
       recognised: true,
       partOfSpeech: "verb",
       lemma: "carry",
       form: "present form",
-      remoteFallback: true,
+      source: "buddy-corpus",
+      remoteFallback: false,
+      meaningIncludes: ["moving", "place"],
     },
   },
   {
