@@ -113,6 +113,14 @@ const DETERMINERS = new Set([
   "a", "an", "another", "any", "each", "every", "her", "his", "its", "my", "our", "some", "that", "the", "their", "these", "this", "those", "your",
 ]);
 
+// A subject pronoun immediately before a lexical word is strong, ordinary
+// sentence-structure evidence for a verb: “she carries”, “I object”, “they
+// record”. Keeping this separate from possessive determiners avoids treating
+// phrases such as “her record” as verbs.
+const SUBJECT_PRONOUNS = new Set([
+  "he", "i", "it", "she", "they", "we", "you",
+]);
+
 function looksLikeParticiple(word: string) {
   return (word.endsWith("ing") && word.length > 5)
     || (word.endsWith("ed") && word.length > 4);
@@ -125,6 +133,7 @@ function contextPartOfSpeech(word: string, context: string) {
 
   const left = index > 0 ? normaliseWord(tokens[index - 1]) : null;
   if (left === "to" || (left && VERB_AUXILIARIES.has(left))) return "verb" as const;
+  if (left && SUBJECT_PRONOUNS.has(left)) return "verb" as const;
   if (left && COPULAR_BE.has(left) && looksLikeParticiple(word)) return "verb" as const;
   if (left && DETERMINERS.has(left)) return "noun" as const;
   return null;
