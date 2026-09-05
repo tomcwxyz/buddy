@@ -1,10 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { normaliseWord } from "@/lib/literacy/engine";
-
-type BritfonePackage = {
-  main: string;
-};
 
 type BritfoneIndex = Map<string, string[]>;
 
@@ -27,8 +24,13 @@ function loadBritfoneIndex() {
   loadAttempted = true;
 
   try {
-    const britfone = require("britfone") as BritfonePackage;
-    const source = readFileSync(britfone.main, "utf8");
+    // Resolve a normal JS/JSON package asset first, then derive the CSV path.
+    // Requiring the CSV subpath directly makes webpack try to parse it as a
+    // JavaScript module. Keeping Britfone external preserves this native Node
+    // package path while Vercel's tracing rule carries the data file with it.
+    const packageJsonPath = require.resolve("britfone/package.json");
+    const dataPath = join(dirname(packageJsonPath), "britfone.main.3.0.1.csv");
+    const source = readFileSync(dataPath, "utf8");
     const index: BritfoneIndex = new Map();
 
     for (const rawLine of source.split(/\r?\n/u)) {
