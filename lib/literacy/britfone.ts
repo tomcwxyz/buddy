@@ -5,7 +5,6 @@ import { normaliseWord } from "@/lib/literacy/engine";
 type BritfoneIndex = Map<string, string[]>;
 
 const require = createRequire(import.meta.url);
-const BRITFONE_DATA_MODULE = "britfone/britfone.main.3.0.1.csv";
 let cachedIndex: BritfoneIndex | null = null;
 let cachedEntryCount = 0;
 let loadAttempted = false;
@@ -27,8 +26,8 @@ function loadBritfoneIndex() {
     // Resolve the packaged data file directly instead of requiring Britfone's
     // index.js. Next can bundle that tiny CommonJS wrapper and rewrite its
     // __dirname, which makes the wrapper point at the compiled API directory.
-    // Resolving the real package asset keeps the data path tied to node_modules.
-    const dataPath = require.resolve(BRITFONE_DATA_MODULE);
+    // A literal subpath lets Node/Next trace the actual package asset.
+    const dataPath = require.resolve("britfone/britfone.main.3.0.1.csv");
     const source = readFileSync(dataPath, "utf8");
     const index: BritfoneIndex = new Map();
 
