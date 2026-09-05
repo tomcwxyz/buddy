@@ -254,7 +254,9 @@ export async function lookupLexicalWord(
   let datamuse: DatamuseWord[] = [];
   let dictionary: DictionaryEntry[] = [];
   let wiktionary: WiktionaryPayload = {};
-  const providers: string[] = local.metadata.entryHit ? ["buddy-corpus"] : [];
+  const providers: string[] = [];
+  if (local.metadata.entryHit) providers.push("buddy-corpus");
+  if (local.metadata.britfoneEntryHit && !local.metadata.entryHit) providers.push("britfone");
 
   if (datamuseResponse.status === "fulfilled" && datamuseResponse.value.ok) {
     datamuse = (await datamuseResponse.value.json()) as DatamuseWord[];
