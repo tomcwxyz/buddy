@@ -1,4 +1,5 @@
 import corpusJson from "@/data/lexicon/core.en-GB.v1.json";
+import { lookupBritfonePronunciations } from "@/lib/literacy/britfone";
 import { normaliseWord } from "@/lib/literacy/engine";
 import type { LexicalCandidate, LexicalRelation } from "@/lib/literacy/lexicon";
 
@@ -55,6 +56,8 @@ export type LocalCorpusMetadata = {
   lexicalHit: boolean;
   pronunciationHit: boolean;
   pronunciationSource: string | null;
+  britfoneEntryHit: boolean;
+  britfoneVariantCount: number;
 };
 
 export type LocalCorpusLookup = {
@@ -114,27 +117,9 @@ export function lookupLocalCorpusWord(
   const entry = corpus.entries[word] ?? null;
   const contextPos = contextPartOfSpeech(word, context);
   const preferredPos = preferredPartOfSpeech ?? contextPos;
+  const britfonePronunciations = lookupBritfonePronunciations(word);
 
-  if (!entry) {
-    return {
-      word,
-      recognised: false,
-      candidates: [],
-      pronunciation: { ipa: null, syllables: null, audio: null },
-      preferredPartOfSpeech: preferredPos,
-      headword: null,
-      metadata: {
-        version: corpus.version,
-        locale: corpus.locale,
-        entryHit: false,
-        lexicalHit: false,
-        pronunciationHit: false,
-        pronunciationSource: null,
-      },
-    };
-  }
-
-  const senses = entry.senses ?? [];
+  const senses = entry?.senses ?? [];
   const candidates: LexicalCandidate[] = senses.map((sense, rank) => ({
     definition: sense.definition,
     example: sense.example,
@@ -145,32 +130,48 @@ export function lookupLocalCorpusWord(
     rank,
   }));
 
-  const pronunciation = choosePronunciation(entry.pronunciations ?? [], preferredPos);
+  const reviewedPronunciation = choosePronunciation(entry?.pronunciations ?? [], preferredPos);
+
+  // Britfone contains some headwords with multiple pronunciations but does not
+  // label those variants by part of speech. A reviewed core entry can resolve
+  // those safely (for example noun/verb `record`). For an unreviewed headword,
+  // only use Britfone as canonical pronunciation evidence when it has one
+  // unambiguous variant; otherwise fall through to the broader lexical sources.
+  const broadBritfoneIpa = !reviewedPronunciation && britfonePronunciations.length === 1
+    ? britfonePronunciations[0]
+    : null;
+  const ipa = reviewedPronunciation?.ipa ?? broadBritfoneIpa ?? null;
+
   const inferredPos = preferredPos
     ?? senses.find((sense) => sense.partOfSpeech)?.partOfSpeech
-    ?? pronunciation?.partOfSpeech
+    ?? reviewedPronunciation?.partOfSpeech
     ?? null;
 
   return {
     word,
-    recognised: true,
+    // Pronunciation evidence alone must not make an OCR token a recognised
+    // lexical word. Recognition still requires a reviewed local entry or one of
+    // the definition-bearing fallback providers.
+    recognised: Boolean(entry),
     candidates,
     pronunciation: {
-      ipa: pronunciation?.ipa ?? null,
-      syllables: pronunciation ? countIpaSyllables(pronunciation.ipa) : null,
+      ipa,
+      syllables: ipa ? countIpaSyllables(ipa) : null,
       audio: null,
     },
     preferredPartOfSpeech: inferredPos,
-    headword: entry.headword ? normaliseWord(entry.headword) : null,
+    headword: entry?.headword ? normaliseWord(entry.headword) : null,
     metadata: {
       version: corpus.version,
       locale: corpus.locale,
-      entryHit: true,
+      entryHit: Boolean(entry),
       lexicalHit: candidates.length > 0,
-      pronunciationHit: Boolean(pronunciation?.ipa),
-      pronunciationSource: pronunciation
+      pronunciationHit: Boolean(ipa),
+      pronunciationSource: ipa
         ? `${corpus.pronunciationSource.name} ${corpus.pronunciationSource.version}`
         : null,
+      britfoneEntryHit: britfonePronunciations.length > 0,
+      britfoneVariantCount: britfonePronunciations.length,
     },
   };
 }

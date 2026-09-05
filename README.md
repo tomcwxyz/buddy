@@ -79,13 +79,15 @@ This matters for forms such as `sold`: Buddy understands that the printed word c
 The resolver is now **local first**:
 
 - a versioned `en-GB` corpus provides reviewed child-friendly meanings, lemma links and British pronunciation for important/common regression vocabulary;
-- Britfone 3.0.1 supplies the pinned British-English IPA evidence used by the current core corpus;
+- the full Britfone 3.0.1 pronunciation dictionary is available server-side at runtime, lazily parsed and cached;
+- reviewed Buddy pronunciations win where context or part of speech matters, such as noun/verb `record`;
+- broad Britfone pronunciation is used only when the headword has one unambiguous variant;
 - a local entry with both a meaning route and surface pronunciation needs no network lexical request;
 - Wiktionary, DictionaryAPI.dev and Datamuse remain broad long-tail and incomplete-entry fallbacks;
 - Buddy's curated literacy layer still wins for deliberately checked chunks and clues;
 - an optional tightly scoped model can simplify or disambiguate lexical evidence, but it does not invent canonical pronunciation or phonics guidance.
 
-The first checked-in corpus is intentionally a reviewed seed rather than pretending to be the finished dictionary. The repository also contains a pinned Britfone importer so the next step can promote the 16,000+ British pronunciation entries into sharded runtime data without forcing one large dictionary into every surface.
+The checked-in corpus is intentionally a reviewed lexical seed rather than pretending to be the finished dictionary. Broad British pronunciation now comes from the packaged Britfone runtime without forcing that dictionary into the browser/client bundle.
 
 Wiktionary-derived text is attributed as **Wiktionary / CC BY-SA** in resolver metadata. Britfone-derived pronunciation data retains its MIT attribution in `data/lexicon/THIRD_PARTY_NOTICES.md`.
 
@@ -112,7 +114,7 @@ The model fallback is disabled by default and never supplies canonical phonics/p
 - Atkinson Hyperlegible
 - Tesseract.js 7 for local browser OCR
 - versioned local `en-GB` lexical/pronunciation corpus
-- Britfone for pinned British-English IPA evidence
+- full Britfone 3.0.1 server-side runtime for British-English IPA evidence
 - Wiktionary + DictionaryAPI.dev + Datamuse as layered lexical fallbacks
 - optional OpenAI Responses API structured fallback for narrowly scoped word explanations
 
@@ -121,6 +123,7 @@ Shared product primitives live in:
 - `lib/buddy-design.ts`
 - `lib/buddy-language.ts`
 - `lib/literacy/morphology.ts`
+- `lib/literacy/britfone.ts`
 - `lib/literacy/local-corpus.ts`
 - `lib/literacy/lexicon.ts`
 - `lib/literacy/lexical-providers.ts`
@@ -163,7 +166,7 @@ Camera access requires a secure context outside localhost, so real phone/tablet 
 
 Optional model fallback configuration is documented in `.env.example`.
 
-To build the pinned Britfone pronunciation index for corpus work:
+To build the pinned Britfone pronunciation index for corpus work or future offline packs:
 
 ```bash
 npm run lexicon:britfone
@@ -172,8 +175,8 @@ npm run lexicon:britfone
 ## Immediate roadmap
 
 1. Grow the lexical evaluation set from real reading failures and make them permanent regressions.
-2. Promote the generated Britfone 3.0.1 pronunciation index into sharded runtime data and measure British-pronunciation coverage across the evaluation/common-word set.
-3. Ingest a broader versioned lexical/frequency corpus so common meanings and sense priors are local rather than dependent on live providers.
+2. Ingest a broader versioned lexical/frequency corpus so common meanings and sense priors are local rather than dependent on live providers.
+3. Add a reviewed resolver for common multi-pronunciation/heteronym words so broad Britfone variants can be selected safely from context.
 4. Improve sound analysis towards a validated grapheme/phoneme representation.
 5. Improve capture quality, crop/deskew and OCR confidence handling.
 6. Add a provider-neutral companion agent layer without giving it unrestricted access to the child's Learning Map.

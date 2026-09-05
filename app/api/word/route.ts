@@ -66,8 +66,11 @@ function corpusMetadata(
     surfaceEntryHit: surface.corpus.entryHit,
     surfaceLexicalHit: surface.corpus.lexicalHit,
     surfacePronunciationHit: surface.corpus.pronunciationHit,
+    surfaceBritfoneHit: surface.corpus.britfoneEntryHit,
+    surfaceBritfoneVariants: surface.corpus.britfoneVariantCount,
     lemmaEntryHit: lemmaLookup?.corpus.entryHit ?? null,
     lemmaLexicalHit: lemmaLookup?.corpus.lexicalHit ?? null,
+    lemmaBritfoneHit: lemmaLookup?.corpus.britfoneEntryHit ?? null,
     remoteFallback: surface.corpus.remoteFallback || Boolean(lemmaLookup?.corpus.remoteFallback),
     pronunciationSource: surface.corpus.pronunciationSource,
   };

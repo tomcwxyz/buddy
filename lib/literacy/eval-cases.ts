@@ -113,6 +113,13 @@ export const WORD_EVAL_CASES: WordEvalCase[] = [
     expectation: "As much as is needed; sound guidance should not treat ‘ough’ as regular.",
   },
   {
+    id: "because-runtime-pronunciation",
+    group: "pattern",
+    word: "because",
+    context: "I stayed inside because it was raining.",
+    expectation: "Meaning may come from a fallback lexical provider, but British pronunciation should be supplied by the full Britfone runtime rather than Datamuse/US-first evidence.",
+  },
+  {
     id: "choir",
     group: "irregular",
     word: "choir",
