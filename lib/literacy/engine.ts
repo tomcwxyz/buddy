@@ -76,6 +76,12 @@ export function normaliseWord(value: string) {
     .replace(/^[^a-z'-]+|[^a-z'-]+$/g, "");
 }
 
+export function getCuratedWordSupport(input: string): WordSupport | null {
+  const word = normaliseWord(input);
+  const curated = CURATED[word];
+  return curated ? { word, ...curated, source: "curated" } : null;
+}
+
 function derivePatternSupport(word: string): Pick<WordSupport, "chunks" | "clue" | "source"> {
   const prefix = PREFIXES.find((candidate) => word.startsWith(candidate) && word.length >= candidate.length + 3);
   const suffix = SUFFIXES.find((candidate) => word.endsWith(candidate) && word.length >= candidate.length + 3);
@@ -123,11 +129,9 @@ function derivePatternSupport(word: string): Pick<WordSupport, "chunks" | "clue"
 
 export function getWordSupport(input: string): WordSupport {
   const word = normaliseWord(input);
-  const curated = CURATED[word];
+  const curated = getCuratedWordSupport(word);
 
-  if (curated) {
-    return { word, ...curated, source: "curated" };
-  }
+  if (curated) return curated;
 
   const pattern = derivePatternSupport(word);
   return {
