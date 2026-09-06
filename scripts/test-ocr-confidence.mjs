@@ -19,6 +19,7 @@ async function importTsModule(path) {
 
 const confidence = await importTsModule("../lib/ocr/confidence.ts");
 const recovery = await importTsModule("../lib/ocr/recovery.ts");
+const evaluation = await importTsModule("../lib/ocr/evaluation.ts");
 
 function word(id, text, confidenceScore, x0, y0, x1, y1, lineText) {
   return {
@@ -121,6 +122,40 @@ const cases = [
       const recovered = word("sparse-1", "window", 88, 50, 200, 100, 220);
       const anchors = [word("auto-1", "the", 90, 10, 10, 35, 30, "The window was open.")];
       assert.equal(recovery.nearestLineText(recovered, anchors), null);
+    },
+  ],
+  [
+    "fixture comparison ignores punctuation and case",
+    () => {
+      const result = evaluation.evaluateOcrWords("The window was OPEN.", ["the", "window", "was", "open"]);
+      assert.equal(result.recall, 1);
+      assert.equal(result.precision, 1);
+      assert.deepEqual(result.missingWords, []);
+      assert.deepEqual(result.unexpectedWords, []);
+    },
+  ],
+  [
+    "fixture comparison preserves repeated-word counts",
+    () => {
+      const result = evaluation.evaluateOcrWords("the cat and the dog", ["the", "cat", "and", "dog"]);
+      assert.deepEqual(result.missingWords, ["the"]);
+      assert.equal(result.matchedCount, 4);
+    },
+  ],
+  [
+    "fixture comparison identifies false positives",
+    () => {
+      const result = evaluation.evaluateOcrWords("a red kite", ["a", "red", "kite", "site"]);
+      assert.deepEqual(result.unexpectedWords, ["site"]);
+      assert.equal(result.precision, 0.75);
+    },
+  ],
+  [
+    "empty fixture text does not invent a recall score",
+    () => {
+      const result = evaluation.evaluateOcrWords("", ["word"]);
+      assert.equal(result.recall, null);
+      assert.equal(result.precision, 0);
     },
   ],
 ];
