@@ -13,9 +13,17 @@ export type OcrWord = {
   lineText?: string;
 };
 
+export type OcrRecoveryMetadata = {
+  sparsePass: boolean;
+  reason: "few-trusted-words" | "too-many-weak-words" | "healthy";
+  primaryTrustedWords: number;
+  finalTrustedWords: number;
+};
+
 export type OcrResult = {
   text: string;
   words: OcrWord[];
   width: number;
   height: number;
+  recovery: OcrRecoveryMetadata;
 };
