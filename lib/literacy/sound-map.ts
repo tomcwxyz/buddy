@@ -1,4 +1,9 @@
 import { alignGraphemesToPhonemes } from "@/lib/literacy/grapheme-phoneme";
+import {
+  reviewSoundAlignment,
+  reviewedSoundNote,
+  type SoundReviewStatus,
+} from "@/lib/literacy/sound-review";
 
 export type SoundFeature = {
   letters: string;
@@ -11,57 +16,22 @@ export type SoundGuide = {
   features: SoundFeature[];
   guidance: string;
   alignment: "high" | "medium" | "irregular" | "spelling-only";
+  review: SoundReviewStatus;
 };
 
-const SOUND_PATTERNS: Array<{ pattern: string; note: string }> = [
-  { pattern: "tion", note: "often sounds like ‘shun’" },
-  { pattern: "sion", note: "often sounds like ‘zhun’ or ‘shun’" },
-  { pattern: "ture", note: "often sounds like ‘cher’" },
-  { pattern: "ough", note: "can make several different sounds — hearing the whole word helps" },
-  { pattern: "eigh", note: "often makes a long ‘a’ sound" },
-  { pattern: "igh", note: "usually makes the long ‘i’ sound" },
-  { pattern: "ph", note: "usually sounds like ‘f’" },
-  { pattern: "dge", note: "usually makes the ‘j’ sound" },
-  { pattern: "tch", note: "usually makes the ‘ch’ sound" },
-  { pattern: "sh", note: "makes one ‘sh’ sound" },
-  { pattern: "ch", note: "often makes one ‘ch’ sound" },
-  { pattern: "th", note: "the two letters work together for one sound" },
-  { pattern: "wh", note: "the two letters usually work together at the start" },
-  { pattern: "ng", note: "makes the sound at the end of ‘sing’" },
-  { pattern: "ck", note: "usually makes one ‘k’ sound" },
-  { pattern: "ee", note: "often makes a long ‘ee’ sound" },
-  { pattern: "ea", note: "often makes a long ‘ee’ sound, but not always" },
-  { pattern: "ai", note: "often makes a long ‘a’ sound" },
-  { pattern: "ay", note: "often makes a long ‘a’ sound" },
-  { pattern: "oa", note: "often makes a long ‘o’ sound" },
-  { pattern: "oo", note: "the two letters work together; the sound can change between words" },
-  { pattern: "oi", note: "usually makes the sound in ‘coin’" },
-  { pattern: "oy", note: "usually makes the sound in ‘boy’" },
-  { pattern: "ar", note: "often makes the sound in ‘car’" },
-  { pattern: "or", note: "often makes the sound in ‘fork’" },
-  { pattern: "ir", note: "often makes the sound in ‘bird’" },
-  { pattern: "ur", note: "often makes the sound in ‘turn’" },
-];
-
-function uniqueFeatures(word: string) {
-  const found: SoundFeature[] = [];
-  const occupied = new Set<number>();
-
-  for (const item of SOUND_PATTERNS) {
-    let start = word.indexOf(item.pattern);
-    while (start >= 0) {
-      const positions = Array.from({ length: item.pattern.length }, (_, offset) => start + offset);
-      if (!positions.some((position) => occupied.has(position))) {
-        found.push({ letters: item.pattern, note: item.note });
-        positions.forEach((position) => occupied.add(position));
-      }
-      start = word.indexOf(item.pattern, start + 1);
-    }
-  }
-
-  return found.slice(0, 3);
+function syllableCount(value?: number | null) {
+  return typeof value === "number" && value > 0 ? value : null;
 }
 
+/**
+ * Build a child-facing sound guide from an already resolved pronunciation.
+ *
+ * The grapheme aligner is intentionally broader than the teaching layer: it
+ * can account for many English spelling/pronunciation combinations, but Buddy
+ * only surfaces a sound clue when every segment in that alignment is in the
+ * reviewed explanation set. This stops a technically possible alignment from
+ * quietly becoming an unreviewed phonics rule.
+ */
 export function analyseWordSounds(
   word: string,
   syllables?: number | null,
@@ -69,49 +39,61 @@ export function analyseWordSounds(
 ): SoundGuide {
   const cleanWord = word.toLocaleLowerCase("en-GB");
   const cleanIpa = ipa?.trim() || null;
-  const alignment = cleanIpa ? alignGraphemesToPhonemes(cleanWord, cleanIpa) : null;
+  const count = syllableCount(syllables);
 
-  if (cleanIpa && alignment) {
-    const features = alignment.segments
-      .filter((segment) => segment.note && (segment.letters.length > 1 || segment.phonemes.length > 1))
-      .map((segment) => ({ letters: segment.letters, note: segment.note! }))
-      .filter((feature, index, all) => all.findIndex((item) => item.letters === feature.letters && item.note === feature.note) === index)
-      .slice(0, 3);
-
+  if (!cleanIpa) {
     return {
-      syllables: typeof syllables === "number" && syllables > 0 ? syllables : null,
-      ipa: cleanIpa,
-      features,
-      guidance: features.length
-        ? "These letter patterns match the pronunciation of this word."
-        : "The letters and sounds in this word match up fairly neatly.",
-      alignment: alignment.confidence,
+      syllables: count,
+      ipa: null,
+      features: [],
+      guidance: "Hear the word first. Buddy needs a trusted pronunciation before using the spelling as a sound clue.",
+      alignment: "spelling-only",
+      review: "do-not-infer",
     };
   }
 
-  if (cleanIpa && !alignment) {
+  const alignment = alignGraphemesToPhonemes(cleanWord, cleanIpa);
+  if (!alignment) {
     return {
-      syllables: typeof syllables === "number" && syllables > 0 ? syllables : null,
+      syllables: count,
       ipa: cleanIpa,
       features: [],
       guidance: "This spelling does not fit Buddy's simple sound rules neatly. Hearing the whole word is more useful here.",
       alignment: "irregular",
+      review: "irregular",
     };
   }
 
-  const features = uniqueFeatures(cleanWord);
-  let guidance = "Hear the whole word first, then look at the letters from left to right.";
-  if (features.length === 1) {
-    guidance = `There’s one useful letter pattern to notice: ‘${features[0].letters}’.`;
-  } else if (features.length > 1) {
-    guidance = "There are a few possible letter patterns to notice. Hearing the word will help check them.";
+  const review = reviewSoundAlignment(alignment.segments);
+  if (review.status !== "safe-to-explain") {
+    return {
+      syllables: count,
+      ipa: cleanIpa,
+      features: [],
+      guidance: "Buddy knows how this word is pronounced, but isn't going to turn this spelling into a sound rule yet. Hearing the whole word is safer.",
+      alignment: alignment.confidence,
+      review: "do-not-infer",
+    };
   }
 
+  const features = alignment.segments
+    .map((segment) => ({ segment, note: reviewedSoundNote(segment) }))
+    .filter((item): item is { segment: typeof item.segment; note: string } => Boolean(item.note))
+    .map(({ segment, note }) => ({ letters: segment.letters, note }))
+    .filter(
+      (feature, index, all) =>
+        all.findIndex((item) => item.letters === feature.letters && item.note === feature.note) === index,
+    )
+    .slice(0, 3);
+
   return {
-    syllables: typeof syllables === "number" && syllables > 0 ? syllables : null,
-    ipa: null,
+    syllables: count,
+    ipa: cleanIpa,
     features,
-    guidance,
-    alignment: "spelling-only",
+    guidance: features.length
+      ? "These letter–sound clues are in Buddy's reviewed set and match this pronunciation."
+      : "The spelling and pronunciation use letter–sound links Buddy has reviewed.",
+    alignment: alignment.confidence,
+    review: "safe-to-explain",
   };
 }
