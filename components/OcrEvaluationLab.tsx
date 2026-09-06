@@ -2,7 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { DownloadSimple, ImageSquare, Play, Scan, UploadSimple } from "@phosphor-icons/react";
-import { evaluateOcrWords, tokeniseExpectedText } from "@/lib/ocr/evaluation";
+import {
+  evaluateOcrWords,
+  normaliseEvaluationWord,
+  tokeniseExpectedText,
+} from "@/lib/ocr/evaluation";
 import { recognisePage } from "@/lib/ocr/browser-tesseract";
 import type { OcrResult } from "@/lib/ocr/types";
 
@@ -15,6 +19,8 @@ type PreparedPage = {
 };
 
 type RunState = "idle" | "preparing" | "reading" | "ready" | "error";
+type LayoutType = "prose" | "worksheet" | "early-reader" | "mixed";
+type Recoverability = "unknown" | "yes" | "no";
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -87,18 +93,38 @@ function fixtureFileName(label: string, fallback: string) {
   return `${base}.ocr-fixture.json`;
 }
 
+function parseReviewWords(value: string) {
+  return value
+    .split(/[\n,]+/)
+    .map(normaliseEvaluationWord)
+    .filter((word) => /[a-z]/.test(word));
+}
+
 export function OcrEvaluationLab() {
   const [page, setPage] = useState<PreparedPage | null>(null);
   const [result, setResult] = useState<OcrResult | null>(null);
   const [state, setState] = useState<RunState>("idle");
   const [expectedText, setExpectedText] = useState("");
   const [label, setLabel] = useState("");
+  const [layoutType, setLayoutType] = useState<LayoutType>("prose");
+  const [recoverOnTapText, setRecoverOnTapText] = useState("");
+  const [mustNotTrustText, setMustNotTrustText] = useState("");
+  const [interactionRecoverable, setInteractionRecoverable] = useState<Recoverability>("unknown");
+  const [reviewNotes, setReviewNotes] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const evaluation = useMemo(
     () => result ? evaluateOcrWords(expectedText, result.words.map((word) => word.text)) : null,
     [expectedText, result],
   );
+
+  const recoverOnTapWords = useMemo(() => parseReviewWords(recoverOnTapText), [recoverOnTapText]);
+  const mustNotTrustWords = useMemo(() => parseReviewWords(mustNotTrustText), [mustNotTrustText]);
+  const unsafeTrustedWords = useMemo(() => {
+    if (!result || mustNotTrustWords.length === 0) return [];
+    const detected = new Set(result.words.map((word) => normaliseEvaluationWord(word.text)));
+    return [...new Set(mustNotTrustWords.filter((word) => detected.has(word)))];
+  }, [mustNotTrustWords, result]);
 
   async function chooseFile(file: File | null) {
     if (!file) return;
@@ -135,13 +161,31 @@ export function OcrEvaluationLab() {
     if (!page || !result || !evaluation) return;
 
     const fixture = {
-      version: 1,
+      version: 2,
       label: label.trim() || page.fileName,
       sourceFile: page.fileName,
       createdAt: new Date().toISOString(),
       imageIncluded: false,
       expectedText,
       expectedWords: tokeniseExpectedText(expectedText),
+      review: {
+        status: "candidate",
+        reviewedAt: null,
+        layoutType,
+        recoverOnTapWords,
+        mustNotTrustWords,
+        interactionRecoverable,
+        notes: reviewNotes.trim() || null,
+      },
+      acceptance: {
+        minimumPrecision: null,
+        minimumRecall: null,
+        requireRecoverableInteraction: null,
+      },
+      capture: {
+        width: page.width,
+        height: page.height,
+      },
       evaluation,
       recovery: result.recovery,
       detectedWords: result.words.map((word) => ({
@@ -174,7 +218,7 @@ export function OcrEvaluationLab() {
         <div>
           <span className="ocr-lab-kicker">Internal evaluation surface</span>
           <h1>Buddy OCR lab</h1>
-          <p>Use real photographed pages to test the same local OCR ladder as the reading surface. Images stay in this browser; exported fixtures contain text and box metadata, not the image.</p>
+          <p>Use real photographed pages to test the same local OCR ladder as the reading surface. Images stay in this browser; exported fixtures contain reviewed text and box metadata, not the image.</p>
         </div>
         <a href="/lab/words" className="ocr-lab-link">Word lab →</a>
       </header>
@@ -251,6 +295,76 @@ export function OcrEvaluationLab() {
             />
           </label>
 
+          <div className="ocr-review-block">
+            <div className="ocr-section-heading">
+              <div>
+                <span>Fixture review</span>
+                <strong>Describe what good enough means</strong>
+              </div>
+            </div>
+
+            <div className="ocr-review-grid">
+              <label className="ocr-field">
+                <span>Page type</span>
+                <select value={layoutType} onChange={(event) => setLayoutType(event.target.value as LayoutType)}>
+                  <option value="prose">Prose</option>
+                  <option value="worksheet">Worksheet</option>
+                  <option value="early-reader">Large-print early reader</option>
+                  <option value="mixed">Mixed illustration + text</option>
+                </select>
+              </label>
+
+              <label className="ocr-field">
+                <span>Still recoverable?</span>
+                <select value={interactionRecoverable} onChange={(event) => setInteractionRecoverable(event.target.value as Recoverability)}>
+                  <option value="unknown">Not reviewed yet</option>
+                  <option value="yes">Yes — child can still get help</option>
+                  <option value="no">No — miss blocks the interaction</option>
+                </select>
+              </label>
+            </div>
+
+            <label className="ocr-field">
+              <span>Safe to miss, but should recover on tap</span>
+              <textarea
+                className="ocr-review-textarea"
+                value={recoverOnTapText}
+                onChange={(event) => setRecoverOnTapText(event.target.value)}
+                placeholder="Comma or line separated words"
+                rows={3}
+              />
+            </label>
+
+            <label className="ocr-field">
+              <span>Must never become a trusted box</span>
+              <textarea
+                className="ocr-review-textarea"
+                value={mustNotTrustText}
+                onChange={(event) => setMustNotTrustText(event.target.value)}
+                placeholder="OCR noise or false positives that would mislead the child"
+                rows={3}
+              />
+            </label>
+
+            <label className="ocr-field">
+              <span>Review notes</span>
+              <textarea
+                className="ocr-review-textarea"
+                value={reviewNotes}
+                onChange={(event) => setReviewNotes(event.target.value)}
+                placeholder="Glare, page curve, unusual font, what the child tried, or why this fixture matters."
+                rows={3}
+              />
+            </label>
+          </div>
+
+          {unsafeTrustedWords.length > 0 && (
+            <div className="ocr-fixture-alert">
+              <strong>Unsafe trusted detection</strong>
+              <span>{unsafeTrustedWords.join(", ")} is marked “must never trust” but is currently tappable. Keep the candidate: this is exactly the failure the fixture should preserve.</span>
+            </div>
+          )}
+
           {result && evaluation ? (
             <>
               <div className="ocr-metrics">
@@ -263,6 +377,7 @@ export function OcrEvaluationLab() {
               <div className="ocr-recovery-note">
                 <strong>{result.recovery.sparsePass ? "Second pass used" : "Single pass was enough"}</strong>
                 <span>{result.recovery.reason.replaceAll("-", " ")} · {result.recovery.primaryTrustedWords} → {result.recovery.finalTrustedWords} trusted words</span>
+                <span>{result.recovery.deskew.applied ? `Deskew ${result.recovery.deskew.angle.toFixed(2)}° applied` : `Deskew not applied · candidate ${result.recovery.deskew.candidateAngle.toFixed(2)}°`}</span>
               </div>
 
               <div className="ocr-diff-grid">
@@ -277,12 +392,13 @@ export function OcrEvaluationLab() {
               </div>
 
               <button type="button" className="ocr-export" onClick={exportFixture}>
-                <DownloadSimple size={20} /> Export fixture snapshot
+                <DownloadSimple size={20} /> Export candidate fixture
               </button>
+              <p className="ocr-export-note">Exports start as candidates. A fixture only becomes part of the reviewed set after its acceptance boundary is recorded and the JSON is checked into <code>data/ocr-fixtures</code>.</p>
             </>
           ) : (
             <div className="ocr-eval-empty">
-              <p>Run OCR, then add the expected text to see precision, recall, misses and false positives.</p>
+              <p>Run OCR, add the expected text, then review whether any misses are safely recoverable and whether false positives would mislead the child.</p>
             </div>
           )}
         </aside>
