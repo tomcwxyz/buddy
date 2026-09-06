@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test:words": "node scripts/test-word-regressions.mjs",
     "lexicon:britfone": "node scripts/lexicon/import-britfone.mjs"
   },
   "dependencies": {
