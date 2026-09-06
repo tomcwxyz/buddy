@@ -70,7 +70,7 @@ const cases = [
     assertions: {
       recognised: true,
       partOfSpeech: "verb",
-      pronunciationAvailable: true,
+      pronunciation: "ɹ ɪ k ˈɔː d",
       remoteFallback: false,
     },
   },
@@ -81,7 +81,85 @@ const cases = [
     assertions: {
       recognised: true,
       partOfSpeech: "noun",
-      pronunciationAvailable: true,
+      pronunciation: "ɹ ˈɛ k ɔː d",
+      remoteFallback: false,
+    },
+  },
+  {
+    id: "lead-verb",
+    word: "lead",
+    context: "Please lead the group along the path.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "verb",
+      sourceOneOf: ["buddy-corpus"],
+      pronunciation: "l ˈiː d",
+      meaningIncludesAny: ["guide", "way"],
+      remoteFallback: false,
+    },
+  },
+  {
+    id: "lead-metal",
+    word: "lead",
+    context: "The lead weight was surprisingly heavy.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      sourceOneOf: ["buddy-corpus"],
+      pronunciation: "l ˈɛ d",
+      meaningIncludesAny: ["metal", "heavy"],
+      remoteFallback: false,
+    },
+  },
+  {
+    id: "wind-air",
+    word: "wind",
+    context: "The wind blew leaves across the playground.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      sourceOneOf: ["buddy-corpus"],
+      pronunciation: "w ˈɪ n d",
+      meaningIncludesAny: ["air", "moving"],
+      remoteFallback: false,
+    },
+  },
+  {
+    id: "wind-turn",
+    word: "wind",
+    context: "Please wind the clock before bed.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "verb",
+      sourceOneOf: ["buddy-corpus"],
+      pronunciation: "w ˈaɪ n d",
+      meaningIncludesAny: ["turn", "twist"],
+      remoteFallback: false,
+    },
+  },
+  {
+    id: "tear-eye",
+    word: "tear",
+    context: "A tear rolled down her cheek.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "noun",
+      sourceOneOf: ["buddy-corpus"],
+      pronunciation: "t ˈɪə",
+      meaningIncludesAny: ["eye", "cry", "liquid"],
+      remoteFallback: false,
+    },
+  },
+  {
+    id: "tear-rip",
+    word: "tear",
+    context: "Please tear the paper along the fold.",
+    assertions: {
+      recognised: true,
+      partOfSpeech: "verb",
+      sourceOneOf: ["buddy-corpus"],
+      pronunciation: "t ˈɛə",
+      meaningIncludesAny: ["pull", "rip", "apart"],
       remoteFallback: false,
     },
   },
@@ -183,6 +261,9 @@ function evaluate(result, assertions) {
   }
   if (assertions.pronunciationAvailable && !result.pronunciation?.ipa) {
     failures.push("British pronunciation is missing");
+  }
+  if (assertions.pronunciation && result.pronunciation?.ipa !== assertions.pronunciation) {
+    failures.push(`pronunciation=${result.pronunciation?.ipa ?? "null"} (expected ${assertions.pronunciation})`);
   }
 
   return failures;
