@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test:words": "node scripts/test-word-regressions.mjs",
+    "test:ocr": "node scripts/test-ocr-confidence.mjs",
     "lexicon:britfone": "node scripts/lexicon/import-britfone.mjs"
   },
   "dependencies": {
