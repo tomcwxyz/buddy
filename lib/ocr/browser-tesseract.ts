@@ -1,5 +1,6 @@
 import type { Worker } from "tesseract.js";
-import type { FocusedOcrWord, OcrResult, OcrWord } from "@/lib/ocr/types";
+import { focusedWordIsUsable, shouldBoxPageWord } from "@/lib/ocr/confidence";
+import type { OcrResult, OcrWord } from "@/lib/ocr/types";
 
 type TesseractWord = {
   text?: string;
@@ -51,11 +52,18 @@ export async function recognisePage(
         const lineText = line.text?.replace(/\s+/g, " ").trim();
         line.words?.forEach((word, wordIndex) => {
           const text = word.text?.trim();
-          if (!text || !word.bbox || !/[a-z]/i.test(text)) return;
+          if (!text || !word.bbox) return;
+          const confidence = word.confidence ?? 0;
+
+          // Only medium/high-confidence page OCR becomes a direct tappable box.
+          // Lower-confidence text remains visible in the photographed page and
+          // the existing unboxed-tap path performs a focused second OCR pass.
+          if (!shouldBoxPageWord({ text, confidence })) return;
+
           words.push({
             id: `${blockIndex}-${paragraphIndex}-${lineIndex}-${wordIndex}`,
             text,
-            confidence: word.confidence ?? 0,
+            confidence,
             bbox: word.bbox,
             lineText: lineText || undefined,
           });
@@ -72,10 +80,7 @@ export async function recognisePage(
   };
 }
 
-export async function recogniseWordRegion(
-  image: string,
-  region: OcrRegion,
-): Promise<FocusedOcrWord | null> {
+export async function recogniseWordRegion(image: string, region: OcrRegion): Promise<string | null> {
   const worker = await getWorker();
   const { PSM } = await import("tesseract.js");
 
@@ -93,10 +98,8 @@ export async function recogniseWordRegion(
       ?.replace(/^[^a-z'-]+|[^a-z'-]+$/gi, "");
 
     if (!candidate || !/[a-z]/i.test(candidate)) return null;
-    return {
-      text: candidate,
-      confidence: result.data.confidence ?? 0,
-    };
+    if (!focusedWordIsUsable(result.data.confidence ?? 0)) return null;
+    return candidate;
   } finally {
     await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
   }
