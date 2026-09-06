@@ -1,5 +1,5 @@
 import type { Worker } from "tesseract.js";
-import type { OcrResult, OcrWord } from "@/lib/ocr/types";
+import type { FocusedOcrWord, OcrResult, OcrWord } from "@/lib/ocr/types";
 
 type TesseractWord = {
   text?: string;
@@ -72,7 +72,10 @@ export async function recognisePage(
   };
 }
 
-export async function recogniseWordRegion(image: string, region: OcrRegion): Promise<string | null> {
+export async function recogniseWordRegion(
+  image: string,
+  region: OcrRegion,
+): Promise<FocusedOcrWord | null> {
   const worker = await getWorker();
   const { PSM } = await import("tesseract.js");
 
@@ -89,7 +92,11 @@ export async function recogniseWordRegion(image: string, region: OcrRegion): Pro
       .split(" ")[0]
       ?.replace(/^[^a-z'-]+|[^a-z'-]+$/gi, "");
 
-    return candidate && /[a-z]/i.test(candidate) ? candidate : null;
+    if (!candidate || !/[a-z]/i.test(candidate)) return null;
+    return {
+      text: candidate,
+      confidence: result.data.confidence ?? 0,
+    };
   } finally {
     await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
   }
