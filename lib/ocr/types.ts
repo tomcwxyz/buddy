@@ -19,3 +19,8 @@ export type OcrResult = {
   width: number;
   height: number;
 };
+
+export type FocusedOcrWord = {
+  text: string;
+  confidence: number;
+};
