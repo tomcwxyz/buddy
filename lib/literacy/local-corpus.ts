@@ -55,6 +55,10 @@ const NOUN_LEFT_CUES = new Set([
   "a", "an", "another", "any", "each", "every", "her", "his", "its", "my", "our", "some", "that", "the", "their", "these", "this", "those", "your",
 ]);
 
+const ADJECTIVE_LEFT_CUES = new Set([
+  "am", "are", "be", "became", "become", "been", "being", "feel", "feels", "felt", "is", "keep", "kept", "look", "looked", "looks", "quite", "really", "seem", "seemed", "seems", "so", "stay", "stayed", "stays", "too", "very", "was", "were",
+]);
+
 const IPA_VOWEL = /[aeiouæɑɒɔəɛɜɪʊɐ]/;
 
 export const LOCAL_CORPUS_VERSION = `${corpus.version}+${CURRICULUM_CORPUS_VERSION}+${HETERONYM_CORPUS_VERSION}`;
@@ -98,8 +102,20 @@ function contextPartOfSpeech(word: string, context: string) {
 
   const left = index > 0 ? normaliseWord(tokens[index - 1]) : null;
   const left2 = index > 1 ? normaliseWord(tokens[index - 2]) : null;
+  const heteronym = HETERONYM_ENTRIES[word];
+  const hasReviewedAdjective = Boolean(
+    heteronym?.pronunciations.some((item) => item.partOfSpeech === "adjective"),
+  );
+
   if (left && VERB_LEFT_CUES.has(left)) return "verb";
   if (left && SUBJECT_PRONOUNS.has(left)) return "verb";
+
+  // Linking verbs/intensifiers are strong enough adjective evidence only for
+  // heteronyms where Buddy has explicitly reviewed an adjective pronunciation.
+  // This avoids globally reclassifying ordinary lexical lookups just to solve
+  // words such as “close” and “live”.
+  if (hasReviewedAdjective && left && ADJECTIVE_LEFT_CUES.has(left)) return "adjective";
+
   if (left && NOUN_LEFT_CUES.has(left)) return "noun";
 
   // Common noun phrases often contain a modifier between the determiner and
@@ -185,10 +201,10 @@ export function lookupLocalCorpusWord(
 
   // Britfone contains some headwords with multiple pronunciations but does not
   // label those variants by part of speech. A reviewed local entry can resolve
-  // those safely (for example noun/verb `record`, `lead`, `wind` and `tear`).
-  // For an unreviewed headword, only use Britfone as canonical pronunciation
-  // evidence when it has one unambiguous variant; otherwise fall through to the
-  // broader lexical sources.
+  // those safely (for example noun/verb/adjective `record`, `lead`, `wind`,
+  // `tear`, `close`, `live` and `use`). For an unreviewed headword, only use
+  // Britfone as canonical pronunciation evidence when it has one unambiguous
+  // variant; otherwise fall through to the broader lexical sources.
   const broadBritfoneIpa = !reviewedPronunciation && britfonePronunciations.length === 1
     ? britfonePronunciations[0]
     : null;
