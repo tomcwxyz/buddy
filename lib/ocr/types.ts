@@ -13,11 +13,19 @@ export type OcrWord = {
   lineText?: string;
 };
 
+export type OcrDeskewMetadata = {
+  applied: boolean;
+  angle: number;
+  candidateAngle: number;
+  confidence: number;
+};
+
 export type OcrRecoveryMetadata = {
   sparsePass: boolean;
   reason: "few-trusted-words" | "too-many-weak-words" | "healthy";
   primaryTrustedWords: number;
   finalTrustedWords: number;
+  deskew: OcrDeskewMetadata;
 };
 
 export type OcrResult = {
