@@ -97,9 +97,16 @@ function contextPartOfSpeech(word: string, context: string) {
   if (index < 0) return null;
 
   const left = index > 0 ? normaliseWord(tokens[index - 1]) : null;
+  const left2 = index > 1 ? normaliseWord(tokens[index - 2]) : null;
   if (left && VERB_LEFT_CUES.has(left)) return "verb";
   if (left && SUBJECT_PRONOUNS.has(left)) return "verb";
   if (left && NOUN_LEFT_CUES.has(left)) return "noun";
+
+  // Common noun phrases often contain a modifier between the determiner and
+  // target: “the school record”, “her science project”. For reviewed
+  // multi-pronunciation words this is enough grammatical evidence to select a
+  // noun pronunciation without relying on a dictionary provider's variant 1.
+  if (left2 && NOUN_LEFT_CUES.has(left2)) return "noun";
   return null;
 }
 
