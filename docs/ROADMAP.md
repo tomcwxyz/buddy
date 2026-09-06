@@ -23,14 +23,15 @@ Buddy's roadmap is deliberately organised around useful child-facing capability 
 - Reviewed curriculum semantic coverage for common maths, science and classroom words.
 - Internal `/lab/words` surfaces for lexical and sound-boundary evaluation.
 - Internal `/lab/ocr` surface for real photographed pages, precision/recall comparison, recovery inspection and local JSON fixture export.
+- OCR candidate fixtures now record page type, safe-to-recover misses, must-not-trust false positives, interaction recoverability and review notes while keeping source page images local.
 
 ### Quality infrastructure — active
 
 - Real reading failures are promoted into permanent lexical regressions.
 - `npm run test:words` checks a compact sentinel set directly through `/api/word`, including context, morphology, child-friendly meaning, British pronunciation and the OCR-noise guardrail.
-- `npm run test:ocr` checks confidence boundaries, focused-retry policy, adaptive sparse recovery, spatial merge behaviour, recovered-line context, page-deskew direction and overlay geometry.
+- `npm run test:ocr` checks confidence boundaries, focused-retry policy, adaptive sparse recovery, spatial merge behaviour, recovered-line context, page-deskew direction, overlay geometry and the reviewed real-page fixture contract.
 - `npm run test:sounds` checks reviewed, withheld and irregular spelling/pronunciation cases so an alignable word cannot silently become an unreviewed teaching rule.
-- Fast OCR, geometry and sound-boundary checks run as part of the production build.
+- Fast OCR, geometry, fixture-contract and sound-boundary checks run as part of the production build.
 - Production/API checks are run after lexical or sound changes rather than relying on the lab UI alone.
 
 Run lexical regressions locally against a development server:
@@ -51,7 +52,7 @@ Run one sentinel while diagnosing a failure:
 npm run test:words -- --base-url=https://your-buddy-deployment.example --only=sold-verb
 ```
 
-Run the local OCR policy/recovery/geometry suite:
+Run the local OCR policy/recovery/geometry/fixture suite:
 
 ```bash
 npm run test:ocr
@@ -67,9 +68,11 @@ npm run test:sounds
 
 ### 1. Build the first reviewed real-page fixture set
 
-`/lab/ocr` now gives us the evaluation loop. The next step is to stop tuning OCR from intuition and feed it a small reviewed set of the pages Buddy actually needs to read.
+The capture and review contract is now in place; the remaining work is to feed it the pages Buddy actually needs to read. Do not tune from intuition.
 
-Capture for each fixture:
+Start with a small, varied set of roughly eight real captures: prose, worksheets, large-print early readers and mixed illustration/text. Keep the photographs in the private/local test pack and check only reviewed fixture evidence into `data/ocr-fixtures`.
+
+For each fixture review:
 
 - expected visible text;
 - words that should be found;
@@ -78,7 +81,8 @@ Capture for each fixture:
 - layout type: prose, worksheet, large-print early reader, mixed illustration/text;
 - first-pass and recovery-pass counts;
 - whether deskew was applied and whether it improved the result;
-- whether the child-facing interaction remained recoverable even when OCR was imperfect.
+- whether the child-facing interaction remained recoverable even when OCR was imperfect;
+- a page-specific minimum precision/recall acceptance boundary.
 
 Success is not 100% OCR. Success is high trusted-word precision plus a natural recovery route for misses.
 

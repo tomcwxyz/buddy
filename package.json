@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test:words": "node scripts/test-word-regressions.mjs",
-    "test:ocr": "node scripts/test-ocr-confidence.mjs && node scripts/test-ocr-geometry.mjs",
+    "test:ocr": "node scripts/test-ocr-confidence.mjs && node scripts/test-ocr-geometry.mjs && node scripts/test-ocr-fixtures.mjs",
     "test:sounds": "node scripts/test-sound-guidance.mjs",
     "lexicon:britfone": "node scripts/lexicon/import-britfone.mjs"
   },
