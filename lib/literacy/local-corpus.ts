@@ -4,6 +4,10 @@ import {
   CURRICULUM_CORPUS_VERSION,
   CURRICULUM_ENTRIES,
 } from "@/lib/literacy/curriculum-corpus";
+import {
+  HETERONYM_CORPUS_VERSION,
+  HETERONYM_ENTRIES,
+} from "@/lib/literacy/heteronym-corpus";
 import { normaliseWord } from "@/lib/literacy/engine";
 import type { LexicalCandidate, LexicalRelation } from "@/lib/literacy/lexicon";
 
@@ -53,11 +57,12 @@ const NOUN_LEFT_CUES = new Set([
 
 const IPA_VOWEL = /[aeiouæɑɒɔəɛɜɪʊɐ]/;
 
-export const LOCAL_CORPUS_VERSION = `${corpus.version}+${CURRICULUM_CORPUS_VERSION}`;
+export const LOCAL_CORPUS_VERSION = `${corpus.version}+${CURRICULUM_CORPUS_VERSION}+${HETERONYM_CORPUS_VERSION}`;
 export const LOCAL_CORPUS_LOCALE = corpus.locale;
 export const LOCAL_CORPUS_ENTRY_COUNT = new Set([
   ...Object.keys(corpus.entries),
   ...Object.keys(CURRICULUM_ENTRIES),
+  ...Object.keys(HETERONYM_ENTRIES),
 ]).size;
 
 export type LocalCorpusMetadata = {
@@ -92,9 +97,16 @@ function contextPartOfSpeech(word: string, context: string) {
   if (index < 0) return null;
 
   const left = index > 0 ? normaliseWord(tokens[index - 1]) : null;
+  const left2 = index > 1 ? normaliseWord(tokens[index - 2]) : null;
   if (left && VERB_LEFT_CUES.has(left)) return "verb";
   if (left && SUBJECT_PRONOUNS.has(left)) return "verb";
   if (left && NOUN_LEFT_CUES.has(left)) return "noun";
+
+  // Common noun phrases often contain a modifier between the determiner and
+  // target: “the school record”, “her science project”. For reviewed
+  // multi-pronunciation words this is enough grammatical evidence to select a
+  // noun pronunciation without relying on a dictionary provider's variant 1.
+  if (left2 && NOUN_LEFT_CUES.has(left2)) return "noun";
   return null;
 }
 
@@ -117,7 +129,14 @@ function choosePronunciation(
     const matched = pronunciations.find((item) => item.partOfSpeech === preferredPartOfSpeech);
     if (matched) return matched;
   }
-  return pronunciations.find((item) => !item.partOfSpeech) ?? pronunciations[0] ?? null;
+
+  // Multiple POS-labelled variants are a real ambiguity, not an invitation to
+  // choose variant 1. Preserve uncertainty unless sentence grammar gives us a
+  // safe mapping. Unlabelled alternatives (for example accent variants) can
+  // still use the first reviewed form as before.
+  const unlabelled = pronunciations.find((item) => !item.partOfSpeech);
+  if (unlabelled) return unlabelled;
+  return pronunciations.length === 1 ? pronunciations[0] : null;
 }
 
 export function lookupLocalCorpusWord(
@@ -129,19 +148,25 @@ export function lookupLocalCorpusWord(
   const word = normaliseWord(wordInput);
   const coreEntry = corpus.entries[word] ?? null;
   const curriculumEntry = CURRICULUM_ENTRIES[word] ?? null;
+  const heteronymEntry = HETERONYM_ENTRIES[word] ?? null;
   const contextPos = contextPartOfSpeech(word, context);
   const preferredPos = preferredPartOfSpeech ?? contextPos;
   const britfonePronunciations = lookupBritfonePronunciations(word);
   const britfoneManifest = britfoneRuntimeManifest();
 
   // Curriculum senses are reviewed specifically for school-age reading, so
-  // they come before broad core senses for the same word. Common competing
-  // meanings live in the curriculum tier too, allowing the normal contextual
-  // ranker to choose rather than forcing a school meaning unconditionally.
-  const senses: CorpusSense[] = [
+  // they come before broad core senses for the same word. Reviewed heteronyms
+  // sit ahead of both when present because their job is to bind pronunciation
+  // and grammatical sense safely rather than letting an unlabelled provider
+  // guess between established variants.
+  const allSenses: CorpusSense[] = [
+    ...(heteronymEntry?.senses ?? []),
     ...(curriculumEntry?.senses ?? []),
     ...(coreEntry?.senses ?? []),
   ];
+  const senses = heteronymEntry?.strictPartOfSpeech && preferredPos
+    ? allSenses.filter((sense) => !sense.partOfSpeech || sense.partOfSpeech === preferredPos)
+    : allSenses;
   const candidates: LexicalCandidate[] = senses.map((sense, rank) => ({
     definition: sense.definition,
     example: sense.example,
@@ -152,13 +177,18 @@ export function lookupLocalCorpusWord(
     rank,
   }));
 
-  const reviewedPronunciation = choosePronunciation(coreEntry?.pronunciations ?? [], preferredPos);
+  const reviewedPronunciations: CorpusPronunciation[] = [
+    ...(heteronymEntry?.pronunciations ?? []),
+    ...(coreEntry?.pronunciations ?? []),
+  ];
+  const reviewedPronunciation = choosePronunciation(reviewedPronunciations, preferredPos);
 
   // Britfone contains some headwords with multiple pronunciations but does not
-  // label those variants by part of speech. A reviewed core entry can resolve
-  // those safely (for example noun/verb `record`). For an unreviewed headword,
-  // only use Britfone as canonical pronunciation evidence when it has one
-  // unambiguous variant; otherwise fall through to the broader lexical sources.
+  // label those variants by part of speech. A reviewed local entry can resolve
+  // those safely (for example noun/verb `record`, `lead`, `wind` and `tear`).
+  // For an unreviewed headword, only use Britfone as canonical pronunciation
+  // evidence when it has one unambiguous variant; otherwise fall through to the
+  // broader lexical sources.
   const broadBritfoneIpa = !reviewedPronunciation && britfonePronunciations.length === 1
     ? britfonePronunciations[0]
     : null;
@@ -169,7 +199,7 @@ export function lookupLocalCorpusWord(
     ?? reviewedPronunciation?.partOfSpeech
     ?? null;
 
-  const recognisedEntry = Boolean(coreEntry || curriculumEntry);
+  const recognisedEntry = Boolean(coreEntry || curriculumEntry || heteronymEntry);
 
   return {
     word,
@@ -209,12 +239,16 @@ export function localCorpusManifest() {
   return {
     version: LOCAL_CORPUS_VERSION,
     locale: corpus.locale,
-    description: `${corpus.description} Includes reviewed ${CURRICULUM_CORPUS_VERSION} school-age semantic coverage.`,
+    description: `${corpus.description} Includes reviewed ${CURRICULUM_CORPUS_VERSION} school-age semantic coverage and ${HETERONYM_CORPUS_VERSION} pronunciation disambiguation.`,
     entryCount: LOCAL_CORPUS_ENTRY_COUNT,
     pronunciationSource: corpus.pronunciationSource,
     curriculumSemanticTier: {
       version: CURRICULUM_CORPUS_VERSION,
       entryCount: Object.keys(CURRICULUM_ENTRIES).length,
+    },
+    heteronymTier: {
+      version: HETERONYM_CORPUS_VERSION,
+      entryCount: Object.keys(HETERONYM_ENTRIES).length,
     },
     britfoneRuntime: britfoneRuntimeManifest(),
   };
