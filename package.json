@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run test:ocr && next build",
     "start": "next start",
     "lint": "eslint .",
     "test:words": "node scripts/test-word-regressions.mjs",
