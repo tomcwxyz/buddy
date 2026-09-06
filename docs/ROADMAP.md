@@ -15,11 +15,13 @@ Buddy's roadmap is deliberately organised around useful child-facing capability 
 - Local-first lexical resolution with reviewed Buddy meanings, Princeton WordNet semantics and British-English pronunciation from Britfone.
 - Context-sensitive senses, morphology and lemma resolution for common word forms.
 - Reviewed heteronym handling for common multi-pronunciation words including `record`, `lead`, `wind` and `tear`.
+- A separate reviewed sound-teaching boundary: technical spelling/pronunciation alignment is classified as **safe to explain**, **do not infer** or **irregular** before any child-facing phonics clue is shown.
+- No trusted pronunciation means no speculative spelling-only sound clue.
 - Unknown-word/OCR guardrails so noise does not silently become vocabulary.
 - Local Learning Map events, **Words we've met**, Practice and tentative observations in **Me**.
 - A broad school-age lexical benchmark spanning everyday polysemes, curriculum vocabulary, function words, morphology and difficult pronunciation.
 - Reviewed curriculum semantic coverage for common maths, science and classroom words.
-- Internal `/lab/words` surfaces for lexical evaluation and regression work.
+- Internal `/lab/words` surfaces for lexical and sound-boundary evaluation.
 - Internal `/lab/ocr` surface for real photographed pages, precision/recall comparison, recovery inspection and local JSON fixture export.
 
 ### Quality infrastructure — active
@@ -27,8 +29,9 @@ Buddy's roadmap is deliberately organised around useful child-facing capability 
 - Real reading failures are promoted into permanent lexical regressions.
 - `npm run test:words` checks a compact sentinel set directly through `/api/word`, including context, morphology, child-friendly meaning, British pronunciation and the OCR-noise guardrail.
 - `npm run test:ocr` checks confidence boundaries, focused-retry policy, adaptive sparse recovery, spatial merge behaviour, recovered-line context, page-deskew direction and overlay geometry.
-- Fast OCR policy and geometry checks run as part of the production build.
-- Production/API checks are run after lexical changes rather than relying on the lab UI alone.
+- `npm run test:sounds` checks reviewed, withheld and irregular spelling/pronunciation cases so an alignable word cannot silently become an unreviewed teaching rule.
+- Fast OCR, geometry and sound-boundary checks run as part of the production build.
+- Production/API checks are run after lexical or sound changes rather than relying on the lab UI alone.
 
 Run lexical regressions locally against a development server:
 
@@ -54,6 +57,12 @@ Run the local OCR policy/recovery/geometry suite:
 npm run test:ocr
 ```
 
+Run the reviewed sound-boundary suite:
+
+```bash
+npm run test:sounds
+```
+
 ## Next
 
 ### 1. Build the first reviewed real-page fixture set
@@ -73,19 +82,19 @@ Capture for each fixture:
 
 Success is not 100% OCR. Success is high trusted-word precision plus a natural recovery route for misses.
 
-### 2. Validate grapheme/phoneme guidance
+### 2. Expand reviewed sound guidance from evidence, not plausibility
 
-The current sound layer explains already-resolved pronunciation evidence. It should now be tested against a validated structured-literacy mapping so that child-facing sound clues are predictable, reviewable and not merely plausible.
+The first reviewed explanation whitelist is now in place and deliberately narrower than Buddy's internal grapheme–phoneme aligner. Continue the work without pretending Buddy has invented a universal phonics progression.
 
 Priorities:
 
-- common grapheme patterns;
-- irregular spellings;
-- morpheme boundaries where they are more useful than phoneme-by-phoneme explanation;
-- wording that stays simple and age-respectful;
-- a reviewed fixture set that distinguishes **safe to explain**, **irregular**, and **do not infer**.
+- compare the whitelist with current SSP programme progressions and preserve compatibility rather than imposing an order;
+- add high-value alternative graphemes only when a reviewed source and real Buddy reading case justify them;
+- keep common-exception and genuinely irregular words explicit;
+- add morpheme-aware guidance where morphology is more useful than phoneme-by-phoneme explanation;
+- continue reviewing wording for clarity and age-respectfulness.
 
-Buddy should continue refusing to invent canonical pronunciation or force a neat letter/sound story where the evidence does not support one.
+See `docs/SOUND_GUIDANCE.md` for the evidence boundary and source notes.
 
 ### 3. Improve remaining capture geometry only from fixture evidence
 
@@ -132,6 +141,7 @@ It should be able to help with language and task scaffolding, but it must not be
 - Gamification, streaks, scores, badges or rewards.
 - A general unrestricted chatbot with access to the child's history.
 - Model-generated canonical phonics or pronunciation guidance.
+- Treating a technically possible grapheme–phoneme alignment as permission to teach it.
 - Endless OCR fallback passes without evidence that they improve the child-facing interaction.
 - Aggressive auto-crop or perspective warping without page-fixture evidence that it helps more than it harms.
 
