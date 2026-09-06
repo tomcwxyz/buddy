@@ -10,6 +10,7 @@ Buddy's roadmap is deliberately organised around useful child-facing capability 
 - Tappable recognised words plus a tighter focused OCR pass for an unboxed or uncertain word.
 - Confidence-aware OCR: weak page guesses are not presented as trusted words.
 - Adaptive sparse-text recovery: Buddy takes a second whole-page look when the first pass finds few trusted words or a meaningful weak-confidence tail, then merges genuinely new/high-confidence boxes.
+- Conservative whole-page deskew: Buddy only rotates a photographed page when horizontal text evidence is strong enough, then maps recognised boxes back onto the untouched photograph for tapping.
 - Three child-controlled help depths: **Tell me**, **Give me a clue**, and **Let's work it out**.
 - Local-first lexical resolution with reviewed Buddy meanings, Princeton WordNet semantics and British-English pronunciation from Britfone.
 - Context-sensitive senses, morphology and lemma resolution for common word forms.
@@ -18,14 +19,15 @@ Buddy's roadmap is deliberately organised around useful child-facing capability 
 - Local Learning Map events, **Words we've met**, Practice and tentative observations in **Me**.
 - A broad school-age lexical benchmark spanning everyday polysemes, curriculum vocabulary, function words, morphology and difficult pronunciation.
 - Reviewed curriculum semantic coverage for common maths, science and classroom words.
-- Internal `/lab/words` surfaces for evaluation and regression work.
+- Internal `/lab/words` surfaces for lexical evaluation and regression work.
+- Internal `/lab/ocr` surface for real photographed pages, precision/recall comparison, recovery inspection and local JSON fixture export.
 
 ### Quality infrastructure — active
 
 - Real reading failures are promoted into permanent lexical regressions.
 - `npm run test:words` checks a compact sentinel set directly through `/api/word`, including context, morphology, child-friendly meaning, British pronunciation and the OCR-noise guardrail.
-- `npm run test:ocr` checks confidence boundaries, focused-retry policy, adaptive sparse recovery, spatial merge behaviour and recovered-line context.
-- Fast OCR policy checks run as part of the production build.
+- `npm run test:ocr` checks confidence boundaries, focused-retry policy, adaptive sparse recovery, spatial merge behaviour, recovered-line context, page-deskew direction and overlay geometry.
+- Fast OCR policy and geometry checks run as part of the production build.
 - Production/API checks are run after lexical changes rather than relying on the lab UI alone.
 
 Run lexical regressions locally against a development server:
@@ -46,7 +48,7 @@ Run one sentinel while diagnosing a failure:
 npm run test:words -- --base-url=https://your-buddy-deployment.example --only=sold-verb
 ```
 
-Run the local OCR policy/recovery suite:
+Run the local OCR policy/recovery/geometry suite:
 
 ```bash
 npm run test:ocr
@@ -54,17 +56,19 @@ npm run test:ocr
 
 ## Next
 
-### 1. Make real photographed pages the main OCR evaluation loop
+### 1. Build the first reviewed real-page fixture set
 
-The OCR policy now has explicit, testable thresholds and recovery behaviour. The next step is to stop tuning it from intuition and build a small reviewed page-image fixture set from the sorts of pages Buddy actually needs to read.
+`/lab/ocr` now gives us the evaluation loop. The next step is to stop tuning OCR from intuition and feed it a small reviewed set of the pages Buddy actually needs to read.
 
 Capture for each fixture:
 
+- expected visible text;
 - words that should be found;
 - words that may safely remain unboxed but recover on tap;
 - false positives that must not become trusted boxes;
 - layout type: prose, worksheet, large-print early reader, mixed illustration/text;
 - first-pass and recovery-pass counts;
+- whether deskew was applied and whether it improved the result;
 - whether the child-facing interaction remained recoverable even when OCR was imperfect.
 
 Success is not 100% OCR. Success is high trusted-word precision plus a natural recovery route for misses.
@@ -83,17 +87,17 @@ Priorities:
 
 Buddy should continue refusing to invent canonical pronunciation or force a neat letter/sound story where the evidence does not support one.
 
-### 3. Improve capture geometry rather than piling on OCR passes
+### 3. Improve remaining capture geometry only from fixture evidence
 
-Once the fixture set tells us where recognition still fails, improve the image before adding more recognition complexity:
+Small-angle deskew is now in the recognition path. Do not pile on more OCR passes. Use the page fixtures to decide which image-quality improvements earn their complexity next:
 
-- document/page crop;
-- deskew and perspective correction;
+- document/page boundary detection and conservative crop;
+- perspective correction;
 - page curvature tolerance where practical;
 - glare/blur/capture-quality hints;
 - better handling of punctuation and split/joined words.
 
-Adaptive AUTO → SPARSE_TEXT → focused word retry is now the intended recognition ladder. Additional passes should only be added with fixture evidence.
+Adaptive AUTO → SPARSE_TEXT → focused word retry is the intended recognition ladder. Additional recognition passes should only be added with fixture evidence.
 
 ### 4. Turn real lexical failures into the continuing evaluation loop
 
@@ -129,5 +133,6 @@ It should be able to help with language and task scaffolding, but it must not be
 - A general unrestricted chatbot with access to the child's history.
 - Model-generated canonical phonics or pronunciation guidance.
 - Endless OCR fallback passes without evidence that they improve the child-facing interaction.
+- Aggressive auto-crop or perspective warping without page-fixture evidence that it helps more than it harms.
 
 Those may create apparent product breadth while making it harder to learn whether the core interaction actually helps a child read, understand and discover how they learn.

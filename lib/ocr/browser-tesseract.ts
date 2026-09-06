@@ -1,5 +1,7 @@
 import type { Worker } from "tesseract.js";
+import { prepareRecognitionImage } from "@/lib/ocr/browser-preprocess";
 import { focusedWordIsUsable, shouldBoxPageWord } from "@/lib/ocr/confidence";
+import { mapBoxFromDeskewed } from "@/lib/ocr/geometry";
 import {
   decideSparseRecovery,
   mergeOcrWords,
@@ -88,6 +90,19 @@ function addPrimaryLineContext(words: OcrWord[], primaryWords: OcrWord[]) {
   });
 }
 
+function mapWordsBackToPhoto(
+  words: OcrWord[],
+  width: number,
+  height: number,
+  deskewAngle: number,
+) {
+  if (!deskewAngle) return words;
+  return words.map((word) => ({
+    ...word,
+    bbox: mapBoxFromDeskewed(word.bbox, width, height, deskewAngle),
+  }));
+}
+
 export async function recognisePage(
   image: string,
   width: number,
@@ -95,9 +110,11 @@ export async function recognisePage(
 ): Promise<OcrResult> {
   const worker = await getWorker();
   const { PSM } = await import("tesseract.js");
+  const prepared = await prepareRecognitionImage(image, width, height);
+  const recognitionImage = prepared.image;
 
   await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
-  const primaryResult = await worker.recognize(image, {}, { text: true, blocks: true });
+  const primaryResult = await worker.recognize(recognitionImage, {}, { text: true, blocks: true });
   const primaryWords = extractWords(primaryResult as TesseractPageResult, "auto");
   const primaryTrusted = trustedPageWords(primaryWords);
   const recoveryDecision = decideSparseRecovery(primaryWords, primaryTrusted);
@@ -108,7 +125,7 @@ export async function recognisePage(
   if (recoveryDecision.run) {
     try {
       await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT });
-      const sparseResult = await worker.recognize(image, {}, { text: true, blocks: true });
+      const sparseResult = await worker.recognize(recognitionImage, {}, { text: true, blocks: true });
       const sparseWords = extractWords(sparseResult as TesseractPageResult, "sparse");
       const sparseTrusted = addPrimaryLineContext(trustedPageWords(sparseWords), primaryWords);
       finalWords = mergeOcrWords(primaryTrusted, sparseTrusted);
@@ -122,9 +139,16 @@ export async function recognisePage(
     }
   }
 
+  const mappedWords = mapWordsBackToPhoto(
+    finalWords,
+    width,
+    height,
+    prepared.deskew.angle,
+  );
+
   return {
     text: primaryResult.data.text ?? "",
-    words: finalWords,
+    words: mappedWords,
     width,
     height,
     recovery: {
@@ -132,6 +156,7 @@ export async function recognisePage(
       reason: recoveryDecision.reason,
       primaryTrustedWords: primaryTrusted.length,
       finalTrustedWords: finalWords.length,
+      deskew: prepared.deskew,
     },
   };
 }
