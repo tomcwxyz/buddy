@@ -1,0 +1,366 @@
+.ocr-lab-shell {
+  min-height: 100vh;
+  padding: 42px clamp(18px, 4vw, 54px) 72px;
+  background: #f3eee5;
+  color: #28251f;
+}
+
+.ocr-lab-header {
+  max-width: 1240px;
+  margin: 0 auto 28px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.ocr-lab-header h1 {
+  margin: 6px 0 8px;
+  font-size: clamp(2.2rem, 6vw, 4.6rem);
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+.ocr-lab-header p {
+  max-width: 760px;
+  margin: 0;
+  color: #6d685f;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.ocr-lab-kicker,
+.ocr-section-heading span,
+.ocr-field > span,
+.ocr-diff-grid > div > span {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #786f60;
+}
+
+.ocr-lab-link {
+  color: #28251f;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(40, 37, 31, 0.25);
+  padding-bottom: 2px;
+  white-space: nowrap;
+}
+
+.ocr-lab-controls {
+  max-width: 1240px;
+  margin: 0 auto 22px;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.ocr-upload,
+.ocr-run,
+.ocr-export {
+  min-height: 50px;
+  border: 1px solid rgba(40, 37, 31, 0.16);
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 18px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ocr-upload {
+  background: #fffaf2;
+  position: relative;
+  overflow: hidden;
+}
+
+.ocr-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ocr-run {
+  background: #29261f;
+  color: #fffaf2;
+}
+
+.ocr-run:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.ocr-export {
+  width: 100%;
+  margin-top: 16px;
+  background: #29261f;
+  color: #fffaf2;
+}
+
+.ocr-field {
+  display: grid;
+  gap: 7px;
+}
+
+.ocr-field input,
+.ocr-field textarea {
+  width: 100%;
+  border: 1px solid rgba(40, 37, 31, 0.16);
+  border-radius: 14px;
+  background: #fffaf2;
+  color: inherit;
+  padding: 13px 14px;
+  font: inherit;
+  resize: vertical;
+}
+
+.ocr-field textarea {
+  min-height: 170px;
+  line-height: 1.5;
+}
+
+.ocr-field input:focus,
+.ocr-field textarea:focus {
+  outline: 2px solid rgba(90, 110, 90, 0.3);
+  outline-offset: 1px;
+}
+
+.ocr-lab-error {
+  max-width: 1240px;
+  margin: 0 auto 18px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  background: rgba(170, 79, 58, 0.1);
+  color: #783f31;
+}
+
+.ocr-lab-grid {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.75fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.ocr-preview-card,
+.ocr-evaluation-panel,
+.ocr-word-table-card {
+  border: 1px solid rgba(40, 37, 31, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 250, 242, 0.82);
+  box-shadow: 0 14px 44px rgba(70, 61, 45, 0.06);
+}
+
+.ocr-preview-card,
+.ocr-evaluation-panel {
+  padding: 18px;
+}
+
+.ocr-section-heading {
+  margin-bottom: 14px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.ocr-section-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.ocr-section-heading strong {
+  font-size: 1rem;
+}
+
+.ocr-section-heading > span {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ocr-preview {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 13px;
+  background: #ddd5c8;
+}
+
+.ocr-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ocr-eval-box {
+  position: absolute;
+  border: 1.5px solid rgba(78, 109, 82, 0.78);
+  border-radius: 3px;
+  background: rgba(78, 109, 82, 0.08);
+  pointer-events: none;
+}
+
+.ocr-eval-box.recovered {
+  border-style: dashed;
+  border-color: rgba(157, 106, 58, 0.9);
+  background: rgba(157, 106, 58, 0.09);
+}
+
+.ocr-preview-empty,
+.ocr-eval-empty {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  text-align: center;
+  color: #786f60;
+  border: 1px dashed rgba(40, 37, 31, 0.18);
+  border-radius: 13px;
+  padding: 24px;
+}
+
+.ocr-preview-empty p,
+.ocr-eval-empty p {
+  max-width: 420px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.ocr-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.ocr-metrics > div {
+  padding: 13px 14px;
+  border-radius: 13px;
+  background: rgba(99, 113, 91, 0.08);
+  display: grid;
+  gap: 2px;
+}
+
+.ocr-metrics span {
+  color: #756e62;
+  font-size: 0.74rem;
+}
+
+.ocr-metrics strong {
+  font-size: 1.35rem;
+}
+
+.ocr-recovery-note {
+  margin-top: 12px;
+  padding: 13px 14px;
+  border-radius: 13px;
+  background: rgba(177, 135, 76, 0.09);
+  display: grid;
+  gap: 4px;
+}
+
+.ocr-recovery-note span {
+  color: #726a5d;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.ocr-diff-grid {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.ocr-diff-grid > div {
+  padding-top: 10px;
+  border-top: 1px solid rgba(40, 37, 31, 0.09);
+}
+
+.ocr-diff-grid p {
+  margin: 5px 0 0;
+  color: #665f54;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.ocr-word-table-card {
+  max-width: 1240px;
+  margin: 20px auto 0;
+  padding: 18px;
+}
+
+.ocr-word-table {
+  overflow-x: auto;
+  border: 1px solid rgba(40, 37, 31, 0.09);
+  border-radius: 12px;
+}
+
+.ocr-word-row {
+  min-width: 720px;
+  display: grid;
+  grid-template-columns: 1fr 110px 140px 2.2fr;
+  gap: 12px;
+  align-items: start;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(40, 37, 31, 0.07);
+  font-size: 0.86rem;
+}
+
+.ocr-word-row:first-child {
+  border-top: 0;
+}
+
+.ocr-word-row.heading {
+  color: #756e62;
+  background: rgba(40, 37, 31, 0.035);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ocr-word-row > span:last-child {
+  color: #756e62;
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  .ocr-lab-header,
+  .ocr-lab-controls,
+  .ocr-lab-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ocr-lab-header {
+    display: grid;
+  }
+
+  .ocr-lab-controls {
+    display: grid;
+  }
+
+  .ocr-lab-link {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 560px) {
+  .ocr-lab-shell {
+    padding: 24px 12px 48px;
+  }
+
+  .ocr-preview-card,
+  .ocr-evaluation-panel,
+  .ocr-word-table-card {
+    border-radius: 16px;
+  }
+
+  .ocr-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+}
