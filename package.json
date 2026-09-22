@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run test:ocr && npm run test:sounds && next build",
+    "build": "npm run test:ocr && npm run test:sounds && npm run test:practice && next build",
     "start": "next start",
     "lint": "eslint .",
     "test:words": "node scripts/test-word-regressions.mjs",
     "test:ocr": "node scripts/test-ocr-confidence.mjs && node scripts/test-ocr-geometry.mjs && node scripts/test-ocr-fixtures.mjs",
     "test:sounds": "node scripts/test-sound-guidance.mjs",
-    "lexicon:britfone": "node scripts/lexicon/import-britfone.mjs"
+    "lexicon:britfone": "node scripts/lexicon/import-britfone.mjs",
+    "test:practice": "node scripts/test-practice-import.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

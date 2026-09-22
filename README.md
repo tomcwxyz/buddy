@@ -66,7 +66,9 @@ The first useful reading-and-learning loop now exists:
 11. record the encounter in a local Learning Map;
 12. see encountered words in **Words we've met**;
 13. revisit three useful words at a time in **Let's play with words**;
-14. allow Buddy to surface tentative, rejectable observations in **Me** after repeated evidence.
+14. photograph a school spelling list, check/edit the words Buddy found, and turn it into a local practice set;
+15. let a small rollercoaster grow as practice-set words are explored, without using correctness, points or streaks;
+16. allow Buddy to surface tentative, rejectable observations in **Me** after repeated evidence.
 
 ### Word Library v2
 
@@ -97,7 +99,8 @@ The model fallback is disabled by default and never supplies canonical phonics/p
 
 - `/` — action-first home.
 - `/read` — live camera capture, local OCR, selectable words, spoken help and child-controlled scaffolding.
-- `/practice` — three encountered words, one at a time, with whichever support the child chooses.
+- `/practice` — three useful words at a time, drawn from encountered words or the active practice set, with whichever support the child chooses.
+- `/practice/add-spellings` — local photo/OCR import for school spelling lists with mandatory human review before saving.
 - `/words` — “Words we've met”, derived from local learning events.
 - `/me` — tentative child-visible observations derived from repeated interactions.
 - `/discover` — initial Brain Quests.

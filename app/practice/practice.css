@@ -346,3 +346,444 @@
     flex-direction: column;
   }
 }
+
+
+/* Practice sets from real life */
+.practice-add-spellings,
+.practice-set-actions a,
+.practice-set-actions button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--buddy-ink-soft);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.practice-add-spellings {
+  margin-top: 18px;
+}
+
+.practice-set-actions {
+  margin-top: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+/* A small visual record of exploration, deliberately not a score. */
+.rollercoaster-progress {
+  width: 100%;
+  margin-top: 22px;
+}
+
+.rollercoaster-copy span,
+.rollercoaster-count {
+  display: block;
+  color: var(--buddy-ink-soft);
+  font-size: 0.78rem;
+}
+
+.rollercoaster-copy strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 1.08rem;
+  line-height: 1.15;
+}
+
+.rollercoaster-copy p {
+  margin: 6px 0 0;
+  color: var(--buddy-ink-soft);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.rollercoaster-track {
+  min-height: 92px;
+  margin: 17px 0 9px;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.rollercoaster-piece {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 17px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--buddy-line);
+  transform-origin: center;
+  transition: background 220ms ease, transform 220ms ease;
+}
+
+.rollercoaster-piece::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  width: 2px;
+  height: 28px;
+  background: color-mix(in srgb, var(--buddy-line) 78%, transparent);
+  transform: translateX(-50%);
+}
+
+.rollercoaster-piece i {
+  position: absolute;
+  right: -4px;
+  top: -4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--buddy-line);
+  box-shadow: 0 4px 10px rgba(37, 35, 31, 0.08);
+}
+
+.rollercoaster-piece.built {
+  background: var(--buddy-clay);
+}
+
+.rollercoaster-piece.built::after {
+  background: color-mix(in srgb, var(--buddy-clay) 58%, transparent);
+}
+
+.rollercoaster-piece.built i {
+  background: var(--buddy-sun);
+}
+
+.rollercoaster-piece.shape-0 { transform: translateY(18px) rotate(-8deg); }
+.rollercoaster-piece.shape-1 { transform: translateY(7px) rotate(-12deg); }
+.rollercoaster-piece.shape-2 { transform: translateY(-10px) rotate(-9deg); }
+.rollercoaster-piece.shape-3 { transform: translateY(-18px) rotate(8deg); }
+.rollercoaster-piece.shape-4 { transform: translateY(-4px) rotate(13deg); }
+
+.rollercoaster-progress.compact .rollercoaster-track {
+  min-height: 72px;
+  margin-top: 10px;
+}
+
+.rollercoaster-progress.compact .rollercoaster-copy p {
+  font-size: 0.78rem;
+}
+
+.practice-finish-visual {
+  display: grid;
+  gap: 8px;
+  align-content: center;
+}
+
+/* Spelling-list capture and review */
+.spelling-import-shell {
+  display: grid;
+  gap: 26px;
+}
+
+.spelling-import-heading {
+  max-width: 760px;
+  padding: 26px 0 4px;
+}
+
+.spelling-import-heading h1 {
+  margin: 0;
+  font-size: clamp(3rem, 7vw, 6.2rem);
+  line-height: 0.94;
+  letter-spacing: -0.055em;
+}
+
+.spelling-import-heading > p:last-child {
+  max-width: 42rem;
+  margin: 20px 0 0;
+  color: var(--buddy-ink-soft);
+  font-size: 1.16rem;
+}
+
+.spelling-import-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.spelling-photo-card,
+.spelling-review-card {
+  border: 1px solid rgba(98, 94, 85, 0.14);
+  border-radius: 30px;
+  background: rgba(251, 248, 242, 0.88);
+  box-shadow: var(--buddy-shadow);
+}
+
+.spelling-photo-card {
+  padding: 22px;
+}
+
+.spelling-review-card {
+  padding: clamp(24px, 4vw, 42px);
+}
+
+.spelling-photo-button {
+  min-height: 58px;
+  border-radius: 18px;
+  padding: 0 18px;
+  background: var(--buddy-ink);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.spelling-photo-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.spelling-photo-preview,
+.spelling-photo-empty {
+  margin-top: 16px;
+  min-height: 320px;
+  border-radius: 22px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--buddy-sky) 8%, var(--buddy-paper));
+  border: 1px solid var(--buddy-line);
+}
+
+.spelling-photo-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 600px;
+  object-fit: contain;
+}
+
+.spelling-photo-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  padding: 28px;
+  color: var(--buddy-ink-soft);
+  text-align: center;
+}
+
+.spelling-photo-empty p,
+.spelling-privacy {
+  margin: 0;
+}
+
+.spelling-privacy {
+  margin-top: 13px;
+  color: var(--buddy-ink-soft);
+  font-size: 0.82rem;
+}
+
+.spelling-set-label {
+  display: grid;
+  gap: 7px;
+}
+
+.spelling-set-label span {
+  color: var(--buddy-ink-soft);
+  font-size: 0.8rem;
+}
+
+.spelling-set-label input {
+  min-height: 52px;
+  border: 1px solid var(--buddy-line);
+  border-radius: 15px;
+  background: var(--buddy-paper-raised);
+  padding: 0 14px;
+  font-size: 1.08rem;
+}
+
+.spelling-review-heading {
+  margin-top: 28px;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.spelling-review-heading > div span,
+.spelling-review-heading > span {
+  display: block;
+  color: var(--buddy-ink-soft);
+  font-size: 0.78rem;
+}
+
+.spelling-review-heading strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.spelling-message {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--buddy-sun) 12%, transparent);
+  color: var(--buddy-ink-soft);
+}
+
+.spelling-candidates {
+  margin-top: 18px;
+  display: grid;
+  gap: 9px;
+}
+
+.spelling-candidate {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  gap: 8px;
+  align-items: center;
+}
+
+.spelling-candidate input {
+  min-width: 0;
+  min-height: 52px;
+  border: 1px solid var(--buddy-line);
+  border-radius: 14px;
+  background: var(--buddy-paper-raised);
+  padding: 0 14px;
+  font-size: 1.08rem;
+}
+
+.spelling-check,
+.spelling-remove {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--buddy-line);
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: var(--buddy-paper-raised);
+  cursor: pointer;
+}
+
+.spelling-check.included {
+  border-color: color-mix(in srgb, var(--buddy-moss) 44%, var(--buddy-line));
+  background: color-mix(in srgb, var(--buddy-moss) 13%, var(--buddy-paper-raised));
+}
+
+.spelling-remove {
+  border-color: transparent;
+  background: transparent;
+  color: var(--buddy-ink-soft);
+}
+
+.spelling-add-word {
+  margin-top: 13px;
+  border: 0;
+  padding: 8px 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.spelling-save-row {
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 1px solid var(--buddy-line);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 13px 18px;
+}
+
+.spelling-save-row > span {
+  color: var(--buddy-ink-soft);
+  font-size: 0.86rem;
+}
+
+.spelling-save-row .practice-primary:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.spelling-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+@media (max-width: 800px) {
+  .spelling-import-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .spelling-photo-preview,
+  .spelling-photo-empty {
+    min-height: 230px;
+  }
+
+  .practice-finish-visual {
+    max-width: 520px;
+  }
+}
+
+@media (max-width: 640px) {
+  .practice-side .rollercoaster-progress {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    margin: 0;
+  }
+
+  .practice-side .rollercoaster-copy p {
+    display: none;
+  }
+
+  .practice-side .rollercoaster-track {
+    min-height: 45px;
+    margin: 5px 0 3px;
+  }
+
+  .practice-side .rollercoaster-piece::after {
+    height: 17px;
+  }
+
+  .practice-side .rollercoaster-count {
+    font-size: 0.7rem;
+  }
+
+  .practice-side .practice-set-actions {
+    grid-column: 1 / -1;
+    margin-top: 5px;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .spelling-import-heading {
+    padding-top: 8px;
+  }
+
+  .spelling-import-heading h1 {
+    font-size: clamp(3rem, 15vw, 4.8rem);
+  }
+
+  .spelling-photo-card,
+  .spelling-review-card {
+    border-radius: 24px;
+  }
+
+  .spelling-review-card {
+    padding: 22px 18px;
+  }
+
+  .spelling-save-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

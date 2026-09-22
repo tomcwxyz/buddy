@@ -43,7 +43,9 @@ The alpha now supports:
 15. press-and-hold browser speech recognition for simple voice requests;
 16. an uncertainty/correction state for text that does not look like a recognised English word;
 17. local learning events recorded only after a selected OCR word is lexically recognised;
-18. `Words we've met` and a three-word Practice loop derived from those events.
+18. `Words we've met` and a three-word Practice loop derived from those events;
+19. photographed school spelling lists converted into reviewed local practice sets;
+20. practice-set progress visualised as a small rollercoaster built by exploring words, with no score or correctness requirement.
 
 Page images are not uploaded by Buddy in this alpha. OCR runs in the browser. Tesseract language/wasm resources may still be downloaded by the OCR library at runtime.
 
@@ -164,6 +166,21 @@ For child-facing deployments, enabling a model is a privacy/safety deployment de
 
 The word lab is an engineering/evaluation surface, not a child score.
 
+## Practice sets from real life
+
+Practice sets are stored locally in `buddy.practice-sets.v1`, with one optional active set. The first import route is `/practice/add-spellings`.
+
+The flow is deliberately review-first:
+
+1. the user photographs or chooses an image of a spelling list;
+2. Buddy prepares the image and runs the existing local browser OCR;
+3. likely word tokens are cleaned and deduplicated;
+4. the person checks, edits, removes or adds words;
+5. only the confirmed word list is stored — the source photograph is not retained;
+6. Practice selects a few words at a time from the active set, prioritising words not yet explored.
+
+`practice_explored` is separate from `practice_known`. The rollercoaster is built from unique explored words, so skipping a word or asking for substantial help does not remove progress. This is intentional: the visual is a record of participation and return, not attainment.
+
 ## Learning Map alpha
 
 `lib/learning/local-store.ts` stores a capped local event stream in browser storage. Events describe support requested and words encountered rather than mistakes or correctness. The Learning Map remains device-local and child-visible/rejectable by design.
@@ -194,6 +211,8 @@ The word lab is an engineering/evaluation surface, not a child score.
 - Long-tail meanings can still depend on network providers.
 - The optional model fallback is privacy-gated and not pronunciation authority.
 - The Learning Map is device-local and is not yet synchronised.
+- Spelling-list OCR currently treats the photographed page as a candidate source, not a trustworthy structured list; the human confirmation step is mandatory.
+- The rollercoaster is an initial playful-progress experiment and should be tested against quieter visual metaphors before it becomes a larger game layer.
 
 ## Next implementation slice
 
