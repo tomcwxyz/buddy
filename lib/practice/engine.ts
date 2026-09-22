@@ -35,6 +35,18 @@ function promptFor(word: RememberedWord) {
   return "Give this one a look in your own way. Ask for help whenever you want it.";
 }
 
+function setWord(word: string): RememberedWord {
+  return {
+    word,
+    firstSeen: "",
+    lastSeen: "",
+    encounters: 0,
+    heardCount: 0,
+    meaningCount: 0,
+    helpDepths: [],
+  };
+}
+
 export function choosePracticeWords(words: RememberedWord[], limit = 3): PracticeWord[] {
   return [...words]
     .sort((a, b) => {
@@ -43,5 +55,21 @@ export function choosePracticeWords(words: RememberedWord[], limit = 3): Practic
       return b.lastSeen.localeCompare(a.lastSeen);
     })
     .slice(0, limit)
+    .map((word) => ({ ...word, openingPrompt: promptFor(word) }));
+}
+
+export function choosePracticeSetWords(
+  words: string[],
+  exploredWords: Set<string>,
+  limit = 3,
+): PracticeWord[] {
+  const ordered = [
+    ...words.filter((word) => !exploredWords.has(word)),
+    ...words.filter((word) => exploredWords.has(word)),
+  ];
+
+  return ordered
+    .slice(0, limit)
+    .map(setWord)
     .map((word) => ({ ...word, openingPrompt: promptFor(word) }));
 }

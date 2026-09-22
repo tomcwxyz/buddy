@@ -2,15 +2,26 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Ear, Lightbulb, SpeakerHigh } from "@phosphor-icons/react";
+import { ArrowRight, Camera, Ear, Lightbulb, SpeakerHigh } from "@phosphor-icons/react";
 import { BuddyPresence } from "@/components/BuddyPresence";
+import { RollercoasterProgress } from "@/components/RollercoasterProgress";
 import { getWordSupport, helpText } from "@/lib/literacy/engine";
 import {
   readLearningEvents,
   recordLearningEvent,
   summariseRememberedWords,
 } from "@/lib/learning/local-store";
-import { choosePracticeWords, type PracticeWord } from "@/lib/practice/engine";
+import {
+  choosePracticeSetWords,
+  choosePracticeWords,
+  type PracticeWord,
+} from "@/lib/practice/engine";
+import { exploredWordsForPracticeSet } from "@/lib/practice/progress";
+import {
+  readActivePracticeSet,
+  setActivePracticeSet,
+  type PracticeSet,
+} from "@/lib/practice/sets";
 
 type BuddyState = "idle" | "thinking" | "speaking";
 type Reveal = "none" | "clue" | "together" | "meaning";
@@ -36,6 +47,8 @@ type WordLookup = {
 
 export function PracticeSession() {
   const [words, setWords] = useState<PracticeWord[]>([]);
+  const [practiceSet, setPracticeSet] = useState<PracticeSet | null>(null);
+  const [exploredSetWords, setExploredSetWords] = useState<Set<string>>(new Set());
   const [loaded, setLoaded] = useState(false);
   const [index, setIndex] = useState(0);
   const [reveal, setReveal] = useState<Reveal>("none");
@@ -46,9 +59,28 @@ export function PracticeSession() {
   const current = words[index] ?? null;
   const support = useMemo(() => (current ? getWordSupport(current.word) : null), [current]);
 
-  useEffect(() => {
-    const remembered = summariseRememberedWords(readLearningEvents());
+  function loadPractice() {
+    const events = readLearningEvents();
+    const activeSet = readActivePracticeSet();
+
+    if (activeSet?.words.length) {
+      const explored = exploredWordsForPracticeSet(events, activeSet.id);
+      setPracticeSet(activeSet);
+      setExploredSetWords(explored);
+      setWords(choosePracticeSetWords(activeSet.words, explored, 3));
+      setIndex(0);
+      return;
+    }
+
+    const remembered = summariseRememberedWords(events);
+    setPracticeSet(null);
+    setExploredSetWords(new Set());
     setWords(choosePracticeWords(remembered, 3));
+    setIndex(0);
+  }
+
+  useEffect(() => {
+    loadPractice();
     setLoaded(true);
   }, []);
 
@@ -58,7 +90,12 @@ export function PracticeSession() {
     setReveal("none");
     setLookup(null);
     setLookupLoading(true);
-    recordLearningEvent({ kind: "practice_seen", word: current.word, source: "practice" });
+    recordLearningEvent({
+      kind: "practice_seen",
+      word: current.word,
+      source: "practice",
+      practiceSetId: practiceSet?.id,
+    });
 
     fetch(`/api/word?word=${encodeURIComponent(current.word)}`, { signal: controller.signal })
       .then(async (response) => {
@@ -73,7 +110,7 @@ export function PracticeSession() {
       .finally(() => setLookupLoading(false));
 
     return () => controller.abort();
-  }, [current]);
+  }, [current, practiceSet?.id]);
 
   function speak(text: string) {
     if (!("speechSynthesis" in window)) return;
@@ -88,7 +125,12 @@ export function PracticeSession() {
 
   function hearWord() {
     if (!current) return;
-    recordLearningEvent({ kind: "word_heard", word: current.word, source: "practice" });
+    recordLearningEvent({
+      kind: "word_heard",
+      word: current.word,
+      source: "practice",
+      practiceSetId: practiceSet?.id,
+    });
     speak(current.word);
   }
 
@@ -100,6 +142,7 @@ export function PracticeSession() {
       word: current.word,
       source: "practice",
       helpDepth: "clue",
+      practiceSetId: practiceSet?.id,
     });
   }
 
@@ -111,13 +154,19 @@ export function PracticeSession() {
       word: current.word,
       source: "practice",
       helpDepth: "together",
+      practiceSetId: practiceSet?.id,
     });
   }
 
   async function showMeaning() {
     if (!current || !support) return;
     setReveal("meaning");
-    recordLearningEvent({ kind: "meaning_requested", word: current.word, source: "practice" });
+    recordLearningEvent({
+      kind: "meaning_requested",
+      word: current.word,
+      source: "practice",
+      practiceSetId: practiceSet?.id,
+    });
 
     if (support.meaning || (lookup?.meaning && !lookup.meaningCanBeRefined)) return;
 
@@ -138,12 +187,46 @@ export function PracticeSession() {
 
   function nextWord(known = false) {
     if (!current) return;
+
     if (known) {
-      recordLearningEvent({ kind: "practice_known", word: current.word, source: "practice" });
+      recordLearningEvent({
+        kind: "practice_known",
+        word: current.word,
+        source: "practice",
+        practiceSetId: practiceSet?.id,
+      });
     }
+
+    if (practiceSet) {
+      recordLearningEvent({
+        kind: "practice_explored",
+        word: current.word,
+        source: "practice",
+        practiceSetId: practiceSet.id,
+      });
+      setExploredSetWords((previous) => {
+        const next = new Set(previous);
+        next.add(current.word);
+        return next;
+      });
+    }
+
     window.speechSynthesis?.cancel();
     setBuddyState("idle");
     setIndex((value) => value + 1);
+  }
+
+  function useRememberedWords() {
+    setActivePracticeSet(null);
+    const remembered = summariseRememberedWords(readLearningEvents());
+    setPracticeSet(null);
+    setExploredSetWords(new Set());
+    setWords(choosePracticeWords(remembered, 3));
+    setIndex(0);
+  }
+
+  function anotherFew() {
+    loadPractice();
   }
 
   if (!loaded) {
@@ -157,12 +240,19 @@ export function PracticeSession() {
   if (words.length === 0) {
     return (
       <section className="practice-shell practice-empty">
-        <BuddyPresence label="We need to meet a few words first." />
+        <BuddyPresence label="We need a few words first." />
         <div>
           <p className="eyebrow">Tiny practice</p>
-          <h1>Nothing to practise yet.</h1>
-          <p>When you ask Buddy for help with a word while reading, useful words can come back here later.</p>
-          <Link className="practice-primary" href="/read">Read with me <ArrowRight size={20} /></Link>
+          <h1>Bring some words.</h1>
+          <p>Use words Buddy has met while reading, or turn a spelling list from school into a practice set.</p>
+          <div className="practice-finish-actions">
+            <Link className="practice-primary" href="/practice/add-spellings">
+              <Camera size={20} /> Add school spellings
+            </Link>
+            <Link className="practice-secondary" href="/read">
+              Read with me <ArrowRight size={20} />
+            </Link>
+          </div>
         </div>
       </section>
     );
@@ -171,13 +261,33 @@ export function PracticeSession() {
   if (!current) {
     return (
       <section className="practice-shell practice-finished">
-        <BuddyPresence label="That's plenty for now." />
+        <div className="practice-finish-visual">
+          <BuddyPresence label="That's plenty for now." />
+          {practiceSet && (
+            <RollercoasterProgress
+              total={practiceSet.words.length}
+              built={exploredSetWords.size}
+              label={practiceSet.label}
+              compact
+            />
+          )}
+        </div>
         <div>
           <p className="eyebrow">Done</p>
           <h1>Three words. That's it.</h1>
-          <p>No score to chase. Buddy will bring useful things back another time.</p>
+          <p>
+            {practiceSet
+              ? "The track grows because you explored the words — not because Buddy gave you a score."
+              : "No score to chase. Buddy will bring useful things back another time."}
+          </p>
           <div className="practice-finish-actions">
-            <Link className="practice-primary" href="/">Back home</Link>
+            {practiceSet && (
+              <button type="button" className="practice-primary" onClick={anotherFew}>
+                {exploredSetWords.size < practiceSet.words.length ? "Do another few" : "Play with them again"}
+                <ArrowRight size={20} />
+              </button>
+            )}
+            <Link className={practiceSet ? "practice-secondary" : "practice-primary"} href="/">Back home</Link>
             <Link className="practice-secondary" href="/words">Words we've met</Link>
           </div>
         </div>
@@ -204,16 +314,37 @@ export function PracticeSession() {
           state={buddyState}
           label={reveal === "none" ? "Have a look first." : "Use whatever helps."}
         />
-        <div className="practice-progress" aria-label={`Word ${index + 1} of ${words.length}`}>
-          {words.map((word, wordIndex) => (
-            <span key={word.word} className={wordIndex === index ? "current" : wordIndex < index ? "past" : ""} />
-          ))}
-        </div>
-        <p className="practice-count">Word {index + 1} of {words.length}</p>
+
+        {practiceSet ? (
+          <>
+            <RollercoasterProgress
+              total={practiceSet.words.length}
+              built={exploredSetWords.size}
+              label={practiceSet.label}
+              compact
+            />
+            <div className="practice-set-actions">
+              <Link href="/practice/add-spellings"><Camera size={17} /> Add another list</Link>
+              <button type="button" onClick={useRememberedWords}>Use words we've met</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="practice-progress" aria-label={`Word ${index + 1} of ${words.length}`}>
+              {words.map((word, wordIndex) => (
+                <span key={word.word} className={wordIndex === index ? "current" : wordIndex < index ? "past" : ""} />
+              ))}
+            </div>
+            <p className="practice-count">Word {index + 1} of {words.length}</p>
+            <Link className="practice-add-spellings" href="/practice/add-spellings">
+              <Camera size={17} /> Got spellings from school?
+            </Link>
+          </>
+        )}
       </div>
 
       <article className="practice-card">
-        <p className="eyebrow">One we've met before</p>
+        <p className="eyebrow">{practiceSet ? practiceSet.label : "One we've met before"}</p>
         <h1>{current.word}</h1>
         {lookup?.partOfSpeech && <span className="practice-word-kind">{lookup.partOfSpeech}</span>}
         <p className="practice-prompt">{current.openingPrompt}</p>

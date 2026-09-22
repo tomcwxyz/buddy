@@ -19,6 +19,9 @@ Buddy's roadmap is deliberately organised around useful child-facing capability 
 - No trusted pronunciation means no speculative spelling-only sound clue.
 - Unknown-word/OCR guardrails so noise does not silently become vocabulary.
 - Local Learning Map events, **Words we've met**, Practice and tentative observations in **Me**.
+- School spelling lists can be photographed, read with Buddy's local OCR, checked/edited by a person, and saved as a local practice set without retaining the source image.
+- Practice remains deliberately short: a larger spelling set is surfaced a few words at a time rather than becoming a test.
+- A lightweight rollercoaster visual grows as words in a practice set are explored. It represents participation and revisiting, not correctness, points or mastery.
 - A broad school-age lexical benchmark spanning everyday polysemes, curriculum vocabulary, function words, morphology and difficult pronunciation.
 - Reviewed curriculum semantic coverage for common maths, science and classroom words.
 - Internal `/lab/words` surfaces for lexical and sound-boundary evaluation.
@@ -86,7 +89,23 @@ For each fixture review:
 
 Success is not 100% OCR. Success is high trusted-word precision plus a natural recovery route for misses.
 
-### 2. Expand reviewed sound guidance from evidence, not plausibility
+### 2. Test practice from real life
+
+The first school-spelling import and playful progress loop now exists. The next job is to test whether it is genuinely useful rather than turning it into a feature-heavy spelling app.
+
+Priorities:
+
+- try real photographed spelling sheets with different layouts, handwriting around the list and ordinary phone-camera conditions;
+- check whether the confirmation/edit step catches OCR mistakes quickly enough;
+- keep practice sessions to a few words even when the source list is longer;
+- vary the practice interaction using sound, chunks, meaning, examples and reconstruction rather than repeated copying;
+- test the rollercoaster with the child and compare it with quieter alternatives such as a garden or skyline before building a larger visual world;
+- treat a piece of the visual as evidence that a word was explored, not that it was correct;
+- allow school lists, child-chosen words and Buddy-suggested revisiting to coexist without implying that any list is a deficit record.
+
+Success is a child wanting to come back to the words because the interaction is useful and enjoyable, without needing points, streaks or reward inflation.
+
+### 3. Expand reviewed sound guidance from evidence, not plausibility
 
 The first reviewed explanation whitelist is now in place and deliberately narrower than Buddy's internal grapheme–phoneme aligner. Continue the work without pretending Buddy has invented a universal phonics progression.
 
@@ -100,7 +119,7 @@ Priorities:
 
 See `docs/SOUND_GUIDANCE.md` for the evidence boundary and source notes.
 
-### 3. Improve remaining capture geometry only from fixture evidence
+### 4. Improve remaining capture geometry only from fixture evidence
 
 Small-angle deskew is now in the recognition path. Do not pile on more OCR passes. Use the page fixtures to decide which image-quality improvements earn their complexity next:
 
@@ -112,13 +131,13 @@ Small-angle deskew is now in the recognition path. Do not pile on more OCR passe
 
 Adaptive AUTO → SPARSE_TEXT → focused word retry is the intended recognition ladder. Additional recognition passes should only be added with fixture evidence.
 
-### 4. Turn real lexical failures into the continuing evaluation loop
+### 5. Turn real lexical failures into the continuing evaluation loop
 
 The broad benchmark remains useful, but actual reading remains the source of truth. Every poor explanation, bad sense choice, missed morphology pattern or unsafe pronunciation should become a small reproducible regression before it is fixed.
 
 Continue expanding reviewed heteronyms only when real/common reading cases justify them rather than attempting to enumerate every possible English heteronym.
 
-### 5. Companion agent boundary
+### 6. Companion agent boundary
 
 Add a provider-neutral companion-agent interface only after the reading loop is well characterised. The agent should receive the smallest useful context and should have explicit child-safe capabilities rather than unrestricted access to the Learning Map.
 
@@ -142,7 +161,7 @@ It should be able to help with language and task scaffolding, but it must not be
 
 - Parent dashboard.
 - Full account system or cloud synchronisation.
-- Gamification, streaks, scores, badges or rewards.
+- Points, streaks, scores, badges, reward economies or progress that depends on getting an answer "right". Playful visual making is fine when it reflects exploration rather than performance.
 - A general unrestricted chatbot with access to the child's history.
 - Model-generated canonical phonics or pronunciation guidance.
 - Treating a technically possible grapheme–phoneme alignment as permission to teach it.
