@@ -1730,3 +1730,311 @@
     justify-content: flex-start;
   }
 }
+
+
+/* Coaster build / ride mode and direct track palette */
+.coaster-mode-switch {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  width: min(100%, 560px);
+  padding: 6px;
+  border: 1px solid rgba(98, 94, 85, 0.14);
+  border-radius: 20px;
+  background: rgba(251, 248, 242, 0.68);
+}
+
+.coaster-mode-switch button {
+  border: 0;
+  border-radius: 15px;
+  padding: 11px 14px;
+  background: transparent;
+  color: var(--buddy-ink-soft);
+  text-align: left;
+  cursor: pointer;
+}
+
+.coaster-mode-switch button.active {
+  background: var(--buddy-ink);
+  color: white;
+  box-shadow: 0 8px 20px rgba(62, 54, 43, 0.12);
+}
+
+.coaster-mode-switch button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.coaster-mode-switch span,
+.coaster-mode-switch small {
+  display: block;
+}
+
+.coaster-mode-switch span {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.coaster-mode-switch small {
+  margin-top: 2px;
+  opacity: 0.76;
+  font-size: 0.7rem;
+}
+
+.coaster-ride-name {
+  margin: 0;
+  color: var(--buddy-ink);
+  font-size: clamp(3rem, 7vw, 6.2rem);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+}
+
+.coaster-layout.ride-mode {
+  grid-template-columns: 1fr;
+}
+
+.coaster-layout.ride-mode .coaster-world-card {
+  padding: clamp(12px, 2vw, 24px);
+}
+
+.coaster-board.ride-stage {
+  border-radius: 30px;
+  box-shadow: 0 24px 55px rgba(62, 54, 43, 0.16);
+}
+
+.coaster-board.ride-stage .coaster-world {
+  min-height: min(62vh, 610px);
+}
+
+.coaster-board.build-stage .coaster-world {
+  min-height: 340px;
+}
+
+.coaster-layout.ride-mode .coaster-character,
+.coaster-layout.ride-mode .coaster-launch-strip {
+  max-width: 980px;
+}
+
+.coaster-send-button {
+  min-width: 132px;
+}
+
+.coaster-track-palette {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 9px;
+}
+
+.coaster-track-palette button {
+  min-width: 0;
+  border: 1px solid var(--buddy-line);
+  border-radius: 16px;
+  padding: 9px 8px 8px;
+  background: var(--buddy-paper-raised);
+  color: var(--buddy-ink-soft);
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  cursor: pointer;
+  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+
+.coaster-track-palette button:hover,
+.coaster-track-palette button:focus-visible {
+  transform: translateY(-2px);
+  outline: none;
+  border-color: rgba(185, 124, 99, 0.45);
+}
+
+.coaster-track-palette button.active {
+  background: rgba(185, 124, 99, 0.1);
+  border-color: var(--buddy-clay);
+  color: var(--buddy-ink);
+}
+
+.coaster-track-palette svg {
+  width: 76px;
+  height: 56px;
+  color: var(--buddy-clay);
+}
+
+.coaster-track-palette span {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.coaster-track-palette.compact {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  padding: 2px 1px 3px;
+}
+
+.coaster-track-palette.compact button {
+  flex: 0 0 54px;
+  min-height: 55px;
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.coaster-track-palette.compact svg {
+  width: 46px;
+  height: 37px;
+}
+
+.coaster-track-palette.compact span {
+  display: none;
+}
+
+.coaster-yard-palette {
+  border-top: 1px solid var(--buddy-line);
+  padding: 9px 10px 10px;
+  background: rgba(120, 147, 166, 0.045);
+}
+
+.coaster-yard-palette > span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--buddy-ink-soft);
+  font-size: 0.68rem;
+}
+
+.coaster-piece-editor {
+  margin-top: 15px;
+  padding: 16px;
+  border: 1px solid rgba(185, 124, 99, 0.22);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--buddy-clay) 5%, var(--buddy-paper-raised));
+}
+
+.coaster-piece-editor-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.coaster-piece-editor-heading span,
+.coaster-piece-editor-heading strong {
+  display: block;
+}
+
+.coaster-piece-editor-heading span {
+  color: var(--buddy-ink-soft);
+  font-size: 0.7rem;
+}
+
+.coaster-piece-editor-heading strong {
+  margin-top: 2px;
+  font-size: 1.05rem;
+}
+
+.coaster-piece-editor-heading > button {
+  border: 0;
+  border-radius: 999px;
+  padding: 7px 11px;
+  background: var(--buddy-ink);
+  color: white;
+  cursor: pointer;
+}
+
+.coaster-piece-editor > p {
+  margin: 10px 0 0;
+  color: var(--buddy-ink-soft);
+  font-size: 0.8rem;
+}
+
+.coaster-chip-actions button.active {
+  border-color: var(--buddy-clay);
+  background: rgba(185, 124, 99, 0.09);
+}
+
+.coaster-chip-actions button[title="Choose track shape"] {
+  width: auto;
+  min-width: 52px;
+  padding-inline: 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.coaster-ride-dock {
+  margin-top: 14px;
+  padding: 15px 17px;
+  border-radius: 20px;
+  background: var(--buddy-ink);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.coaster-ride-dock span,
+.coaster-ride-dock strong {
+  display: block;
+}
+
+.coaster-ride-dock span {
+  opacity: 0.66;
+  font-size: 0.72rem;
+}
+
+.coaster-ride-dock strong {
+  margin-top: 3px;
+  font-size: 0.94rem;
+}
+
+.coaster-ride-dock button {
+  min-height: 48px;
+  border: 0;
+  border-radius: 15px;
+  padding: 0 17px;
+  background: var(--buddy-paper-raised);
+  color: var(--buddy-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .coaster-mode-switch {
+    width: 100%;
+  }
+
+  .coaster-ride-name {
+    font-size: clamp(3rem, 15vw, 4.8rem);
+  }
+
+  .coaster-board.ride-stage .coaster-world {
+    min-height: 390px;
+  }
+
+  .coaster-track-palette {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .coaster-track-palette svg {
+    width: 60px;
+    height: 48px;
+  }
+
+  .coaster-ride-dock {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .coaster-ride-dock button {
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coaster-track-palette button {
+    transition: none;
+  }
+}

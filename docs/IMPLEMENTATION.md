@@ -192,6 +192,8 @@ The ride uses intentionally game-like momentum: descents add speed, climbs and f
 
 `analyseRide` derives descriptive ride characteristics from the built sequence: inversions, airtime moments, drops, boosts, brakes and tunnels plus loose traits such as `floaty`, `twisty` or `drop-heavy`. These are descriptions of what the child made, never a score or mastery signal.
 
+The coaster surface now has explicit Build and Ride modes. Build exposes the piece yard, construction order and a direct visual palette of all shapes unlocked by each explored word. Ride hides the workshop, expands the coaster stage, reveals the draggable cart and gives the launch its own dock. The same local coaster state backs both modes; switching mode changes presentation and available interaction, not the underlying ride.
+
 ## Learning Map alpha
 
 `lib/learning/local-store.ts` stores a capped local event stream in browser storage. Events describe support requested and words encountered rather than mistakes or correctness. The Learning Map remains device-local and child-visible/rejectable by design.

@@ -99,9 +99,10 @@ Priorities:
 - check whether the confirmation/edit step catches OCR mistakes quickly enough;
 - keep practice sessions to a few words even when the source list is longer;
 - vary the practice interaction using sound, chunks, meaning, examples and reconstruction rather than repeated copying;
-- test the build-and-ride coaster with the child: piece choice, construction, rearranging, launch speed, cart dragging, stalls and rerunning the ride should feel like play rather than a disguised progress screen;
+- test the build-and-ride coaster with the child: direct visual piece choice, construction, rearranging, the Build → Ride transition, launch speed, cart dragging, stalls and rerunning the ride should feel like play rather than a disguised progress screen;
 - tune the simple speed/momentum model from play rather than chasing physical realism; the interesting question is whether track order creates understandable experimentation;
 - test whether cumulative terrain (lift → drop → inversion) creates a stronger sense of designing a ride than isolated decorative shapes;
+- keep Build and Ride as deliberately different moods: Build exposes the piece yard and track palette; Ride removes workshop controls and makes the coaster and cart the focus;
 - keep ride feedback descriptive rather than scored: Buddy can call a coaster floaty, twisty, drop-heavy, boosted or tunnel-y and report its drops, airtime and inversions without ranking the child or the ride;
 - let words with more structure to notice create more adventurous track shapes such as camelbacks and loops, without treating those shapes as prizes for correctness;
 - treat every track piece as evidence that a word was explored, not that it was correct;
