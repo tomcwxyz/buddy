@@ -19,6 +19,7 @@ async function importTsModule(path) {
 
 const spelling = await importTsModule("../lib/practice/spelling-import.ts");
 const progress = await importTsModule("../lib/practice/progress.ts");
+const coaster = await importTsModule("../lib/practice/coaster.ts");
 
 const fakeWord = (text, x0, y0) => ({
   text,
@@ -47,7 +48,7 @@ const cases = [
     },
   ],
   [
-    "rollercoaster progress counts unique exploration, not correctness",
+    "coaster progress counts unique exploration, not correctness",
     () => {
       const events = [
         { id: "1", at: "", kind: "practice_explored", word: "because", practiceSetId: "a" },
@@ -56,6 +57,38 @@ const cases = [
         { id: "4", at: "", kind: "practice_explored", word: "friend", practiceSetId: "b" },
       ];
       assert.deepEqual([...progress.exploredWordsForPracticeSet(events, "a")], ["because"]);
+    },
+  ],
+  [
+    "a short familiar-shaped word still earns a real track piece",
+    () => {
+      assert.equal(
+        coaster.coasterPieceKindForWord({ word: "cat", chunks: 1, syllables: 1 }),
+        "straight",
+      );
+    },
+  ],
+  [
+    "a word with lots to notice can produce a loop without any correctness input",
+    () => {
+      assert.equal(
+        coaster.coasterPieceKindForWord({
+          word: "extraordinary",
+          chunks: 4,
+          syllables: 5,
+          signals: { together: true },
+        }),
+        "loop",
+      );
+    },
+  ],
+  [
+    "track geometry includes every placed piece",
+    () => {
+      const path = coaster.trackPathForKinds(["straight", "hill", "loop"]);
+      assert.match(path, /^M 28 146 L 76 146/);
+      assert.match(path, /C/);
+      assert.equal(coaster.coasterViewBoxWidth(3) >= 620, true);
     },
   ],
 ];

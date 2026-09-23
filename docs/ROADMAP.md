@@ -21,7 +21,7 @@ Buddy's roadmap is deliberately organised around useful child-facing capability 
 - Local Learning Map events, **Words we've met**, Practice and tentative observations in **Me**.
 - School spelling lists can be photographed, read with Buddy's local OCR, checked/edited by a person, and saved as a local practice set without retaining the source image.
 - Practice remains deliberately short: a larger spelling set is surfaced a few words at a time rather than becoming a test.
-- A lightweight rollercoaster visual grows as words in a practice set are explored. It represents participation and revisiting, not correctness, points or mastery.
+- Practice sets now feed an interactive coaster world: each unique explored word leaves a real track piece in the child's piece yard, pieces can be arranged into a ride, and a cart can be dragged to the station or launched to run the built track. The world represents exploration and making, not correctness, points or mastery.
 - A broad school-age lexical benchmark spanning everyday polysemes, curriculum vocabulary, function words, morphology and difficult pronunciation.
 - Reviewed curriculum semantic coverage for common maths, science and classroom words.
 - Internal `/lab/words` surfaces for lexical and sound-boundary evaluation.
@@ -99,11 +99,13 @@ Priorities:
 - check whether the confirmation/edit step catches OCR mistakes quickly enough;
 - keep practice sessions to a few words even when the source list is longer;
 - vary the practice interaction using sound, chunks, meaning, examples and reconstruction rather than repeated copying;
-- test the rollercoaster with the child and compare it with quieter alternatives such as a garden or skyline before building a larger visual world;
-- treat a piece of the visual as evidence that a word was explored, not that it was correct;
+- test the build-and-ride coaster with the child: piece choice, construction, rearranging, cart dragging and the ride animation should feel like play rather than a disguised progress screen;
+- let words with more structure to notice create more adventurous track shapes such as camelbacks and loops, without treating those shapes as prizes for correctness;
+- treat every track piece as evidence that a word was explored, not that it was correct;
+- explore world-building beyond track pieces only after the construction loop itself is compelling: scenery, stations, tunnels, ride names and eventually other kinds of worlds can grow from the same exploration → making → play model;
 - allow school lists, child-chosen words and Buddy-suggested revisiting to coexist without implying that any list is a deficit record.
 
-Success is a child wanting to come back to the words because the interaction is useful and enjoyable, without needing points, streaks or reward inflation.
+Success is a child wanting to explore words because doing so gives them interesting material to make and play with, without needing points, streaks or reward inflation.
 
 ### 3. Expand reviewed sound guidance from evidence, not plausibility
 

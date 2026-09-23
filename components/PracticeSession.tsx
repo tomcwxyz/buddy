@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Camera, Ear, Lightbulb, SpeakerHigh } from "@phosphor-icons/react";
 import { BuddyPresence } from "@/components/BuddyPresence";
-import { RollercoasterProgress } from "@/components/RollercoasterProgress";
 import { getWordSupport, helpText } from "@/lib/literacy/engine";
 import {
   readLearningEvents,
@@ -16,6 +15,8 @@ import {
   choosePracticeWords,
   type PracticeWord,
 } from "@/lib/practice/engine";
+import { coasterPieceKindForWord } from "@/lib/practice/coaster";
+import { earnCoasterPiece } from "@/lib/practice/coaster-store";
 import { exploredWordsForPracticeSet } from "@/lib/practice/progress";
 import {
   readActivePracticeSet,
@@ -198,6 +199,17 @@ export function PracticeSession() {
     }
 
     if (practiceSet) {
+      const pieceKind = coasterPieceKindForWord({
+        word: current.word,
+        chunks: support?.chunks.length ?? 1,
+        syllables: lookup?.soundGuide?.syllables,
+      });
+      earnCoasterPiece({
+        practiceSetId: practiceSet.id,
+        word: current.word,
+        kind: pieceKind,
+      });
+
       recordLearningEvent({
         kind: "practice_explored",
         word: current.word,
@@ -264,12 +276,12 @@ export function PracticeSession() {
         <div className="practice-finish-visual">
           <BuddyPresence label="That's plenty for now." />
           {practiceSet && (
-            <RollercoasterProgress
-              total={practiceSet.words.length}
-              built={exploredSetWords.size}
-              label={practiceSet.label}
-              compact
-            />
+            <div className="coaster-finish-teaser">
+              <span>Your coaster</span>
+              <strong>Those words left you track pieces.</strong>
+              <p>Build the ride, move the pieces around, then send the cart.</p>
+              <Link href="/practice/coaster">Go to the coaster <ArrowRight size={18} /></Link>
+            </div>
           )}
         </div>
         <div>
@@ -277,15 +289,19 @@ export function PracticeSession() {
           <h1>Three words. That's it.</h1>
           <p>
             {practiceSet
-              ? "The track grows because you explored the words — not because Buddy gave you a score."
+              ? "You explored three words. That gives you real things to build and play with — no score involved."
               : "No score to chase. Buddy will bring useful things back another time."}
           </p>
           <div className="practice-finish-actions">
             {practiceSet && (
-              <button type="button" className="practice-primary" onClick={anotherFew}>
-                {exploredSetWords.size < practiceSet.words.length ? "Do another few" : "Play with them again"}
-                <ArrowRight size={20} />
-              </button>
+              <>
+                <Link className="practice-primary" href="/practice/coaster">
+                  Build the ride <ArrowRight size={20} />
+                </Link>
+                <button type="button" className="practice-secondary" onClick={anotherFew}>
+                  {exploredSetWords.size < practiceSet.words.length ? "Explore another few" : "Play with the words again"}
+                </button>
+              </>
             )}
             <Link className={practiceSet ? "practice-secondary" : "practice-primary"} href="/">Back home</Link>
             <Link className="practice-secondary" href="/words">Words we've met</Link>
@@ -317,12 +333,12 @@ export function PracticeSession() {
 
         {practiceSet ? (
           <>
-            <RollercoasterProgress
-              total={practiceSet.words.length}
-              built={exploredSetWords.size}
-              label={practiceSet.label}
-              compact
-            />
+            <div className="coaster-practice-callout">
+              <span>Your coaster</span>
+              <strong>{exploredSetWords.size} words explored</strong>
+              <p>Every explored word leaves a piece in your coaster yard.</p>
+              <Link href="/practice/coaster">Build the ride <ArrowRight size={16} /></Link>
+            </div>
             <div className="practice-set-actions">
               <Link href="/practice/add-spellings"><Camera size={17} /> Add another list</Link>
               <button type="button" onClick={useRememberedWords}>Use words we've met</button>
@@ -392,10 +408,10 @@ export function PracticeSession() {
         </div>
 
         <div className="practice-next">
-          <button type="button" className="practice-primary" onClick={() => nextWord(true)}>
-            I know this one <ArrowRight size={20} />
+          <button type="button" className="practice-primary" onClick={() => nextWord(false)}>
+            Done with this one <ArrowRight size={20} />
           </button>
-          <button type="button" className="practice-skip" onClick={() => nextWord(false)}>Next one</button>
+          <button type="button" className="practice-skip" onClick={() => nextWord(true)}>I knew this one</button>
         </div>
       </article>
     </section>

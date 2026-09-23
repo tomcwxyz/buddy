@@ -45,7 +45,8 @@ The alpha now supports:
 17. local learning events recorded only after a selected OCR word is lexically recognised;
 18. `Words we've met` and a three-word Practice loop derived from those events;
 19. photographed school spelling lists converted into reviewed local practice sets;
-20. practice-set progress visualised as a small rollercoaster built by exploring words, with no score or correctness requirement.
+20. practice-set exploration produces real coaster pieces, with more structurally interesting words able to create hills, dips, camelbacks and loops;
+21. `/practice/coaster` provides a persistent construction yard where pieces can be placed and rearranged and the cart can be dragged to the station to ride the built track.
 
 Page images are not uploaded by Buddy in this alpha. OCR runs in the browser. Tesseract language/wasm resources may still be downloaded by the OCR library at runtime.
 
@@ -179,7 +180,9 @@ The flow is deliberately review-first:
 5. only the confirmed word list is stored — the source photograph is not retained;
 6. Practice selects a few words at a time from the active set, prioritising words not yet explored.
 
-`practice_explored` is separate from `practice_known`. The rollercoaster is built from unique explored words, so skipping a word or asking for substantial help does not remove progress. This is intentional: the visual is a record of participation and return, not attainment.
+`practice_explored` is separate from `practice_known`. Coaster pieces are minted from unique explored words, so moving on, listening, asking for a clue or working together can all contribute to the same world. Correctness is not an input to `coasterPieceKindForWord`.
+
+The current coaster is deliberately a construction toy rather than a progress meter. Each practice set has local `buddy.coasters.v1` state containing the earned piece inventory, placed-piece order, ride name and ride count. Track SVG geometry is generated from the placed sequence; the same SVG path drives the cart animation so loops and hills are genuinely ridden rather than decorative.
 
 ## Learning Map alpha
 
