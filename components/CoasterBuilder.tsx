@@ -18,12 +18,13 @@ import {
   COASTER_LAUNCH_SPEED,
   COASTER_PIECES,
   canEnterPiece,
+  analyseRide,
   coasterPieceKindForWord,
   coasterPieceOptionsForWord,
   coasterViewBoxWidth,
   speedAfterPiece,
   speedLabel,
-  trackPathForKinds,
+  trackGeometryForKinds,
   type CoasterLaunchPower,
   type CoasterPieceKind,
 } from "@/lib/practice/coaster";
@@ -135,7 +136,9 @@ export function CoasterBuilder() {
   }, [coaster]);
 
   const viewWidth = coasterViewBoxWidth(placedPieces.length);
-  const trackPath = trackPathForKinds(placedPieces.map((piece) => piece.kind));
+  const trackGeometry = trackGeometryForKinds(placedPieces.map((piece) => piece.kind));
+  const trackPath = trackGeometry.path;
+  const rideCharacter = analyseRide(placedPieces.map((piece) => piece.kind));
 
   function addPiece(pieceId: string) {
     if (!practiceSet) return;
@@ -360,6 +363,9 @@ export function CoasterBuilder() {
         <div className="coaster-stats" aria-label="Coaster information">
           <span><strong>{coaster.pieces.length}</strong> pieces found</span>
           <span><strong>{coaster.rides}</strong> rides</span>
+          {placedPieces.length > 0 && (
+            <span><strong>{placedPieces.length}</strong> on this ride</span>
+          )}
         </div>
       </header>
 
@@ -420,6 +426,22 @@ export function CoasterBuilder() {
             </div>
           </div>
 
+          {placedPieces.length > 0 && (
+            <div className="coaster-character" aria-label="Ride character">
+              <div>
+                <span>Ride character</span>
+                <strong>{rideCharacter.traits.join(" · ")}</strong>
+              </div>
+              <div className="coaster-character-facts">
+                {rideCharacter.inversions > 0 && <span>{rideCharacter.inversions} inversion{rideCharacter.inversions === 1 ? "" : "s"}</span>}
+                {rideCharacter.airtimeMoments > 0 && <span>{rideCharacter.airtimeMoments} airtime moment{rideCharacter.airtimeMoments === 1 ? "" : "s"}</span>}
+                {rideCharacter.drops > 0 && <span>{rideCharacter.drops} drop{rideCharacter.drops === 1 ? "" : "s"}</span>}
+                {rideCharacter.tunnels > 0 && <span>{rideCharacter.tunnels} tunnel{rideCharacter.tunnels === 1 ? "" : "s"}</span>}
+                {rideCharacter.boosts > 0 && <span>{rideCharacter.boosts} boost{rideCharacter.boosts === 1 ? "" : "s"}</span>}
+              </div>
+            </div>
+          )}
+
           <div
             className={`coaster-board${cartDrag.active ? " cart-dragging" : ""}`}
             ref={boardRef}
@@ -458,12 +480,17 @@ export function CoasterBuilder() {
               </g>
 
               {placedPieces.map((piece, index) => {
-                const supportX = 76 + ((index + 1) * PIECE_WIDTH);
+                const segment = trackGeometry.segments[index];
+                const supportX = segment?.endX ?? (76 + ((index + 1) * PIECE_WIDTH));
+                const supportY = segment?.endY ?? BASELINE_Y;
+                const startX = segment?.startX ?? (supportX - PIECE_WIDTH);
+                const startY = segment?.startY ?? BASELINE_Y;
+
                 return (
                   <g key={piece.id}>
                     <line
                       x1={supportX}
-                      y1={BASELINE_Y + 3}
+                      y1={supportY + 3}
                       x2={supportX}
                       y2="224"
                       stroke="#625e55"
@@ -471,19 +498,50 @@ export function CoasterBuilder() {
                       opacity="0.26"
                     />
                     <circle cx={supportX} cy="224" r="4" fill="#625e55" opacity="0.32" />
-                    {piece.kind === "launch" && (
-                      <g className="coaster-boost-marker">
-                        <path d={`M ${supportX - 64} 133 l 12 13 l -12 13`} fill="none" stroke="#b97c63" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d={`M ${supportX - 48} 133 l 12 13 l -12 13`} fill="none" stroke="#b97c63" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-                        <text x={supportX - 46} y="126" textAnchor="middle" className="coaster-svg-help">BOOST</text>
+
+                    {piece.kind === "lift" && (
+                      <g opacity="0.72">
+                        <text x={startX + PIECE_WIDTH / 2} y={Math.min(startY, supportY) - 12} textAnchor="middle" className="coaster-svg-help">LIFT</text>
+                        <path
+                          d={`M ${startX + 12} ${startY - 6} L ${supportX - 12} ${supportY - 6}`}
+                          stroke="#78677e"
+                          strokeWidth="2"
+                          strokeDasharray="5 6"
+                        />
                       </g>
                     )}
+
+                    {piece.kind === "tunnel" && (
+                      <g className="coaster-tunnel" opacity="0.88">
+                        <path
+                          d={`M ${startX + 8} ${startY + 24} Q ${startX + PIECE_WIDTH / 2} ${startY - 42} ${supportX - 8} ${supportY + 24}`}
+                          fill="#625e55"
+                          opacity="0.2"
+                        />
+                        <path
+                          d={`M ${startX + 13} ${startY + 20} Q ${startX + PIECE_WIDTH / 2} ${startY - 32} ${supportX - 13} ${supportY + 20}`}
+                          fill="none"
+                          stroke="#625e55"
+                          strokeWidth="5"
+                          opacity="0.46"
+                        />
+                      </g>
+                    )}
+
+                    {piece.kind === "launch" && (
+                      <g className="coaster-boost-marker">
+                        <path d={`M ${startX + 22} ${startY - 13} l 12 13 l -12 13`} fill="none" stroke="#b97c63" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d={`M ${startX + 38} ${startY - 13} l 12 13 l -12 13`} fill="none" stroke="#b97c63" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                        <text x={startX + 40} y={startY - 20} textAnchor="middle" className="coaster-svg-help">BOOST</text>
+                      </g>
+                    )}
+
                     {piece.kind === "brake" && (
                       <g className="coaster-brake-marker">
-                        <line x1={supportX - 70} y1="136" x2={supportX - 70} y2="156" stroke="#78677e" strokeWidth="4" />
-                        <line x1={supportX - 56} y1="136" x2={supportX - 56} y2="156" stroke="#78677e" strokeWidth="4" />
-                        <line x1={supportX - 42} y1="136" x2={supportX - 42} y2="156" stroke="#78677e" strokeWidth="4" />
-                        <text x={supportX - 56} y="126" textAnchor="middle" className="coaster-svg-help">BRAKE</text>
+                        <line x1={startX + 22} y1={startY - 10} x2={startX + 22} y2={startY + 10} stroke="#78677e" strokeWidth="4" />
+                        <line x1={startX + 36} y1={startY - 10} x2={startX + 36} y2={startY + 10} stroke="#78677e" strokeWidth="4" />
+                        <line x1={startX + 50} y1={startY - 10} x2={startX + 50} y2={startY + 10} stroke="#78677e" strokeWidth="4" />
+                        <text x={startX + 36} y={startY - 20} textAnchor="middle" className="coaster-svg-help">BRAKE</text>
                       </g>
                     )}
                   </g>
@@ -518,6 +576,13 @@ export function CoasterBuilder() {
 
               {cartPose.visible && (
                 <g transform={`translate(${cartPose.x} ${cartPose.y - 11}) rotate(${cartPose.angle})`}>
+                  {riding && rideSpeed > 38 && (
+                    <g className="coaster-speed-lines" opacity={Math.min(0.8, (rideSpeed - 34) / 30)}>
+                      <line x1="-48" y1="-6" x2="-24" y2="-6" stroke="#f4f0e8" strokeWidth="3" strokeLinecap="round" />
+                      <line x1="-43" y1="1" x2="-21" y2="1" stroke="#f4f0e8" strokeWidth="2" strokeLinecap="round" />
+                      <line x1="-38" y1="7" x2="-19" y2="7" stroke="#f4f0e8" strokeWidth="2" strokeLinecap="round" />
+                    </g>
+                  )}
                   <rect x="-13" y="-9" width="27" height="15" rx="5" fill="#b97c63" stroke="#3f4440" strokeWidth="2.5" />
                   <path d="M -9 -9 L -5 -17 L 7 -17 L 11 -9" fill="#f4f0e8" stroke="#3f4440" strokeWidth="2" strokeLinejoin="round" />
                   <circle cx="-7" cy="8" r="4.5" fill="#3f4440" />
@@ -544,7 +609,7 @@ export function CoasterBuilder() {
             </button>
           </div>
 
-          <p className="coaster-board-hint">Drag the cart onto the station to ride. On a smaller screen, the Ride button does the same thing.</p>
+          <p className="coaster-board-hint">Build height with lift track, spend it on drops, and use boosts when a loop needs more momentum. Drag the cart onto the station to ride.</p>
 
           {placedPieces.length > 0 && (
             <div className="coaster-track-order" aria-label="Track pieces in order">

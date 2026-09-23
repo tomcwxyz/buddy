@@ -115,10 +115,51 @@ const cases = [
   [
     "track geometry includes every placed piece",
     () => {
-      const path = coaster.trackPathForKinds(["straight", "hill", "loop"]);
-      assert.match(path, /^M 28 146 L 76 146/);
-      assert.match(path, /C/);
+      const geometry = coaster.trackGeometryForKinds(["straight", "hill", "loop"]);
+      assert.match(geometry.path, /^M 28 146 L 76 146/);
+      assert.match(geometry.path, /C/);
+      assert.equal(geometry.segments.length, 3);
       assert.equal(coaster.coasterViewBoxWidth(3) >= 620, true);
+    },
+  ],
+  [
+    "lift and drop pieces genuinely change track elevation",
+    () => {
+      const geometry = coaster.trackGeometryForKinds(["lift", "lift", "drop", "steep-drop"]);
+      assert.equal(geometry.segments[0].endY < geometry.segments[0].startY, true);
+      assert.equal(geometry.segments[1].endY < geometry.segments[0].endY, true);
+      assert.equal(geometry.segments[2].endY > geometry.segments[2].startY, true);
+      assert.equal(geometry.segments[3].endY > geometry.segments[3].startY, true);
+      assert.equal(geometry.minY < 146, true);
+      assert.equal(geometry.maxY > geometry.minY, true);
+    },
+  ],
+  [
+    "track elevation stays inside the playable construction window",
+    () => {
+      const geometry = coaster.trackGeometryForKinds([
+        "lift", "lift", "lift", "lift", "lift", "lift",
+        "steep-drop", "steep-drop", "steep-drop", "steep-drop",
+      ]);
+      for (const segment of geometry.segments) {
+        assert.equal(segment.endY >= 62, true);
+        assert.equal(segment.endY <= 194, true);
+      }
+    },
+  ],
+  [
+    "ride character describes the built track without producing a score",
+    () => {
+      const character = coaster.analyseRide([
+        "launch", "steep-drop", "bunny-hop", "loop", "double-loop", "tunnel",
+      ]);
+      assert.equal(character.inversions, 3);
+      assert.equal(character.airtimeMoments >= 3, true);
+      assert.equal(character.drops, 1);
+      assert.equal(character.boosts, 1);
+      assert.equal(character.tunnels, 1);
+      assert.equal(character.traits.includes("upside-down chaos"), true);
+      assert.equal("score" in character, false);
     },
   ],
 ];

@@ -10,7 +10,7 @@ export function CoasterPieceIcon({
   return (
     <svg
       className={className}
-      viewBox="0 0 112 86"
+      viewBox="0 -8 112 110"
       aria-hidden="true"
       focusable="false"
     >
@@ -22,8 +22,8 @@ export function CoasterPieceIcon({
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <line x1="30" y1="57" x2="30" y2="77" stroke="currentColor" strokeWidth="2" opacity="0.35" />
-      <line x1="82" y1="57" x2="82" y2="77" stroke="currentColor" strokeWidth="2" opacity="0.35" />
+      <line x1="30" y1="58" x2="30" y2="92" stroke="currentColor" strokeWidth="2" opacity="0.28" />
+      <line x1="82" y1="58" x2="82" y2="92" stroke="currentColor" strokeWidth="2" opacity="0.28" />
     </svg>
   );
 }
