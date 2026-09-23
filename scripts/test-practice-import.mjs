@@ -83,6 +83,38 @@ const cases = [
     },
   ],
   [
+    "exploring a word opens more construction choices without correctness",
+    () => {
+      const quiet = coaster.coasterPieceOptionsForWord({ word: "cat", chunks: 1, syllables: 1 });
+      const explored = coaster.coasterPieceOptionsForWord({
+        word: "because",
+        chunks: 3,
+        syllables: 2,
+        signals: { clue: true, meaning: true },
+      });
+      assert.equal(quiet.includes("straight"), true);
+      assert.equal(explored.includes("launch"), true);
+      assert.equal(explored.length > quiet.length, true);
+    },
+  ],
+  [
+    "launch and brake pieces change ride speed",
+    () => {
+      const launch = coaster.speedAfterPiece(20, "launch");
+      const brake = coaster.speedAfterPiece(launch, "brake");
+      assert.equal(launch > 20, true);
+      assert.equal(brake < launch, true);
+    },
+  ],
+  [
+    "loops require momentum but straight track does not",
+    () => {
+      assert.equal(coaster.canEnterPiece(10, "straight"), true);
+      assert.equal(coaster.canEnterPiece(10, "loop"), false);
+      assert.equal(coaster.canEnterPiece(24, "double-loop"), true);
+    },
+  ],
+  [
     "track geometry includes every placed piece",
     () => {
       const path = coaster.trackPathForKinds(["straight", "hill", "loop"]);

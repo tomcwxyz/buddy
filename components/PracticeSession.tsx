@@ -17,7 +17,7 @@ import {
 } from "@/lib/practice/engine";
 import { coasterPieceKindForWord } from "@/lib/practice/coaster";
 import { earnCoasterPiece } from "@/lib/practice/coaster-store";
-import { exploredWordsForPracticeSet } from "@/lib/practice/progress";
+import { explorationSignalsForWord, exploredWordsForPracticeSet } from "@/lib/practice/progress";
 import {
   readActivePracticeSet,
   setActivePracticeSet,
@@ -203,6 +203,11 @@ export function PracticeSession() {
         word: current.word,
         chunks: support?.chunks.length ?? 1,
         syllables: lookup?.soundGuide?.syllables,
+        signals: explorationSignalsForWord(
+          readLearningEvents(),
+          practiceSet.id,
+          current.word,
+        ),
       });
       earnCoasterPiece({
         practiceSetId: practiceSet.id,

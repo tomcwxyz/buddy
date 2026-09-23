@@ -182,7 +182,11 @@ The flow is deliberately review-first:
 
 `practice_explored` is separate from `practice_known`. Coaster pieces are minted from unique explored words, so moving on, listening, asking for a clue or working together can all contribute to the same world. Correctness is not an input to `coasterPieceKindForWord`.
 
-The current coaster is deliberately a construction toy rather than a progress meter. Each practice set has local `buddy.coasters.v1` state containing the earned piece inventory, placed-piece order, ride name and ride count. Track SVG geometry is generated from the placed sequence; the same SVG path drives the cart animation so loops and hills are genuinely ridden rather than decorative.
+The current coaster is deliberately a construction toy rather than a progress meter. Each practice set has local `buddy.coasters.v1` state containing the earned piece inventory, placed-piece order, ride name, ride count and station launch power. Existing v1 state is normalised so older local coasters gain the new launch setting safely.
+
+A word now unlocks a small set of compatible track shapes rather than permanently mapping to one shape. More exploration and more structure to notice can widen those options, but correctness is never consulted. The child can cycle the shape of any earned piece.
+
+Track SVG geometry is generated from the placed sequence; the same SVG path drives the cart animation. The ride uses intentionally game-like momentum: descents add speed, climbs and friction remove it, launch/brake pieces change it, and loops have minimum entry speeds. A stalled ride is therefore a construction problem to play with — reorder the track, add a launch, use a dip, or change station launch power — rather than a learning penalty.
 
 ## Learning Map alpha
 

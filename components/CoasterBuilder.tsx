@@ -15,10 +15,17 @@ import { CoasterPieceIcon } from "@/components/CoasterPieceIcon";
 import { getWordSupport } from "@/lib/literacy/engine";
 import { readLearningEvents } from "@/lib/learning/local-store";
 import {
+  COASTER_LAUNCH_SPEED,
   COASTER_PIECES,
+  canEnterPiece,
   coasterPieceKindForWord,
+  coasterPieceOptionsForWord,
   coasterViewBoxWidth,
+  speedAfterPiece,
+  speedLabel,
   trackPathForKinds,
+  type CoasterLaunchPower,
+  type CoasterPieceKind,
 } from "@/lib/practice/coaster";
 import {
   earnCoasterPiece,
@@ -27,10 +34,12 @@ import {
   readCoasterState,
   recordCoasterRide,
   renameCoaster,
+  setCoasterLaunchPower,
+  setCoasterPieceKind,
   unplaceCoasterPiece,
   type CoasterState,
 } from "@/lib/practice/coaster-store";
-import { exploredWordsForPracticeSet } from "@/lib/practice/progress";
+import { explorationSignalsForWord, exploredWordsForPracticeSet } from "@/lib/practice/progress";
 import { readActivePracticeSet, type PracticeSet } from "@/lib/practice/sets";
 
 type CartPose = {
@@ -62,6 +71,8 @@ export function CoasterBuilder() {
   const [coaster, setCoaster] = useState<CoasterState | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [riding, setRiding] = useState(false);
+  const [rideSpeed, setRideSpeed] = useState(0);
+  const [peakSpeed, setPeakSpeed] = useState(0);
   const [rideMessage, setRideMessage] = useState("Build a bit of track, then send the cart.");
   const [cartPose, setCartPose] = useState<CartPose>(defaultCartPose);
   const [cartDrag, setCartDrag] = useState<DragOffset>({
@@ -148,26 +159,99 @@ export function CoasterBuilder() {
     setCoaster(renameCoaster(practiceSet.id, value));
   }
 
+  function pieceOptions(word: string) {
+    const support = getWordSupport(word);
+    return coasterPieceOptionsForWord({
+      word,
+      chunks: support.chunks.length,
+      signals: practiceSet
+        ? explorationSignalsForWord(readLearningEvents(), practiceSet.id, word)
+        : undefined,
+    });
+  }
+
+  function cyclePiece(pieceId: string, word: string, currentKind: CoasterPieceKind) {
+    if (!practiceSet) return;
+    const options = pieceOptions(word);
+    const currentIndex = Math.max(0, options.indexOf(currentKind));
+    const nextKind = options[(currentIndex + 1) % options.length];
+    setCoaster(setCoasterPieceKind(practiceSet.id, pieceId, nextKind));
+    setRideMessage(`Changed ${word} to ${COASTER_PIECES[nextKind].shortLabel.toLowerCase()} track.`);
+  }
+
+  function chooseLaunchPower(power: CoasterLaunchPower) {
+    if (!practiceSet || riding) return;
+    setCoaster(setCoasterLaunchPower(practiceSet.id, power));
+    setRideSpeed(COASTER_LAUNCH_SPEED[power]);
+    setRideMessage(power === 1 ? "Gentle launch." : power === 2 ? "Quick launch." : "Wild launch.");
+  }
+
   function runRide() {
     const path = trackRef.current;
     if (!path || !practiceSet || !coaster || placedPieces.length === 0 || riding) return;
 
     const totalLength = path.getTotalLength();
-    const duration = Math.max(2800, Math.min(7600, totalLength * 10.5));
-    const startedAt = performance.now();
+    let distance = 0;
+    let lastNow = performance.now();
+    let speed = COASTER_LAUNCH_SPEED[coaster.launchPower];
+    let peak = speed;
+    let lastPieceIndex = -1;
 
     setRiding(true);
+    setRideSpeed(speed);
+    setPeakSpeed(speed);
     setRideMessage("Here we go.");
     setCartPose({ ...defaultCartPose(), visible: true });
     setCoaster(recordCoasterRide(practiceSet.id));
 
+    const stopRide = (message: string) => {
+      setRiding(false);
+      setRideMessage(message);
+      setRideSpeed(speed);
+      setPeakSpeed(peak);
+      frameRef.current = null;
+    };
+
     const tick = (now: number) => {
-      const progress = Math.min(1, (now - startedAt) / duration);
-      const distance = totalLength * progress;
-      const point = path.getPointAtLength(distance);
-      const ahead = path.getPointAtLength(Math.min(totalLength, distance + 3));
+      const dt = Math.max(1, Math.min(40, now - lastNow));
+      lastNow = now;
+
+      const point = path.getPointAtLength(Math.min(totalLength, distance));
+      const ahead = path.getPointAtLength(Math.min(totalLength, distance + 4));
       const angle = Math.atan2(ahead.y - point.y, ahead.x - point.x) * 180 / Math.PI;
 
+      // In SVG coordinates positive Y is downhill, so descent adds momentum and
+      // climbing takes it away. This is deliberately game-like rather than a
+      // real rollercoaster physics model.
+      const slope = ahead.y - point.y;
+      speed += slope * 0.042 * (dt / 16);
+      speed -= 0.025 * (dt / 16);
+      speed = Math.max(3, Math.min(62, speed));
+
+      const pieceIndex = Math.max(
+        -1,
+        Math.min(placedPieces.length - 1, Math.floor((point.x - 76) / PIECE_WIDTH)),
+      );
+
+      if (pieceIndex >= 0 && pieceIndex !== lastPieceIndex) {
+        const piece = placedPieces[pieceIndex];
+        if (!canEnterPiece(speed, piece.kind)) {
+          const needed = COASTER_PIECES[piece.kind].minimumSpeed;
+          setCartPose({ x: point.x, y: point.y, angle, visible: true });
+          stopRide(
+            `Not enough speed for the ${COASTER_PIECES[piece.kind].shortLabel.toLowerCase()} — you had ${Math.round(speed)} mph and need about ${needed}. Try a launch or a dip before it.`,
+          );
+          return;
+        }
+
+        speed = speedAfterPiece(speed, piece.kind);
+        peak = Math.max(peak, speed);
+        lastPieceIndex = pieceIndex;
+      }
+
+      peak = Math.max(peak, speed);
+      setRideSpeed(speed);
+      setPeakSpeed(peak);
       setCartPose({
         x: point.x,
         y: point.y,
@@ -175,12 +259,12 @@ export function CoasterBuilder() {
         visible: true,
       });
 
-      if (progress < 1) {
+      if (distance < totalLength) {
+        // The multiplier turns our simple mph-like game value into SVG travel.
+        distance += speed * (dt / 1000) * 4.25;
         frameRef.current = requestAnimationFrame(tick);
       } else {
-        setRiding(false);
-        setRideMessage("Again? Or change the track.");
-        frameRef.current = null;
+        stopRide(`Made it. Peak speed ${Math.round(peak)} mph — ${speedLabel(peak)}.`);
       }
     };
 
@@ -282,10 +366,24 @@ export function CoasterBuilder() {
       <div className="coaster-layout">
         <section className="coaster-world-card">
           <div className="coaster-world-toolbar">
-            <div>
+            <div className="coaster-status-copy">
               <span>Construction site</span>
               <strong>{placedPieces.length === 0 ? "Start your track." : rideMessage}</strong>
             </div>
+
+            <div className="coaster-speed-readout" aria-live="polite">
+              <span>Speed</span>
+              <strong>{Math.round(riding ? rideSpeed : COASTER_LAUNCH_SPEED[coaster.launchPower])} mph</strong>
+              <small>
+                {riding
+                  ? `${speedLabel(rideSpeed)} · peak ${Math.round(peakSpeed)}`
+                  : "at the station"}
+              </small>
+              <span className="coaster-speed-meter" aria-hidden="true">
+                <i style={{ width: `${Math.min(100, ((riding ? rideSpeed : COASTER_LAUNCH_SPEED[coaster.launchPower]) / 62) * 100)}%` }} />
+              </span>
+            </div>
+
             <button
               type="button"
               className="coaster-ride-button"
@@ -293,8 +391,33 @@ export function CoasterBuilder() {
               disabled={placedPieces.length === 0 || riding}
             >
               <Play size={20} weight="fill" />
-              {riding ? "Riding…" : "Ride"}
+              {riding ? "Riding…" : "Test ride"}
             </button>
+          </div>
+
+          <div className="coaster-launch-strip">
+            <div>
+              <span>Station launch</span>
+              <strong>How fast should the cart leave?</strong>
+            </div>
+            <div className="coaster-launch-options" role="group" aria-label="Choose station launch speed">
+              {([
+                [1, "Gentle"],
+                [2, "Quick"],
+                [3, "Wild"],
+              ] as const).map(([power, label]) => (
+                <button
+                  type="button"
+                  key={power}
+                  className={coaster.launchPower === power ? "active" : ""}
+                  onClick={() => chooseLaunchPower(power)}
+                  disabled={riding}
+                >
+                  <span>{label}</span>
+                  <strong>{COASTER_LAUNCH_SPEED[power]} mph</strong>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div
@@ -348,6 +471,21 @@ export function CoasterBuilder() {
                       opacity="0.26"
                     />
                     <circle cx={supportX} cy="224" r="4" fill="#625e55" opacity="0.32" />
+                    {piece.kind === "launch" && (
+                      <g className="coaster-boost-marker">
+                        <path d={`M ${supportX - 64} 133 l 12 13 l -12 13`} fill="none" stroke="#b97c63" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d={`M ${supportX - 48} 133 l 12 13 l -12 13`} fill="none" stroke="#b97c63" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                        <text x={supportX - 46} y="126" textAnchor="middle" className="coaster-svg-help">BOOST</text>
+                      </g>
+                    )}
+                    {piece.kind === "brake" && (
+                      <g className="coaster-brake-marker">
+                        <line x1={supportX - 70} y1="136" x2={supportX - 70} y2="156" stroke="#78677e" strokeWidth="4" />
+                        <line x1={supportX - 56} y1="136" x2={supportX - 56} y2="156" stroke="#78677e" strokeWidth="4" />
+                        <line x1={supportX - 42} y1="136" x2={supportX - 42} y2="156" stroke="#78677e" strokeWidth="4" />
+                        <text x={supportX - 56} y="126" textAnchor="middle" className="coaster-svg-help">BRAKE</text>
+                      </g>
+                    )}
                   </g>
                 );
               })}
@@ -434,6 +572,14 @@ export function CoasterBuilder() {
                     >
                       <CaretRight size={16} />
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => cyclePiece(piece.id, piece.word, piece.kind)}
+                      aria-label={`Change the track shape for ${piece.word}`}
+                      title="Change track shape"
+                    >
+                      ↻
+                    </button>
                     <button type="button" onClick={() => removePiece(piece.id)} aria-label={`Put ${piece.word} back in the yard`}>
                       <Trash size={15} />
                     </button>
@@ -455,22 +601,32 @@ export function CoasterBuilder() {
 
           {inventory.length > 0 ? (
             <div className="coaster-piece-grid">
-              {inventory.map((piece) => (
-                <button
-                  type="button"
-                  draggable
-                  className={`coaster-piece-card adventure-${COASTER_PIECES[piece.kind].adventure}`}
-                  key={piece.id}
-                  onDragStart={(event) => onPieceDragStart(event, piece.id)}
-                  onClick={() => addPiece(piece.id)}
-                >
-                  <CoasterPieceIcon kind={piece.kind} />
-                  <span>{COASTER_PIECES[piece.kind].shortLabel}</span>
-                  <strong>{piece.word}</strong>
-                  <small>{COASTER_PIECES[piece.kind].description}</small>
-                  <i><Plus size={15} /> Add to track</i>
-                </button>
-              ))}
+              {inventory.map((piece) => {
+                const options = pieceOptions(piece.word);
+                return (
+                  <div
+                    className={`coaster-piece-card adventure-${COASTER_PIECES[piece.kind].adventure}`}
+                    key={piece.id}
+                    draggable
+                    onDragStart={(event) => onPieceDragStart(event, piece.id)}
+                  >
+                    <button type="button" className="coaster-piece-add" onClick={() => addPiece(piece.id)}>
+                      <CoasterPieceIcon kind={piece.kind} />
+                      <span>{COASTER_PIECES[piece.kind].shortLabel}</span>
+                      <strong>{piece.word}</strong>
+                      <small>{COASTER_PIECES[piece.kind].description}</small>
+                      <i><Plus size={15} /> Add to track</i>
+                    </button>
+                    <button
+                      type="button"
+                      className="coaster-piece-change"
+                      onClick={() => cyclePiece(piece.id, piece.word, piece.kind)}
+                    >
+                      Change shape · {options.length} options
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="coaster-yard-empty">
@@ -482,7 +638,7 @@ export function CoasterBuilder() {
 
           <div className="coaster-game-rule">
             <strong>How this world grows</strong>
-            <p>Trying, listening, asking for help and digging into words all count. Words with more going on can make wilder track pieces. Nothing here depends on getting a word “right”.</p>
+            <p>Trying, listening, asking for help and digging into words all count. Each explored word gives you track choices. Then the game is yours: arrange pieces, manage speed, move launches and brakes, and see whether the cart makes the ride.</p>
           </div>
         </aside>
       </div>
