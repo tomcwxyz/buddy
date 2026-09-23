@@ -1426,3 +1426,237 @@
     transition: none;
   }
 }
+
+
+/* Coaster gameplay v2: speed, tuning and richer track choices */
+.coaster-world-toolbar {
+  align-items: stretch;
+}
+
+.coaster-status-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.coaster-speed-readout {
+  min-width: 118px;
+  padding: 8px 12px;
+  border: 1px solid var(--buddy-line);
+  border-radius: 15px;
+  background: rgba(251, 248, 242, 0.8);
+  display: grid;
+  align-content: center;
+  gap: 1px;
+}
+
+.coaster-speed-readout > span:first-child,
+.coaster-launch-strip > div:first-child > span {
+  color: var(--buddy-ink-soft);
+  font-size: 0.72rem;
+}
+
+.coaster-speed-readout strong {
+  font-size: 1.18rem;
+}
+
+.coaster-speed-readout small {
+  color: var(--buddy-ink-soft);
+  font-size: 0.7rem;
+}
+
+.coaster-speed-meter {
+  height: 5px;
+  margin-top: 5px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--buddy-line);
+}
+
+.coaster-speed-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--buddy-clay);
+  transition: width 100ms linear;
+}
+
+.coaster-launch-strip {
+  margin: 0 4px 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(120, 103, 126, 0.15);
+  border-radius: 18px;
+  background: rgba(120, 103, 126, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.coaster-launch-strip > div:first-child strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.9rem;
+}
+
+.coaster-launch-options {
+  display: flex;
+  gap: 7px;
+}
+
+.coaster-launch-options button {
+  min-width: 74px;
+  border: 1px solid var(--buddy-line);
+  border-radius: 13px;
+  padding: 8px 10px;
+  background: var(--buddy-paper-raised);
+  color: var(--buddy-ink);
+  cursor: pointer;
+}
+
+.coaster-launch-options button.active {
+  border-color: color-mix(in srgb, var(--buddy-clay) 60%, var(--buddy-line));
+  background: color-mix(in srgb, var(--buddy-clay) 10%, var(--buddy-paper-raised));
+}
+
+.coaster-launch-options button:disabled {
+  opacity: 0.45;
+}
+
+.coaster-launch-options span,
+.coaster-launch-options strong {
+  display: block;
+}
+
+.coaster-launch-options span {
+  color: var(--buddy-ink-soft);
+  font-size: 0.7rem;
+}
+
+.coaster-launch-options strong {
+  margin-top: 2px;
+  font-size: 0.82rem;
+}
+
+.coaster-piece-card {
+  padding: 0;
+  cursor: grab;
+  overflow: hidden;
+}
+
+.coaster-piece-card:hover,
+.coaster-piece-card:focus-within {
+  transform: translateY(-3px);
+  box-shadow: 0 13px 24px rgba(62, 54, 43, 0.1);
+}
+
+.coaster-piece-add {
+  width: 100%;
+  min-height: 154px;
+  border: 0;
+  padding: 12px;
+  background: transparent;
+  color: var(--buddy-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.coaster-piece-add > svg {
+  width: 100%;
+  height: 66px;
+  color: var(--buddy-sky);
+}
+
+.coaster-piece-card.adventure-1 .coaster-piece-add > svg { color: var(--buddy-clay); }
+.coaster-piece-card.adventure-2 .coaster-piece-add > svg { color: var(--buddy-plum); }
+.coaster-piece-card.adventure-3 .coaster-piece-add > svg { color: var(--buddy-moss); }
+.coaster-piece-card.adventure-4 .coaster-piece-add > svg { color: var(--buddy-ink); }
+
+.coaster-piece-add > span,
+.coaster-piece-add > strong,
+.coaster-piece-add > small,
+.coaster-piece-add > i {
+  display: block;
+}
+
+.coaster-piece-add > span {
+  color: var(--buddy-ink-soft);
+  font-size: 0.74rem;
+}
+
+.coaster-piece-add > strong {
+  margin-top: 2px;
+  font-size: 1.02rem;
+  overflow-wrap: anywhere;
+}
+
+.coaster-piece-add > small {
+  margin-top: 5px;
+  color: var(--buddy-ink-soft);
+  font-size: 0.74rem;
+  line-height: 1.25;
+}
+
+.coaster-piece-add > i {
+  margin-top: 10px;
+  font-style: normal;
+  font-size: 0.76rem;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.coaster-piece-change {
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  border-top: 1px solid var(--buddy-line);
+  padding: 8px 10px;
+  background: rgba(120, 147, 166, 0.06);
+  color: var(--buddy-ink-soft);
+  cursor: pointer;
+  font-size: 0.74rem;
+}
+
+.coaster-piece-change:hover {
+  background: rgba(120, 147, 166, 0.12);
+  color: var(--buddy-ink);
+}
+
+.coaster-chip-actions button[title="Change track shape"] {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.coaster-boost-marker,
+.coaster-brake-marker {
+  pointer-events: none;
+}
+
+@media (max-width: 720px) {
+  .coaster-world-toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+  }
+
+  .coaster-status-copy {
+    grid-column: 1 / -1;
+  }
+
+  .coaster-speed-readout {
+    min-width: 110px;
+  }
+
+  .coaster-launch-strip {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .coaster-launch-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .coaster-launch-options button {
+    min-width: 0;
+  }
+}

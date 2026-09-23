@@ -60,26 +60,56 @@ const cases = [
     },
   ],
   [
-    "a short familiar-shaped word still earns a real track piece",
+    "a short familiar-shaped word still earns real track choices",
     () => {
-      assert.equal(
-        coaster.coasterPieceKindForWord({ word: "cat", chunks: 1, syllables: 1 }),
-        "straight",
-      );
+      const options = coaster.coasterPieceOptionsForWord({ word: "cat", chunks: 1, syllables: 1 });
+      assert.equal(options.length >= 3, true);
+      assert.equal(options.includes("straight"), true);
     },
   ],
   [
-    "a word with lots to notice can produce a loop without any correctness input",
+    "a word with lots to notice can unlock loops without any correctness input",
     () => {
-      assert.equal(
-        coaster.coasterPieceKindForWord({
-          word: "extraordinary",
-          chunks: 4,
-          syllables: 5,
-          signals: { together: true },
-        }),
-        "loop",
-      );
+      const options = coaster.coasterPieceOptionsForWord({
+        word: "extraordinary",
+        chunks: 4,
+        syllables: 5,
+        signals: { together: true },
+      });
+      assert.equal(options.includes("loop"), true);
+      assert.equal(options.includes("double-loop"), true);
+    },
+  ],
+  [
+    "exploring a word opens more construction choices without correctness",
+    () => {
+      const quiet = coaster.coasterPieceOptionsForWord({ word: "cat", chunks: 1, syllables: 1 });
+      const explored = coaster.coasterPieceOptionsForWord({
+        word: "because",
+        chunks: 3,
+        syllables: 2,
+        signals: { clue: true, meaning: true },
+      });
+      assert.equal(quiet.includes("straight"), true);
+      assert.equal(explored.includes("launch"), true);
+      assert.equal(explored.length > quiet.length, true);
+    },
+  ],
+  [
+    "launch and brake pieces change ride speed",
+    () => {
+      const launch = coaster.speedAfterPiece(20, "launch");
+      const brake = coaster.speedAfterPiece(launch, "brake");
+      assert.equal(launch > 20, true);
+      assert.equal(brake < launch, true);
+    },
+  ],
+  [
+    "loops require momentum but straight track does not",
+    () => {
+      assert.equal(coaster.canEnterPiece(10, "straight"), true);
+      assert.equal(coaster.canEnterPiece(10, "loop"), false);
+      assert.equal(coaster.canEnterPiece(24, "double-loop"), true);
     },
   ],
   [

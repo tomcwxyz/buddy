@@ -1,4 +1,4 @@
-import type { CoasterPieceKind } from "@/lib/practice/coaster";
+import type { CoasterLaunchPower, CoasterPieceKind } from "@/lib/practice/coaster";
 
 export type CoasterPiece = {
   id: string;
@@ -14,6 +14,7 @@ export type CoasterState = {
   pieces: CoasterPiece[];
   placedIds: string[];
   rides: number;
+  launchPower: CoasterLaunchPower;
 };
 
 const STORAGE_KEY = "buddy.coasters.v1";
@@ -30,6 +31,21 @@ function newState(practiceSetId: string): CoasterState {
     pieces: [],
     placedIds: [],
     rides: 0,
+    launchPower: 2,
+  };
+}
+
+function normaliseState(practiceSetId: string, value?: Partial<CoasterState> | null): CoasterState {
+  const base = newState(practiceSetId);
+  if (!value) return base;
+
+  return {
+    ...base,
+    ...value,
+    practiceSetId,
+    pieces: Array.isArray(value.pieces) ? value.pieces : [],
+    placedIds: Array.isArray(value.placedIds) ? value.placedIds : [],
+    launchPower: value.launchPower === 1 || value.launchPower === 3 ? value.launchPower : 2,
   };
 }
 
@@ -49,7 +65,7 @@ function writeAll(states: Record<string, CoasterState>) {
 }
 
 export function readCoasterState(practiceSetId: string) {
-  return readAll()[practiceSetId] ?? newState(practiceSetId);
+  return normaliseState(practiceSetId, readAll()[practiceSetId]);
 }
 
 export function writeCoasterState(state: CoasterState) {
@@ -81,6 +97,26 @@ export function earnCoasterPiece(input: {
   };
   writeCoasterState(next);
   return { state: next, piece, isNew: true };
+}
+
+export function setCoasterPieceKind(
+  practiceSetId: string,
+  pieceId: string,
+  kind: CoasterPieceKind,
+) {
+  const state = readCoasterState(practiceSetId);
+  return writeCoasterState({
+    ...state,
+    pieces: state.pieces.map((piece) => piece.id === pieceId ? { ...piece, kind } : piece),
+  });
+}
+
+export function setCoasterLaunchPower(
+  practiceSetId: string,
+  launchPower: CoasterLaunchPower,
+) {
+  const state = readCoasterState(practiceSetId);
+  return writeCoasterState({ ...state, launchPower });
 }
 
 export function placeCoasterPiece(practiceSetId: string, pieceId: string) {
