@@ -1,5 +1,8 @@
 export type CoasterPieceKind =
   | "straight"
+  | "lift"
+  | "drop"
+  | "steep-drop"
   | "hill"
   | "dip"
   | "camelback"
@@ -7,6 +10,8 @@ export type CoasterPieceKind =
   | "swoop"
   | "loop"
   | "double-loop"
+  | "corkscrew"
+  | "tunnel"
   | "launch"
   | "brake";
 
@@ -33,6 +38,38 @@ type CoasterPieceDefinition = {
   adventure: number;
   speedDelta: number;
   minimumSpeed: number;
+  elevationDelta?: number;
+  inversions?: number;
+  airtime?: number;
+  drops?: number;
+  tunnel?: boolean;
+};
+
+export type TrackSegment = {
+  kind: CoasterPieceKind;
+  index: number;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  path: string;
+};
+
+export type TrackGeometry = {
+  path: string;
+  segments: TrackSegment[];
+  minY: number;
+  maxY: number;
+};
+
+export type RideCharacter = {
+  inversions: number;
+  airtimeMoments: number;
+  drops: number;
+  boosts: number;
+  brakes: number;
+  tunnels: number;
+  traits: string[];
 };
 
 export const COASTER_PIECES: Record<CoasterPieceKind, CoasterPieceDefinition> = {
@@ -44,6 +81,37 @@ export const COASTER_PIECES: Record<CoasterPieceKind, CoasterPieceDefinition> = 
     speedDelta: -1,
     minimumSpeed: 0,
   },
+  lift: {
+    label: "Lift hill",
+    shortLabel: "Lift",
+    description: "Climb higher so there is somewhere exciting to go next.",
+    adventure: 1,
+    speedDelta: -2,
+    minimumSpeed: 0,
+    elevationDelta: -34,
+  },
+  drop: {
+    label: "Drop",
+    shortLabel: "Drop",
+    description: "Use some height and turn it into speed.",
+    adventure: 1,
+    speedDelta: 5,
+    minimumSpeed: 0,
+    elevationDelta: 34,
+    airtime: 1,
+    drops: 1,
+  },
+  "steep-drop": {
+    label: "Steep drop",
+    shortLabel: "Steep drop",
+    description: "A bigger dive that really gets the cart moving.",
+    adventure: 3,
+    speedDelta: 9,
+    minimumSpeed: 0,
+    elevationDelta: 50,
+    airtime: 1,
+    drops: 1,
+  },
   hill: {
     label: "Big hill",
     shortLabel: "Hill",
@@ -51,6 +119,7 @@ export const COASTER_PIECES: Record<CoasterPieceKind, CoasterPieceDefinition> = 
     adventure: 1,
     speedDelta: -4,
     minimumSpeed: 0,
+    airtime: 1,
   },
   dip: {
     label: "Deep dip",
@@ -59,6 +128,8 @@ export const COASTER_PIECES: Record<CoasterPieceKind, CoasterPieceDefinition> = 
     adventure: 1,
     speedDelta: 5,
     minimumSpeed: 0,
+    airtime: 1,
+    drops: 1,
   },
   "bunny-hop": {
     label: "Bunny hop",
@@ -67,6 +138,7 @@ export const COASTER_PIECES: Record<CoasterPieceKind, CoasterPieceDefinition> = 
     adventure: 1,
     speedDelta: -2,
     minimumSpeed: 0,
+    airtime: 2,
   },
   swoop: {
     label: "Swoop",
@@ -75,6 +147,8 @@ export const COASTER_PIECES: Record<CoasterPieceKind, CoasterPieceDefinition> = 
     adventure: 2,
     speedDelta: 4,
     minimumSpeed: 0,
+    airtime: 1,
+    drops: 1,
   },
   camelback: {
     label: "Camelback",
@@ -83,6 +157,7 @@ export const COASTER_PIECES: Record<CoasterPieceKind, CoasterPieceDefinition> = 
     adventure: 2,
     speedDelta: -3,
     minimumSpeed: 0,
+    airtime: 2,
   },
   loop: {
     label: "Loop",
@@ -91,6 +166,7 @@ export const COASTER_PIECES: Record<CoasterPieceKind, CoasterPieceDefinition> = 
     adventure: 3,
     speedDelta: -8,
     minimumSpeed: 17,
+    inversions: 1,
   },
   "double-loop": {
     label: "Double loop",
@@ -99,6 +175,25 @@ export const COASTER_PIECES: Record<CoasterPieceKind, CoasterPieceDefinition> = 
     adventure: 4,
     speedDelta: -13,
     minimumSpeed: 24,
+    inversions: 2,
+  },
+  corkscrew: {
+    label: "Corkscrew",
+    shortLabel: "Corkscrew",
+    description: "A twisty inversion with a bit of sideways-looking chaos.",
+    adventure: 3,
+    speedDelta: -9,
+    minimumSpeed: 20,
+    inversions: 1,
+  },
+  tunnel: {
+    label: "Tunnel",
+    shortLabel: "Tunnel",
+    description: "Disappear into the dark for a moment.",
+    adventure: 2,
+    speedDelta: -1,
+    minimumSpeed: 0,
+    tunnel: true,
   },
   launch: {
     label: "Launch track",
@@ -128,6 +223,10 @@ function wordHash(word: string) {
   return [...word].reduce((total, letter) => ((total * 31) + letter.charCodeAt(0)) >>> 0, 7);
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
 export function coasterAdventureForWord({
   word,
   chunks = 1,
@@ -155,18 +254,18 @@ export function coasterPieceOptionsForWord(shape: CoasterWordShape): CoasterPiec
   const adventure = coasterAdventureForWord(shape);
 
   if (adventure >= 4) {
-    return ["loop", "double-loop", "launch", "swoop", "camelback"];
+    return ["double-loop", "corkscrew", "steep-drop", "loop", "launch", "tunnel"];
   }
   if (adventure >= 3) {
-    return ["loop", "launch", "camelback", "swoop", "dip"];
+    return ["loop", "corkscrew", "steep-drop", "launch", "camelback", "tunnel"];
   }
   if (adventure >= 2) {
-    return ["launch", "camelback", "swoop", "hill", "dip"];
+    return ["launch", "lift", "drop", "tunnel", "camelback", "swoop"];
   }
   if (adventure >= 1) {
-    return ["hill", "dip", "bunny-hop", "brake", "straight"];
+    return ["lift", "drop", "hill", "dip", "bunny-hop", "brake"];
   }
-  return ["straight", "hill", "dip"];
+  return ["straight", "lift", "drop", "hill"];
 }
 
 /**
@@ -198,45 +297,58 @@ export function speedLabel(speed: number) {
   return "flying";
 }
 
+export function pieceEndY(kind: CoasterPieceKind, startY: number) {
+  const delta = COASTER_PIECES[kind].elevationDelta ?? 0;
+  return clamp(startY + delta, 62, 194);
+}
+
 export function piecePathD(
   kind: CoasterPieceKind,
   x: number,
   y: number,
   width = 92,
+  requestedEndY?: number,
 ) {
   const half = width / 2;
   const quarter = width / 4;
+  const endY = requestedEndY ?? pieceEndY(kind, y);
 
   switch (kind) {
+    case "lift":
+      return `M ${x} ${y} C ${x + quarter} ${y} ${x + width - quarter} ${endY} ${x + width} ${endY}`;
+    case "drop":
+      return `M ${x} ${y} C ${x + quarter * 0.8} ${y} ${x + half} ${endY} ${x + width} ${endY}`;
+    case "steep-drop":
+      return `M ${x} ${y} C ${x + quarter * 0.45} ${y} ${x + quarter * 0.7} ${endY} ${x + width} ${endY}`;
     case "hill":
       return [
         `M ${x} ${y}`,
         `C ${x + quarter * 0.8} ${y} ${x + quarter * 0.8} ${y - 48} ${x + half} ${y - 48}`,
-        `C ${x + width - quarter * 0.8} ${y - 48} ${x + width - quarter * 0.8} ${y} ${x + width} ${y}`,
+        `C ${x + width - quarter * 0.8} ${y - 48} ${x + width - quarter * 0.8} ${endY} ${x + width} ${endY}`,
       ].join(" ");
     case "dip":
       return [
         `M ${x} ${y}`,
         `C ${x + quarter * 0.7} ${y} ${x + quarter * 0.85} ${y + 48} ${x + half} ${y + 48}`,
-        `C ${x + width - quarter * 0.85} ${y + 48} ${x + width - quarter * 0.7} ${y} ${x + width} ${y}`,
+        `C ${x + width - quarter * 0.85} ${y + 48} ${x + width - quarter * 0.7} ${endY} ${x + width} ${endY}`,
       ].join(" ");
     case "bunny-hop":
       return [
         `M ${x} ${y}`,
         `Q ${x + quarter} ${y - 28} ${x + half} ${y}`,
-        `Q ${x + quarter * 3} ${y - 22} ${x + width} ${y}`,
+        `Q ${x + quarter * 3} ${y - 22} ${x + width} ${endY}`,
       ].join(" ");
     case "swoop":
       return [
         `M ${x} ${y}`,
         `C ${x + quarter * 0.5} ${y + 45} ${x + quarter * 1.3} ${y + 45} ${x + half} ${y + 6}`,
-        `C ${x + quarter * 2.7} ${y - 46} ${x + quarter * 3.4} ${y - 36} ${x + width} ${y}`,
+        `C ${x + quarter * 2.7} ${y - 46} ${x + quarter * 3.4} ${endY - 36} ${x + width} ${endY}`,
       ].join(" ");
     case "camelback":
       return [
         `M ${x} ${y}`,
         `C ${x + quarter * 0.5} ${y - 38} ${x + quarter * 1.45} ${y - 38} ${x + half} ${y}`,
-        `C ${x + quarter * 2.55} ${y + 32} ${x + quarter * 3.5} ${y + 32} ${x + width} ${y}`,
+        `C ${x + quarter * 2.55} ${y + 32} ${x + quarter * 3.5} ${endY + 32} ${x + width} ${endY}`,
       ].join(" ");
     case "loop":
       return [
@@ -244,7 +356,7 @@ export function piecePathD(
         `C ${x + 18} ${y} ${x + 18} ${y - 68} ${x + half} ${y - 68}`,
         `C ${x + width - 18} ${y - 68} ${x + width - 18} ${y} ${x + half} ${y}`,
         `C ${x + 18} ${y} ${x + 20} ${y - 45} ${x + half} ${y - 45}`,
-        `C ${x + width - 18} ${y - 45} ${x + width - 18} ${y} ${x + width} ${y}`,
+        `C ${x + width - 18} ${y - 45} ${x + width - 18} ${endY} ${x + width} ${endY}`,
       ].join(" ");
     case "double-loop": {
       const loopWidth = width / 2;
@@ -260,17 +372,77 @@ export function piecePathD(
         `C ${secondStart + 8} ${y} ${secondStart + 8} ${y - 52} ${secondMid} ${y - 52}`,
         `C ${x + width - 8} ${y - 52} ${x + width - 8} ${y} ${secondMid} ${y}`,
         `C ${secondStart + 9} ${y} ${secondStart + 10} ${y - 34} ${secondMid} ${y - 34}`,
-        `C ${x + width - 7} ${y - 34} ${x + width - 7} ${y} ${x + width} ${y}`,
+        `C ${x + width - 7} ${y - 34} ${x + width - 7} ${endY} ${x + width} ${endY}`,
       ].join(" ");
     }
+    case "corkscrew":
+      return [
+        `M ${x} ${y}`,
+        `C ${x + 14} ${y - 36} ${x + 30} ${y + 36} ${x + 44} ${y}`,
+        `C ${x + 58} ${y - 36} ${x + 76} ${y + 36} ${x + width} ${endY}`,
+      ].join(" ");
+    case "tunnel":
     case "launch":
-      return `M ${x} ${y} L ${x + width} ${y}`;
     case "brake":
-      return `M ${x} ${y} L ${x + width} ${y}`;
     case "straight":
     default:
-      return `M ${x} ${y} L ${x + width} ${y}`;
+      return `M ${x} ${y} L ${x + width} ${endY}`;
   }
+}
+
+export function trackGeometryForKinds(
+  kinds: CoasterPieceKind[],
+  originX = 76,
+  baselineY = 146,
+  width = 92,
+): TrackGeometry {
+  const segments: TrackSegment[] = [];
+  let currentY = baselineY;
+  let minY = baselineY;
+  let maxY = baselineY;
+
+  for (const [index, kind] of kinds.entries()) {
+    const startX = originX + index * width;
+    const endX = startX + width;
+    const endY = pieceEndY(kind, currentY);
+    const path = piecePathD(kind, startX, currentY, width, endY);
+
+    segments.push({
+      kind,
+      index,
+      startX,
+      startY: currentY,
+      endX,
+      endY,
+      path,
+    });
+
+    const definition = COASTER_PIECES[kind];
+    const localTop = kind === "loop" ? currentY - 68
+      : kind === "double-loop" ? currentY - 52
+      : kind === "hill" ? currentY - 48
+      : kind === "camelback" ? currentY - 38
+      : kind === "bunny-hop" ? currentY - 28
+      : kind === "corkscrew" ? currentY - 36
+      : Math.min(currentY, endY);
+    const localBottom = kind === "dip" ? currentY + 48
+      : kind === "swoop" ? currentY + 45
+      : Math.max(currentY, endY);
+
+    minY = Math.min(minY, localTop, endY);
+    maxY = Math.max(maxY, localBottom, endY);
+    currentY = endY;
+
+    void definition;
+  }
+
+  const station = `M 28 ${baselineY} L ${originX} ${baselineY}`;
+  return {
+    path: [station, ...segments.map((segment) => segment.path)].join(" "),
+    segments,
+    minY,
+    maxY,
+  };
 }
 
 export function trackPathForKinds(
@@ -279,14 +451,45 @@ export function trackPathForKinds(
   baselineY = 146,
   width = 92,
 ) {
-  const station = `M 28 ${baselineY} L ${originX} ${baselineY}`;
-  const pieces = kinds.map((kind, index) => piecePathD(
-    kind,
-    originX + (index * width),
-    baselineY,
-    width,
-  ));
-  return [station, ...pieces].join(" ");
+  return trackGeometryForKinds(kinds, originX, baselineY, width).path;
+}
+
+export function analyseRide(kinds: CoasterPieceKind[]): RideCharacter {
+  const result: RideCharacter = {
+    inversions: 0,
+    airtimeMoments: 0,
+    drops: 0,
+    boosts: 0,
+    brakes: 0,
+    tunnels: 0,
+    traits: [],
+  };
+
+  for (const kind of kinds) {
+    const piece = COASTER_PIECES[kind];
+    result.inversions += piece.inversions ?? 0;
+    result.airtimeMoments += piece.airtime ?? 0;
+    result.drops += piece.drops ?? 0;
+    if (kind === "launch") result.boosts += 1;
+    if (kind === "brake") result.brakes += 1;
+    if (piece.tunnel) result.tunnels += 1;
+  }
+
+  if (result.inversions >= 3) result.traits.push("upside-down chaos");
+  else if (result.inversions > 0) result.traits.push("twisty");
+
+  if (result.airtimeMoments >= 4) result.traits.push("floaty");
+  else if (result.airtimeMoments > 0) result.traits.push("bouncy");
+
+  if (result.drops >= 3) result.traits.push("drop-heavy");
+  else if (result.drops > 0) result.traits.push("dippy");
+
+  if (result.boosts >= 2) result.traits.push("boosted");
+  if (result.tunnels > 0) result.traits.push("tunnel-y");
+
+  if (result.traits.length === 0 && kinds.length > 0) result.traits.push("flowing");
+
+  return result;
 }
 
 export function coasterViewBoxWidth(pieceCount: number, width = 92) {

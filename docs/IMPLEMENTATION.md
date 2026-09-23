@@ -186,7 +186,11 @@ The current coaster is deliberately a construction toy rather than a progress me
 
 A word now unlocks a small set of compatible track shapes rather than permanently mapping to one shape. More exploration and more structure to notice can widen those options, but correctness is never consulted. The child can cycle the shape of any earned piece.
 
-Track SVG geometry is generated from the placed sequence; the same SVG path drives the cart animation. The ride uses intentionally game-like momentum: descents add speed, climbs and friction remove it, launch/brake pieces change it, and loops have minimum entry speeds. A stalled ride is therefore a construction problem to play with — reorder the track, add a launch, use a dip, or change station launch power — rather than a learning penalty.
+Track SVG geometry is generated from the placed sequence; the same SVG path drives the cart animation. Terrain pieces now have cumulative elevation: lift sections finish higher and drops finish lower, within a clamped construction window so repeated terrain changes remain visible. Supports, tunnels and ride markers are positioned from the generated segment geometry rather than from a fixed baseline.
+
+The ride uses intentionally game-like momentum: descents add speed, climbs and friction remove it, launch/brake pieces change it, and inversions have minimum entry speeds. A stalled ride is therefore a construction problem to play with — reorder the track, build height, add a launch, use a drop, or change station launch power — rather than a learning penalty.
+
+`analyseRide` derives descriptive ride characteristics from the built sequence: inversions, airtime moments, drops, boosts, brakes and tunnels plus loose traits such as `floaty`, `twisty` or `drop-heavy`. These are descriptions of what the child made, never a score or mastery signal.
 
 ## Learning Map alpha
 
