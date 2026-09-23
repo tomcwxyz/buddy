@@ -67,8 +67,9 @@ The first useful reading-and-learning loop now exists:
 12. see encountered words in **Words we've met**;
 13. revisit three useful words at a time in **Let's play with words**;
 14. photograph a school spelling list, check/edit the words Buddy found, and turn it into a local practice set;
-15. let a small rollercoaster grow as practice-set words are explored, without using correctness, points or streaks;
-16. allow Buddy to surface tentative, rejectable observations in **Me** after repeated evidence.
+15. turn explored practice-set words into real coaster pieces and let the child arrange them into a ride, drag the cart to the station and watch it run the track;
+16. let structurally richer words create more adventurous pieces such as hills, camelbacks and loops without using correctness, points or streaks;
+17. allow Buddy to surface tentative, rejectable observations in **Me** after repeated evidence.
 
 ### Word Library v2
 
@@ -101,6 +102,7 @@ The model fallback is disabled by default and never supplies canonical phonics/p
 - `/read` — live camera capture, local OCR, selectable words, spoken help and child-controlled scaffolding.
 - `/practice` — three useful words at a time, drawn from encountered words or the active practice set, with whichever support the child chooses.
 - `/practice/add-spellings` — local photo/OCR import for school spelling lists with mandatory human review before saving.
+- `/practice/coaster` — the build-and-ride word world for the active practice set: piece yard, construction order, draggable cart and animated ride.
 - `/words` — “Words we've met”, derived from local learning events.
 - `/me` — tentative child-visible observations derived from repeated interactions.
 - `/discover` — initial Brain Quests.
