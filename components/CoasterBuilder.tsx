@@ -86,6 +86,25 @@ type DragOffset = {
 const PIECE_WIDTH = CONNECTED_TRACK_PIECE_WIDTH;
 const WORLD_HEIGHT = CONNECTED_TRACK_HEIGHT;
 
+const TRACK_KIT_GROUPS: Array<{ label: string; kinds: CoasterPieceKind[] }> = [
+  {
+    label: "Shape",
+    kinds: ["straight", "lift", "drop", "hill", "dip", "bunny-hop", "swoop", "camelback", "tunnel"],
+  },
+  {
+    label: "Turn",
+    kinds: ["bank-left", "bank-right", "sweep-left", "sweep-right"],
+  },
+  {
+    label: "Speed",
+    kinds: ["launch", "brake"],
+  },
+  {
+    label: "Stunts",
+    kinds: ["jump", "mega-jump", "loop", "double-loop", "corkscrew", "half-pipe", "wall-ride"],
+  },
+];
+
 function defaultCartPose(): CartPose {
   return {
     x: CONNECTED_TRACK_STATION_X,
@@ -131,6 +150,7 @@ export function CoasterBuilder() {
   const [loaded, setLoaded] = useState(false);
   const [mode, setMode] = useState<"build" | "ride">("build");
   const [editingPieceId, setEditingPieceId] = useState<string | null>(null);
+  const [selectedKitKind, setSelectedKitKind] = useState<CoasterPieceKind | null>(null);
   const [selectedSceneryKind, setSelectedSceneryKind] = useState<CoasterSceneryKind | null>(null);
   const [selectedSceneryId, setSelectedSceneryId] = useState<string | null>(null);
   const [riding, setRiding] = useState(false);
@@ -245,6 +265,17 @@ export function CoasterBuilder() {
     setRideMessage(`${word} is now ${COASTER_PIECES[kind].shortLabel.toLowerCase()} track.`);
   }
 
+  function piecesThatCanBecome(kind: CoasterPieceKind) {
+    return (coaster?.pieces ?? []).filter((piece) => pieceOptions(piece.word).includes(kind));
+  }
+
+  function buildFromTrackKit(pieceId: string, word: string, kind: CoasterPieceKind) {
+    setCoasterPieceKind(PLAY_WORLD_ID, pieceId, kind);
+    setCoaster(placeCoasterPiece(PLAY_WORLD_ID, pieceId));
+    setSelectedKitKind(null);
+    setRideMessage(`${word} became ${COASTER_PIECES[kind].shortLabel.toLowerCase()} and snapped onto the end.`);
+  }
+
   function openPiecePalette(pieceId: string) {
     setEditingPieceId((current) => current === pieceId ? null : pieceId);
   }
@@ -253,6 +284,7 @@ export function CoasterBuilder() {
     if (riding) return;
     setMode(nextMode);
     setEditingPieceId(null);
+    setSelectedKitKind(null);
     setSelectedSceneryKind(null);
     setSelectedSceneryId(null);
     setActivePieceKind(null);
@@ -1170,6 +1202,98 @@ export function CoasterBuilder() {
         </section>
 
         {mode === "build" && <aside className="coaster-yard">
+          <div className="coaster-track-kit">
+            <div className="coaster-track-kit-heading">
+              <div>
+                <span>Track kit</span>
+                <strong>What do you want to build?</strong>
+              </div>
+              <small>Every shape stays visible. Word-pieces decide what you can use right now.</small>
+            </div>
+
+            <div className="coaster-track-kit-groups">
+              {TRACK_KIT_GROUPS.map((group) => (
+                <div className="coaster-track-kit-group" key={group.label}>
+                  <span>{group.label}</span>
+                  <div>
+                    {group.kinds.map((kind) => {
+                      const compatible = piecesThatCanBecome(kind);
+                      const waiting = compatible.filter((piece) => !coaster.placedIds.includes(piece.id));
+                      const available = compatible.length > 0;
+                      return (
+                        <button
+                          type="button"
+                          key={kind}
+                          className={`${selectedKitKind === kind ? "active " : ""}${available ? "" : "unavailable"}`.trim()}
+                          onClick={() => setSelectedKitKind((current) => current === kind ? null : kind)}
+                          aria-pressed={selectedKitKind === kind}
+                        >
+                          <CoasterPieceIcon kind={kind} />
+                          <span>{COASTER_PIECES[kind].shortLabel}</span>
+                          <small>{waiting.length > 0 ? `${waiting.length} ready` : available ? "on track" : "not yet"}</small>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {selectedKitKind && (() => {
+              const compatible = piecesThatCanBecome(selectedKitKind);
+              const waiting = compatible.filter((piece) => !coaster.placedIds.includes(piece.id));
+              const alreadyPlaced = compatible.filter((piece) => coaster.placedIds.includes(piece.id));
+              return (
+                <div className="coaster-track-kit-picker">
+                  <div>
+                    <CoasterPieceIcon kind={selectedKitKind} />
+                    <div>
+                      <strong>{COASTER_PIECES[selectedKitKind].label}</strong>
+                      <span>{COASTER_PIECES[selectedKitKind].description}</span>
+                    </div>
+                  </div>
+
+                  {waiting.length > 0 ? (
+                    <>
+                      <p>Pick a word-piece and it will snap onto <strong>BUILD HERE</strong> as this shape.</p>
+                      <div className="coaster-track-kit-words">
+                        {waiting.map((piece) => (
+                          <button
+                            type="button"
+                            key={piece.id}
+                            onClick={() => buildFromTrackKit(piece.id, piece.word, selectedKitKind)}
+                          >
+                            <Plus size={15} /> {piece.word}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  ) : alreadyPlaced.length > 0 ? (
+                    <>
+                      <p>Your current word-pieces that can make this shape are already on the ride. Change one in place:</p>
+                      <div className="coaster-track-kit-words">
+                        {alreadyPlaced.map((piece) => (
+                          <button
+                            type="button"
+                            key={piece.id}
+                            onClick={() => choosePieceKind(piece.id, piece.word, selectedKitKind)}
+                          >
+                            {piece.word}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="coaster-track-kit-none">
+                      No word in your world can take this shape yet. It stays here so the toybox is visible — exploring more words can create different building material.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
+          </div>
+
           <div className="coaster-yard-heading">
             <div>
               <span>Piece yard</span>
