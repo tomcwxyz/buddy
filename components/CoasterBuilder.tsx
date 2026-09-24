@@ -19,18 +19,23 @@ import { readLearningEvents } from "@/lib/learning/local-store";
 import {
   COASTER_LAUNCH_SPEED,
   COASTER_PIECES,
+  CONNECTED_TRACK_GROUND_Y,
+  CONNECTED_TRACK_HEIGHT,
+  CONNECTED_TRACK_PIECE_WIDTH,
+  CONNECTED_TRACK_START_Y,
+  CONNECTED_TRACK_STATION_X,
   canEnterPiece,
   analyseRide,
   coasterPieceKindForWord,
   coasterPieceOptionsForWord,
-  coasterViewBoxWidth,
+  connectedTrackEndpoint,
+  connectedTrackGeometryForKinds,
   isAirbornePiece,
+  rotateLocalPoint,
   speedAfterPiece,
   speedLabel,
   stuntFlipsForSpeed,
   stuntRotationDegrees,
-  trackGeometryForKinds,
-  visibleTrackPathsForSegment,
   type CoasterLaunchPower,
   type CoasterPieceKind,
 } from "@/lib/practice/coaster";
@@ -78,12 +83,16 @@ type DragOffset = {
   startY: number;
 };
 
-const BASELINE_Y = 146;
-const PIECE_WIDTH = 92;
-const STATION_X = 28;
+const PIECE_WIDTH = CONNECTED_TRACK_PIECE_WIDTH;
+const WORLD_HEIGHT = CONNECTED_TRACK_HEIGHT;
 
 function defaultCartPose(): CartPose {
-  return { x: STATION_X, y: BASELINE_Y, angle: 0, visible: false };
+  return {
+    x: CONNECTED_TRACK_STATION_X,
+    y: CONNECTED_TRACK_START_Y,
+    angle: 0,
+    visible: false,
+  };
 }
 
 function TrackChoicePalette({
@@ -142,7 +151,8 @@ export function CoasterBuilder() {
   });
 
   const boardRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<SVGPathElement>(null);
+  const stationRef = useRef<SVGPathElement>(null);
+  const segmentRefs = useRef<Array<SVGPathElement | null>>([]);
   const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -185,9 +195,9 @@ export function CoasterBuilder() {
     return coaster.pieces.filter((piece) => !placed.has(piece.id));
   }, [coaster]);
 
-  const viewWidth = coasterViewBoxWidth(placedPieces.length);
-  const trackGeometry = trackGeometryForKinds(placedPieces.map((piece) => piece.kind));
-  const trackPath = trackGeometry.path;
+  const trackGeometry = connectedTrackGeometryForKinds(placedPieces.map((piece) => piece.kind));
+  const viewWidth = trackGeometry.width;
+  const trackEndpoint = connectedTrackEndpoint(placedPieces.map((piece) => piece.kind));
   const rideCharacter = analyseRide(placedPieces.map((piece) => piece.kind));
   const editingPiece = coaster?.pieces.find((piece) => piece.id === editingPieceId) ?? null;
   const sceneryCapacity = sceneryCapacityForExploredWords(coaster?.pieces.length ?? 0);
@@ -199,8 +209,8 @@ export function CoasterBuilder() {
     Math.min(viewWidth - rideCameraWidth, cartPose.x - rideCameraWidth * 0.34),
   );
   const worldViewBox = mode === "ride" && riding && viewWidth > rideCameraWidth
-    ? `${rideCameraX} 0 ${rideCameraWidth} 260`
-    : `0 0 ${viewWidth} 260`;
+    ? `${rideCameraX} 0 ${rideCameraWidth} ${WORLD_HEIGHT}`
+    : `0 0 ${viewWidth} ${WORLD_HEIGHT}`;
 
   function addPiece(pieceId: string) {
     setCoaster(placeCoasterPiece(PLAY_WORLD_ID, pieceId));
@@ -266,10 +276,55 @@ export function CoasterBuilder() {
   }
 
   function runRide() {
-    const path = trackRef.current;
-    if (!path || !coaster || placedPieces.length === 0 || riding) return;
+    const stationPath = stationRef.current;
+    const paths = trackGeometry.segments.map((_, index) => segmentRefs.current[index]);
+    if (!stationPath || paths.some((path) => !path) || !coaster || placedPieces.length === 0 || riding) return;
 
-    const totalLength = path.getTotalLength();
+    const stationLength = stationPath.getTotalLength();
+    const segmentLengths = paths.map((path) => path?.getTotalLength() ?? PIECE_WIDTH);
+    const totalLength = stationLength + segmentLengths.reduce((sum, length) => sum + length, 0);
+
+    function routePointAtDistance(routeDistance: number) {
+      const clampedDistance = Math.max(0, Math.min(totalLength, routeDistance));
+
+      if (clampedDistance <= stationLength) {
+        const point = stationPath!.getPointAtLength(clampedDistance);
+        return {
+          point: { x: point.x, y: point.y },
+          pieceIndex: -1,
+          progress: stationLength > 0 ? clampedDistance / stationLength : 0,
+        };
+      }
+
+      let remaining = clampedDistance - stationLength;
+      for (let index = 0; index < segmentLengths.length; index += 1) {
+        const segmentLength = segmentLengths[index];
+        if (remaining <= segmentLength || index === segmentLengths.length - 1) {
+          const path = paths[index]!;
+          const localDistance = Math.max(0, Math.min(segmentLength, remaining));
+          const localPoint = path.getPointAtLength(localDistance);
+          const segment = trackGeometry.segments[index];
+          return {
+            point: rotateLocalPoint(
+              { x: localPoint.x, y: localPoint.y },
+              { x: segment.startX, y: segment.startY },
+              segment.heading,
+            ),
+            pieceIndex: index,
+            progress: segmentLength > 0 ? localDistance / segmentLength : 0,
+          };
+        }
+        remaining -= segmentLength;
+      }
+
+      const last = trackGeometry.segments.at(-1);
+      return {
+        point: last ? { x: last.endX, y: last.endY } : trackGeometry.stationEnd,
+        pieceIndex: placedPieces.length - 1,
+        progress: 1,
+      };
+    }
+
     let distance = 0;
     let lastNow = performance.now();
     let speed = COASTER_LAUNCH_SPEED[coaster.launchPower];
@@ -302,22 +357,18 @@ export function CoasterBuilder() {
       const dt = Math.max(1, Math.min(40, now - lastNow));
       lastNow = now;
 
-      const point = path.getPointAtLength(Math.min(totalLength, distance));
-      const ahead = path.getPointAtLength(Math.min(totalLength, distance + 4));
+      const route = routePointAtDistance(distance);
+      const aheadRoute = routePointAtDistance(distance + 4);
+      const point = route.point;
+      const ahead = aheadRoute.point;
       const baseAngle = Math.atan2(ahead.y - point.y, ahead.x - point.x) * 180 / Math.PI;
 
-      // In SVG coordinates positive Y is downhill, so descent adds momentum and
-      // climbing takes it away. This is deliberately game-like rather than a
-      // real rollercoaster physics model.
       const slope = ahead.y - point.y;
       speed += slope * 0.042 * (dt / 16);
       speed -= 0.025 * (dt / 16);
       speed = Math.max(3, Math.min(62, speed));
 
-      const pieceIndex = Math.max(
-        -1,
-        Math.min(placedPieces.length - 1, Math.floor((point.x - 76) / PIECE_WIDTH)),
-      );
+      const pieceIndex = route.pieceIndex;
 
       if (pieceIndex >= 0 && pieceIndex !== lastPieceIndex) {
         const piece = placedPieces[pieceIndex];
@@ -334,6 +385,8 @@ export function CoasterBuilder() {
         if (piece.kind === "launch") setRideMessage("Boost!");
         else if (piece.kind === "brake") setRideMessage("Brakes!");
         else if (piece.kind === "tunnel") setRideMessage("Into the tunnel…");
+        else if (piece.kind === "bank-left") setRideMessage("Banking left!");
+        else if (piece.kind === "bank-right") setRideMessage("Banking right!");
         else if (piece.kind === "jump" || piece.kind === "mega-jump") {
           setRideMessage(
             stuntFlipsInPiece >= 3 ? "Triple flip!"
@@ -366,13 +419,9 @@ export function CoasterBuilder() {
         lastPieceIndex = pieceIndex;
       }
 
-      const activeSegment = pieceIndex >= 0 ? trackGeometry.segments[pieceIndex] : null;
-      const segmentProgress = activeSegment
-        ? Math.max(0, Math.min(1, (point.x - activeSegment.startX) / Math.max(1, activeSegment.endX - activeSegment.startX)))
-        : 0;
       const activeKind = pieceIndex >= 0 ? placedPieces[pieceIndex]?.kind : null;
       const stuntRotation = activeKind
-        ? stuntRotationDegrees(activeKind, segmentProgress, stuntFlipsInPiece)
+        ? stuntRotationDegrees(activeKind, route.progress, stuntFlipsInPiece)
         : 0;
 
       peak = Math.max(peak, speed);
@@ -386,7 +435,6 @@ export function CoasterBuilder() {
       });
 
       if (distance < totalLength) {
-        // The multiplier turns our simple mph-like game value into SVG travel.
         distance += speed * (dt / 1000) * 4.25;
         frameRef.current = requestAnimationFrame(tick);
       } else {
@@ -493,8 +541,8 @@ export function CoasterBuilder() {
     const rect = boardRef.current?.getBoundingClientRect();
     if (rect) {
       const x = ((event.clientX - rect.left) / rect.width) * viewWidth;
-      const y = ((event.clientY - rect.top) / rect.height) * 260;
-      const hitStation = x >= 0 && x <= 140 && y >= 0 && y <= 260;
+      const y = ((event.clientY - rect.top) / rect.height) * WORLD_HEIGHT;
+      const hitStation = x >= 0 && x <= 150 && y >= CONNECTED_TRACK_START_Y - 100 && y <= CONNECTED_TRACK_START_Y + 100;
       if (hitStation) runRide();
       else setRideMessage("Drop the cart on the station to send it.");
     }
@@ -689,20 +737,28 @@ export function CoasterBuilder() {
                 </linearGradient>
               </defs>
 
-              <rect width={viewWidth} height="260" rx="22" fill="url(#buddy-sky-gradient)" />
-              <circle cx="118" cy="54" r="24" fill="#f7e5a5" opacity="0.9" />
-              <path d={`M 0 220 Q 130 184 270 219 T 540 213 T ${viewWidth} 218 L ${viewWidth} 260 L 0 260 Z`} fill="#a9b39a" opacity="0.6" />
-              <path d={`M 0 232 Q 150 204 340 234 T ${viewWidth} 230 L ${viewWidth} 260 L 0 260 Z`} fill="#788873" opacity="0.52" />
+              <rect width={viewWidth} height={WORLD_HEIGHT} rx="22" fill="url(#buddy-sky-gradient)" />
+              <circle cx="118" cy="68" r="24" fill="#f7e5a5" opacity="0.9" />
+              <path
+                d={`M 0 ${CONNECTED_TRACK_GROUND_Y - 22} Q 150 ${CONNECTED_TRACK_GROUND_Y - 60} 330 ${CONNECTED_TRACK_GROUND_Y - 18} T ${viewWidth} ${CONNECTED_TRACK_GROUND_Y - 24} L ${viewWidth} ${WORLD_HEIGHT} L 0 ${WORLD_HEIGHT} Z`}
+                fill="#a9b39a"
+                opacity="0.6"
+              />
+              <path
+                d={`M 0 ${CONNECTED_TRACK_GROUND_Y + 4} Q 180 ${CONNECTED_TRACK_GROUND_Y - 28} 390 ${CONNECTED_TRACK_GROUND_Y + 6} T ${viewWidth} ${CONNECTED_TRACK_GROUND_Y} L ${viewWidth} ${WORLD_HEIGHT} L 0 ${WORLD_HEIGHT} Z`}
+                fill="#788873"
+                opacity="0.52"
+              />
 
               <g className="coaster-cloud" opacity="0.72">
-                <ellipse cx="270" cy="55" rx="38" ry="13" fill="#fff" />
-                <ellipse cx="248" cy="52" rx="18" ry="16" fill="#fff" />
-                <ellipse cx="289" cy="48" rx="22" ry="18" fill="#fff" />
+                <ellipse cx="270" cy="70" rx="38" ry="13" fill="#fff" />
+                <ellipse cx="248" cy="67" rx="18" ry="16" fill="#fff" />
+                <ellipse cx="289" cy="63" rx="22" ry="18" fill="#fff" />
               </g>
 
               {coaster.scenery.map((item) => {
                 const x = item.x * viewWidth;
-                const y = item.y * 260;
+                const y = item.y * WORLD_HEIGHT;
                 const selected = mode === "build" && selectedSceneryId === item.id;
                 const scale = 0.78 + item.y * 0.28;
 
@@ -724,7 +780,11 @@ export function CoasterBuilder() {
               })}
 
               {mode === "ride" && (
-                <g className={`coaster-visitors${riding ? " alive" : ""}`} aria-hidden="true">
+                <g
+                  className={`coaster-visitors${riding ? " alive" : ""}`}
+                  transform={`translate(0 ${CONNECTED_TRACK_START_Y - 146})`}
+                  aria-hidden="true"
+                >
                   <g className="coaster-visitor visitor-one" transform="translate(102 198)">
                     <circle cx="0" cy="-12" r="5" fill="#78677e" />
                     <path d="M 0 -6 L 0 10 M 0 0 L -8 5 M 0 0 L 7 -5 M 0 10 L -6 20 M 0 10 L 6 20" stroke="#625e55" strokeWidth="3" strokeLinecap="round" />
@@ -740,129 +800,22 @@ export function CoasterBuilder() {
                 </g>
               )}
 
-              <g className="coaster-station">
+              <g className="coaster-station" transform={`translate(0 ${CONNECTED_TRACK_START_Y - 146})`}>
                 <rect x="18" y="132" width="67" height="70" rx="7" fill="#b97c63" />
                 <rect x="12" y="124" width="79" height="14" rx="4" fill="#78677e" />
                 <rect x="33" y="163" width="18" height="39" rx="3" fill="#f4f0e8" opacity="0.82" />
                 <text x="51" y="118" textAnchor="middle" className="coaster-svg-label">START</text>
               </g>
 
-              {placedPieces.map((piece, index) => {
-                const segment = trackGeometry.segments[index];
-                const supportX = segment?.endX ?? (76 + ((index + 1) * PIECE_WIDTH));
-                const supportY = segment?.endY ?? BASELINE_Y;
-                const startX = segment?.startX ?? (supportX - PIECE_WIDTH);
-                const startY = segment?.startY ?? BASELINE_Y;
-
-                return (
-                  <g key={piece.id}>
-                    <line
-                      x1={supportX}
-                      y1={supportY + 3}
-                      x2={supportX}
-                      y2="224"
-                      stroke="#625e55"
-                      strokeWidth="3"
-                      opacity="0.26"
-                    />
-                    <circle cx={supportX} cy="224" r="4" fill="#625e55" opacity="0.32" />
-
-                    {piece.kind === "lift" && (
-                      <g opacity="0.72">
-                        <text x={startX + PIECE_WIDTH / 2} y={Math.min(startY, supportY) - 12} textAnchor="middle" className="coaster-svg-help">LIFT</text>
-                        <path
-                          d={`M ${startX + 12} ${startY - 6} L ${supportX - 12} ${supportY - 6}`}
-                          stroke="#78677e"
-                          strokeWidth="2"
-                          strokeDasharray="5 6"
-                        />
-                      </g>
-                    )}
-
-                    {piece.kind === "tunnel" && (
-                      <g className="coaster-tunnel" opacity="0.88">
-                        <path
-                          d={`M ${startX + 8} ${startY + 24} Q ${startX + PIECE_WIDTH / 2} ${startY - 42} ${supportX - 8} ${supportY + 24}`}
-                          fill="#625e55"
-                          opacity="0.2"
-                        />
-                        <path
-                          d={`M ${startX + 13} ${startY + 20} Q ${startX + PIECE_WIDTH / 2} ${startY - 32} ${supportX - 13} ${supportY + 20}`}
-                          fill="none"
-                          stroke="#625e55"
-                          strokeWidth="5"
-                          opacity="0.46"
-                        />
-                      </g>
-                    )}
-
-                    {piece.kind === "launch" && (
-                      <g className="coaster-boost-marker">
-                        <path d={`M ${startX + 22} ${startY - 13} l 12 13 l -12 13`} fill="none" stroke="#b97c63" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d={`M ${startX + 38} ${startY - 13} l 12 13 l -12 13`} fill="none" stroke="#b97c63" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-                        <text x={startX + 40} y={startY - 20} textAnchor="middle" className="coaster-svg-help">BOOST</text>
-                      </g>
-                    )}
-
-                    {piece.kind === "brake" && (
-                      <g className="coaster-brake-marker">
-                        <line x1={startX + 22} y1={startY - 10} x2={startX + 22} y2={startY + 10} stroke="#78677e" strokeWidth="4" />
-                        <line x1={startX + 36} y1={startY - 10} x2={startX + 36} y2={startY + 10} stroke="#78677e" strokeWidth="4" />
-                        <line x1={startX + 50} y1={startY - 10} x2={startX + 50} y2={startY + 10} stroke="#78677e" strokeWidth="4" />
-                        <text x={startX + 36} y={startY - 20} textAnchor="middle" className="coaster-svg-help">BRAKE</text>
-                      </g>
-                    )}
-
-                    {isAirbornePiece(piece.kind) && (
-                      <g className="coaster-stunt-marker">
-                        <path
-                          d={`M ${startX + 34} ${startY - 37} Q ${startX + PIECE_WIDTH / 2} ${startY - 55} ${supportX - 32} ${supportY - 37}`}
-                          fill="none"
-                          stroke="#b97c63"
-                          strokeWidth="2"
-                          strokeDasharray="5 7"
-                          opacity="0.62"
-                        />
-                        <text x={startX + PIECE_WIDTH / 2} y={Math.min(startY, supportY) - (piece.kind === "mega-jump" ? 82 : 56)} textAnchor="middle" className="coaster-svg-help">
-                          {piece.kind === "mega-jump" ? "MEGA AIR" : "AIR"}
-                        </text>
-                      </g>
-                    )}
-
-                    {visibleTrackPathsForSegment(piece.kind, startX, startY, supportX, supportY).map((visiblePath, pathIndex) => (
-                      <g key={`${piece.id}-rail-${pathIndex}`}>
-                        <path
-                          d={visiblePath}
-                          fill="none"
-                          stroke="#3f4440"
-                          strokeWidth="9"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d={visiblePath}
-                          fill="none"
-                          stroke="#d9b86c"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeDasharray="8 8"
-                        />
-                      </g>
-                    ))}
-                  </g>
-                );
-              })}
-
               <path
-                d={`M 28 ${BASELINE_Y} L 76 ${BASELINE_Y}`}
+                d={`M ${trackGeometry.stationStart.x} ${trackGeometry.stationStart.y} L ${trackGeometry.stationEnd.x} ${trackGeometry.stationEnd.y}`}
                 fill="none"
                 stroke="#3f4440"
                 strokeWidth="9"
                 strokeLinecap="round"
               />
               <path
-                d={`M 28 ${BASELINE_Y} L 76 ${BASELINE_Y}`}
+                d={`M ${trackGeometry.stationStart.x} ${trackGeometry.stationStart.y} L ${trackGeometry.stationEnd.x} ${trackGeometry.stationEnd.y}`}
                 fill="none"
                 stroke="#d9b86c"
                 strokeWidth="3"
@@ -870,18 +823,169 @@ export function CoasterBuilder() {
                 strokeDasharray="8 8"
               />
               <path
-                ref={trackRef}
-                d={trackPath}
+                ref={stationRef}
+                d={`M ${trackGeometry.stationStart.x} ${trackGeometry.stationStart.y} L ${trackGeometry.stationEnd.x} ${trackGeometry.stationEnd.y}`}
                 fill="none"
                 stroke="transparent"
                 strokeWidth="2"
                 pointerEvents="none"
               />
 
+              {placedPieces.map((piece, index) => {
+                const segment = trackGeometry.segments[index];
+                if (!segment) return null;
+
+                return (
+                  <g key={piece.id}>
+                    <line
+                      x1={segment.endX}
+                      y1={segment.endY + 3}
+                      x2={segment.endX}
+                      y2={CONNECTED_TRACK_GROUND_Y}
+                      stroke="#625e55"
+                      strokeWidth="3"
+                      opacity="0.2"
+                    />
+                    <circle cx={segment.endX} cy={CONNECTED_TRACK_GROUND_Y} r="4" fill="#625e55" opacity="0.28" />
+
+                    <g transform={`translate(${segment.startX} ${segment.startY}) rotate(${segment.heading})`}>
+                      {piece.kind === "lift" && (
+                        <g opacity="0.72">
+                          <text x={PIECE_WIDTH / 2} y={Math.min(0, segment.localEndY) - 14} textAnchor="middle" className="coaster-svg-help">LIFT</text>
+                          <path
+                            d={`M 12 -6 L ${PIECE_WIDTH - 12} ${segment.localEndY - 6}`}
+                            stroke="#78677e"
+                            strokeWidth="2"
+                            strokeDasharray="5 6"
+                          />
+                        </g>
+                      )}
+
+                      {piece.kind === "tunnel" && (
+                        <g className="coaster-tunnel" opacity="0.88">
+                          <path
+                            d={`M 8 24 Q ${PIECE_WIDTH / 2} -42 ${PIECE_WIDTH - 8} ${segment.localEndY + 24}`}
+                            fill="#625e55"
+                            opacity="0.2"
+                          />
+                          <path
+                            d={`M 13 20 Q ${PIECE_WIDTH / 2} -32 ${PIECE_WIDTH - 13} ${segment.localEndY + 20}`}
+                            fill="none"
+                            stroke="#625e55"
+                            strokeWidth="5"
+                            opacity="0.46"
+                          />
+                        </g>
+                      )}
+
+                      {piece.kind === "launch" && (
+                        <g className="coaster-boost-marker">
+                          <path d="M 22 -13 l 12 13 l -12 13" fill="none" stroke="#b97c63" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M 38 -13 l 12 13 l -12 13" fill="none" stroke="#b97c63" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                          <text x="40" y="-20" textAnchor="middle" className="coaster-svg-help">BOOST</text>
+                        </g>
+                      )}
+
+                      {piece.kind === "brake" && (
+                        <g className="coaster-brake-marker">
+                          <line x1="22" y1="-10" x2="22" y2="10" stroke="#78677e" strokeWidth="4" />
+                          <line x1="36" y1="-10" x2="36" y2="10" stroke="#78677e" strokeWidth="4" />
+                          <line x1="50" y1="-10" x2="50" y2="10" stroke="#78677e" strokeWidth="4" />
+                          <text x="36" y="-20" textAnchor="middle" className="coaster-svg-help">BRAKE</text>
+                        </g>
+                      )}
+
+                      {(piece.kind === "bank-left" || piece.kind === "bank-right") && (
+                        <g className="coaster-bank-marker">
+                          <text x={PIECE_WIDTH / 2} y="-42" textAnchor="middle" className="coaster-svg-help">
+                            {piece.kind === "bank-left" ? "BANK LEFT" : "BANK RIGHT"}
+                          </text>
+                          <path
+                            d={piece.kind === "bank-left"
+                              ? `M ${PIECE_WIDTH / 2 + 14} -30 L ${PIECE_WIDTH / 2} -42 L ${PIECE_WIDTH / 2 - 14} -30`
+                              : `M ${PIECE_WIDTH / 2 - 14} 30 L ${PIECE_WIDTH / 2} 42 L ${PIECE_WIDTH / 2 + 14} 30`}
+                            fill="none"
+                            stroke="#b97c63"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </g>
+                      )}
+
+                      {isAirbornePiece(piece.kind) && (
+                        <g className="coaster-stunt-marker">
+                          <path
+                            d={`M 34 -37 Q ${PIECE_WIDTH / 2} -55 ${PIECE_WIDTH - 32} ${segment.localEndY - 37}`}
+                            fill="none"
+                            stroke="#b97c63"
+                            strokeWidth="2"
+                            strokeDasharray="5 7"
+                            opacity="0.62"
+                          />
+                          <text
+                            x={PIECE_WIDTH / 2}
+                            y={piece.kind === "mega-jump" ? -82 : -56}
+                            textAnchor="middle"
+                            className="coaster-svg-help"
+                          >
+                            {piece.kind === "mega-jump" ? "MEGA AIR" : "AIR"}
+                          </text>
+                        </g>
+                      )}
+
+                      {segment.visibleLocalPaths.map((visiblePath, pathIndex) => (
+                        <g key={`${piece.id}-rail-${pathIndex}`}>
+                          <path
+                            d={visiblePath}
+                            fill="none"
+                            stroke="#3f4440"
+                            strokeWidth="9"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d={visiblePath}
+                            fill="none"
+                            stroke="#d9b86c"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeDasharray="8 8"
+                          />
+                        </g>
+                      ))}
+
+                      <path
+                        ref={(node) => { segmentRefs.current[index] = node; }}
+                        d={segment.localPath}
+                        fill="none"
+                        stroke="transparent"
+                        strokeWidth="2"
+                        pointerEvents="none"
+                      />
+                    </g>
+                  </g>
+                );
+              })}
+
+              {mode === "build" && placedPieces.length > 0 && (
+                <g
+                  className="coaster-build-endpoint"
+                  transform={`translate(${trackEndpoint.x} ${trackEndpoint.y}) rotate(${trackEndpoint.heading})`}
+                  aria-hidden="true"
+                >
+                  <circle r="13" fill="#f7efe0" stroke="#b97c63" strokeWidth="3" />
+                  <circle r="4" fill="#b97c63" />
+                  <path d="M 18 0 L 42 0 M 34 -8 L 42 0 L 34 8" fill="none" stroke="#b97c63" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                  <text x="30" y="-17" textAnchor="middle" className="coaster-svg-help">BUILD HERE</text>
+                </g>
+              )}
+
               {placedPieces.length === 0 && (
                 <g opacity="0.62">
-                  <path d="M 76 146 L 168 146" stroke="#625e55" strokeWidth="8" strokeLinecap="round" strokeDasharray="10 11" />
-                  <text x="124" y="176" textAnchor="middle" className="coaster-svg-help">drop a piece here</text>
+                  <path d={`M ${trackGeometry.stationEnd.x} ${trackGeometry.stationEnd.y} L ${trackGeometry.stationEnd.x + PIECE_WIDTH} ${trackGeometry.stationEnd.y}`} stroke="#625e55" strokeWidth="8" strokeLinecap="round" strokeDasharray="10 11" />
+                  <text x={trackGeometry.stationEnd.x + PIECE_WIDTH / 2} y={trackGeometry.stationEnd.y + 30} textAnchor="middle" className="coaster-svg-help">drop a piece here</text>
                 </g>
               )}
 

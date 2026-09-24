@@ -2684,3 +2684,56 @@
     animation: none;
   }
 }
+
+
+/* Connected-track builder */
+.coaster-board.build-stage .coaster-world {
+  min-height: 430px;
+}
+
+.coaster-board.ride-stage .coaster-world {
+  min-height: min(68vh, 700px);
+}
+
+.coaster-build-endpoint {
+  pointer-events: none;
+  filter: drop-shadow(0 6px 10px rgba(62, 54, 43, 0.12));
+}
+
+.coaster-build-endpoint circle:first-child {
+  animation: coaster-endpoint-pulse 1.8s ease-in-out infinite alternate;
+}
+
+.coaster-bank-marker {
+  pointer-events: none;
+}
+
+.coaster-bank-marker text {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.coaster-board.cart-dragging .coaster-station-target {
+  top: 42%;
+}
+
+@keyframes coaster-endpoint-pulse {
+  from { r: 11px; opacity: 0.72; }
+  to { r: 14px; opacity: 1; }
+}
+
+@media (max-width: 720px) {
+  .coaster-board.build-stage .coaster-world {
+    min-height: 390px;
+  }
+
+  .coaster-board.ride-stage .coaster-world {
+    min-height: 470px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coaster-build-endpoint circle:first-child {
+    animation: none;
+  }
+}
