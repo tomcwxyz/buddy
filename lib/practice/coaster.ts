@@ -13,6 +13,10 @@ export type CoasterPieceKind =
   | "corkscrew"
   | "bank-left"
   | "bank-right"
+  | "sweep-left"
+  | "sweep-right"
+  | "half-pipe"
+  | "wall-ride"
   | "jump"
   | "mega-jump"
   | "tunnel"
@@ -47,7 +51,8 @@ type CoasterPieceDefinition = {
   airtime?: number;
   drops?: number;
   tunnel?: boolean;
-  stunt?: "jump" | "mega-jump";
+  stunt?: "jump" | "mega-jump" | "half-pipe" | "wall-ride";
+  lengthMultiplier?: number;
 };
 
 export type TrackSegment = {
@@ -208,6 +213,47 @@ export const COASTER_PIECES: Record<CoasterPieceKind, CoasterPieceDefinition> = 
     speedDelta: -2,
     minimumSpeed: 10,
   },
+  "sweep-left": {
+    label: "Big sweep left",
+    shortLabel: "Sweep left",
+    description: "A long fast turn that swings the whole route hard to the left.",
+    adventure: 3,
+    speedDelta: -3,
+    minimumSpeed: 14,
+    lengthMultiplier: 1.4,
+  },
+  "sweep-right": {
+    label: "Big sweep right",
+    shortLabel: "Sweep right",
+    description: "A long fast turn that sends the next part of the ride off to the right.",
+    adventure: 3,
+    speedDelta: -3,
+    minimumSpeed: 14,
+    lengthMultiplier: 1.4,
+  },
+  "half-pipe": {
+    label: "Half-pipe",
+    shortLabel: "Half-pipe",
+    description: "Dive into a deep bowl, climb the far wall and fling back onto the route.",
+    adventure: 4,
+    speedDelta: 2,
+    minimumSpeed: 20,
+    airtime: 2,
+    drops: 2,
+    stunt: "half-pipe",
+    lengthMultiplier: 1.55,
+  },
+  "wall-ride": {
+    label: "Wall ride",
+    shortLabel: "Wall ride",
+    description: "Climb almost vertical and cling to the wall before dropping back onto the rails.",
+    adventure: 4,
+    speedDelta: -8,
+    minimumSpeed: 30,
+    airtime: 1,
+    stunt: "wall-ride",
+    lengthMultiplier: 1.35,
+  },
   jump: {
     label: "Stunt jump",
     shortLabel: "Jump",
@@ -296,10 +342,10 @@ export function coasterPieceOptionsForWord(shape: CoasterWordShape): CoasterPiec
   const adventure = coasterAdventureForWord(shape);
 
   if (adventure >= 4) {
-    return ["mega-jump", "double-loop", "corkscrew", "loop", "bank-left", "bank-right", "steep-drop", "jump", "launch"];
+    return ["mega-jump", "half-pipe", "wall-ride", "double-loop", "corkscrew", "loop", "sweep-left", "sweep-right", "bank-left", "bank-right", "steep-drop", "jump", "launch"];
   }
   if (adventure >= 3) {
-    return ["jump", "loop", "corkscrew", "bank-left", "bank-right", "steep-drop", "launch", "tunnel"];
+    return ["jump", "loop", "corkscrew", "sweep-left", "sweep-right", "bank-left", "bank-right", "steep-drop", "launch", "tunnel"];
   }
   if (adventure >= 2) {
     return ["jump", "launch", "bank-left", "bank-right", "lift", "drop", "tunnel", "swoop"];
@@ -481,6 +527,23 @@ export function piecePathD(
       return `M ${x} ${y} C ${x + quarter} ${y} ${x + width - quarter} ${y - 30} ${x + width} ${endY}`;
     case "bank-right":
       return `M ${x} ${y} C ${x + quarter} ${y} ${x + width - quarter} ${y + 30} ${x + width} ${endY}`;
+    case "sweep-left":
+      return `M ${x} ${y} C ${x + quarter} ${y} ${x + width - 30} ${endY + 30} ${x + width} ${endY}`;
+    case "sweep-right":
+      return `M ${x} ${y} C ${x + quarter} ${y} ${x + width - 30} ${endY - 30} ${x + width} ${endY}`;
+    case "half-pipe":
+      return [
+        `M ${x} ${y}`,
+        `C ${x + width * 0.12} ${y} ${x + width * 0.18} ${y + 92} ${x + width * 0.36} ${y + 92}`,
+        `C ${x + width * 0.54} ${y + 92} ${x + width * 0.56} ${y - 96} ${x + width * 0.73} ${y - 96}`,
+        `C ${x + width * 0.88} ${y - 96} ${x + width * 0.92} ${endY} ${x + width} ${endY}`,
+      ].join(" ");
+    case "wall-ride":
+      return [
+        `M ${x} ${y}`,
+        `C ${x + width * 0.12} ${y} ${x + width * 0.2} ${y - 104} ${x + width * 0.48} ${y - 104}`,
+        `C ${x + width * 0.75} ${y - 104} ${x + width * 0.78} ${y + 12} ${x + width} ${endY}`,
+      ].join(" ");
     case "jump":
       return `M ${x} ${y} Q ${x + half} ${y - 68} ${x + width} ${endY}`;
     case "mega-jump":
@@ -629,6 +692,7 @@ export type ConnectedTrackSegment = {
   heading: number;
   endHeading: number;
   localEndY: number;
+  width: number;
   localPath: string;
   visibleLocalPaths: string[];
 };
@@ -652,7 +716,16 @@ function toRadians(degrees: number) {
 export function headingDeltaForPiece(kind: CoasterPieceKind) {
   if (kind === "bank-left") return -22.5;
   if (kind === "bank-right") return 22.5;
+  if (kind === "sweep-left") return -45;
+  if (kind === "sweep-right") return 45;
   return 0;
+}
+
+export function pieceWidthForKind(
+  kind: CoasterPieceKind,
+  baseWidth = CONNECTED_TRACK_PIECE_WIDTH,
+) {
+  return baseWidth * (COASTER_PIECES[kind].lengthMultiplier ?? 1);
 }
 
 export function rotateLocalPoint(
@@ -684,9 +757,10 @@ export function connectedTrackGeometryForKinds(
   let maxY = CONNECTED_TRACK_START_Y;
 
   for (const [index, kind] of kinds.entries()) {
+    const segmentWidth = pieceWidthForKind(kind, pieceWidth);
     const requestedLocalEndY = COASTER_PIECES[kind].elevationDelta ?? 0;
     const candidateEnd = rotateLocalPoint(
-      { x: pieceWidth, y: requestedLocalEndY },
+      { x: segmentWidth, y: requestedLocalEndY },
       { x, y },
       heading,
     );
@@ -697,7 +771,7 @@ export function connectedTrackGeometryForKinds(
     }
 
     const end = rotateLocalPoint(
-      { x: pieceWidth, y: localEndY },
+      { x: segmentWidth, y: localEndY },
       { x, y },
       heading,
     );
@@ -708,12 +782,12 @@ export function connectedTrackGeometryForKinds(
       55,
     );
 
-    const localPath = piecePathD(kind, 0, 0, pieceWidth, localEndY);
+    const localPath = piecePathD(kind, 0, 0, segmentWidth, localEndY);
     const visibleLocalPaths = visibleTrackPathsForSegment(
       kind,
       0,
       0,
-      pieceWidth,
+      segmentWidth,
       localEndY,
     );
 
@@ -727,6 +801,7 @@ export function connectedTrackGeometryForKinds(
       heading,
       endHeading,
       localEndY,
+      width: segmentWidth,
       localPath,
       visibleLocalPaths,
     });
