@@ -278,7 +278,7 @@ export function coasterPieceOptionsForWord(shape: CoasterWordShape): CoasterPiec
   const adventure = coasterAdventureForWord(shape);
 
   if (adventure >= 4) {
-    return ["mega-jump", "double-loop", "corkscrew", "steep-drop", "jump", "launch"];
+    return ["mega-jump", "double-loop", "corkscrew", "loop", "steep-drop", "jump", "launch"];
   }
   if (adventure >= 3) {
     return ["jump", "loop", "corkscrew", "steep-drop", "launch", "tunnel"];
