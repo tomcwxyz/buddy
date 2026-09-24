@@ -66,8 +66,8 @@ The first useful reading-and-learning loop now exists:
 11. record the encounter in a local Learning Map;
 12. see encountered words in **Words we've met**;
 13. revisit three useful words at a time in **Let's play with words**;
-14. photograph a school spelling list, check/edit the words Buddy found, and turn it into a local practice set;
-15. turn explored practice-set words into real coaster pieces and let the child arrange them into a ride, drag the cart to the station and watch it run the track;
+14. photograph a word list or add words manually, check/edit what Buddy found, and use that as one source for Play;
+15. turn every word explored in Play — however it arrived — into material for one shared coaster world, then arrange pieces into a ride and watch it run;
 16. let structurally richer words create more adventurous pieces such as hills, camelbacks and loops without using correctness, points or streaks;
 17. allow Buddy to surface tentative, rejectable observations in **Me** after repeated evidence.
 
@@ -100,9 +100,9 @@ The model fallback is disabled by default and never supplies canonical phonics/p
 
 - `/` — action-first home.
 - `/read` — live camera capture, local OCR, selectable words, spoken help and child-controlled scaffolding.
-- `/practice` — three useful words at a time, drawn from encountered words or the active practice set, with whichever support the child chooses.
-- `/practice/add-spellings` — local photo/OCR import for school spelling lists with mandatory human review before saving.
-- `/practice/coaster` — the build-and-ride word world for the active practice set: direct visual track selection per explored word, separate Build and Ride modes, persistent placeable park scenery, three freely chosen cart styles, cumulative lift/drop terrain, loops/corkscrews/tunnels, reactive ride effects, station launch speed, boosts/brakes, descriptive ride character, a cart-following camera and a momentum-based animated ride.
+- `/practice` — **Words** inside Play: three useful words at a time, drawn from encountered words or an active list, with whichever support the child chooses. Every explored word feeds the same world.
+- `/practice/add-spellings` — **Add words** inside Play: local photo/OCR or manual entry for word lists, with mandatory human review before saving.
+- `/practice/coaster` — **World** inside Play: the shared build-and-ride world for every explored Play word: direct visual track selection per explored word, separate Build and Ride modes, persistent placeable park scenery, three freely chosen cart styles, cumulative lift/drop terrain, loops/corkscrews/tunnels, reactive ride effects, station launch speed, boosts/brakes, descriptive ride character, a cart-following camera and a momentum-based animated ride.
 - `/words` — “Words we've met”, derived from local learning events.
 - `/me` — tentative child-visible observations derived from repeated interactions.
 - `/discover` — initial Brain Quests.

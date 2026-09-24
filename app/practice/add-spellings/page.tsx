@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "@phosphor-icons/react/dist/ssr";
 import { BottomNav } from "@/components/BottomNav";
+import { PlayNav } from "@/components/PlayNav";
 import { SpellingImport } from "@/components/SpellingImport";
 
 export default function AddSpellingsPage() {
@@ -11,6 +12,7 @@ export default function AddSpellingsPage() {
         <div className="topbar-note">Turn a school list into something useful.</div>
       </header>
       <main className="main">
+        <PlayNav />
         <SpellingImport />
       </main>
       <BottomNav />

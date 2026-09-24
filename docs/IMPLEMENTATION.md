@@ -45,8 +45,8 @@ The alpha now supports:
 17. local learning events recorded only after a selected OCR word is lexically recognised;
 18. `Words we've met` and a three-word Practice loop derived from those events;
 19. photographed school spelling lists converted into reviewed local practice sets;
-20. practice-set exploration produces real coaster pieces, with more structurally interesting words able to create hills, dips, camelbacks and loops;
-21. `/practice/coaster` provides a persistent construction yard where pieces can be placed and rearranged and the cart can be dragged to the station to ride the built track.
+20. any word explored in Play produces a piece in the same shared world, with more structurally interesting words able to create hills, dips, camelbacks and loops;
+21. `/practice`, `/practice/coaster` and `/practice/add-spellings` sit under one visible Play sub-navigation: Words / World / Add words; `/practice/coaster` provides the persistent construction world.
 
 Page images are not uploaded by Buddy in this alpha. OCR runs in the browser. Tesseract language/wasm resources may still be downloaded by the OCR library at runtime.
 
@@ -167,9 +167,9 @@ For child-facing deployments, enabling a model is a privacy/safety deployment de
 
 The word lab is an engineering/evaluation surface, not a child score.
 
-## Practice sets from real life
+## Play words from real life
 
-Practice sets are stored locally in `buddy.practice-sets.v1`, with one optional active set. The first import route is `/practice/add-spellings`.
+Word lists are stored locally in `buddy.practice-sets.v1`, with one optional active list used only to decide which words Play brings forward next. The import route remains `/practice/add-spellings` for compatibility, but the child-facing surface calls this **Add words**.
 
 The flow is deliberately review-first:
 
@@ -178,11 +178,11 @@ The flow is deliberately review-first:
 3. likely word tokens are cleaned and deduplicated;
 4. the person checks, edits, removes or adds words;
 5. only the confirmed word list is stored — the source photograph is not retained;
-6. Practice selects a few words at a time from the active set, prioritising words not yet explored.
+6. Play selects a few words at a time from the active list when one is selected, otherwise from words Buddy has met before.
 
-`practice_explored` is separate from `practice_known`. Coaster pieces are minted from unique explored words, so moving on, listening, asking for a clue or working together can all contribute to the same world. Correctness is not an input to `coasterPieceKindForWord`.
+`practice_explored` is separate from `practice_known`. Every completed Play word now contributes to the same shared world identified by `buddy-play-world`, regardless of whether the word came from reading, a photographed list or manual entry. Correctness is not an input to `coasterPieceKindForWord`.
 
-The current coaster is deliberately a construction toy rather than a progress meter. Each practice set has local `buddy.coasters.v1` state containing the earned piece inventory, placed-piece order, ride name, ride count and station launch power. Existing v1 state is normalised so older local coasters gain the new launch setting safely.
+The coaster is deliberately a construction toy rather than a progress meter. The shared Play world lives inside the existing `buddy.coasters.v1` storage record and contains the earned piece inventory, placed-piece order, ride name, ride count, station launch power, cart choice and scenery. On first read, older set-specific coaster records are folded into the shared Play world: pieces are deduplicated by word, placed track is preserved where possible, ride counts are combined, and scenery is carried across. The legacy set-specific records are left untouched as a safety fallback.
 
 A word now unlocks a small set of compatible track shapes rather than permanently mapping to one shape. More exploration and more structure to notice can widen those options, but correctness is never consulted. The child can cycle the shape of any earned piece.
 

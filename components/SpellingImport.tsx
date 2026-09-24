@@ -38,7 +38,7 @@ export function SpellingImport() {
   const router = useRouter();
   const [state, setState] = useState<ImportState>("idle");
   const [page, setPage] = useState<PreparedUploadImage | null>(null);
-  const [label, setLabel] = useState("This week's spellings");
+  const [label, setLabel] = useState("Words to play with");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -106,16 +106,16 @@ export function SpellingImport() {
   return (
     <section className="spelling-import-shell">
       <header className="spelling-import-heading">
-        <p className="eyebrow">Practice from real life</p>
-        <h1>Add school spellings</h1>
-        <p>Take a photo of the list. Buddy will find the words, then you can check them before anything is saved.</p>
+        <p className="eyebrow">Bring words into Play</p>
+        <h1>Add some words</h1>
+        <p>Take a photo of a list, or add words yourself. Buddy will find what it can, then you can check everything before it is saved.</p>
       </header>
 
       <div className="spelling-import-grid">
         <section className="spelling-photo-card">
           <label className="spelling-photo-button">
             <Camera size={24} />
-            <span>{page ? "Take or choose another photo" : "Take a photo of the spellings"}</span>
+            <span>{page ? "Take or choose another photo" : "Take a photo of a word list"}</span>
             <input
               type="file"
               accept="image/*"
@@ -133,7 +133,7 @@ export function SpellingImport() {
           ) : (
             <div className="spelling-photo-empty">
               <Camera size={42} weight="light" />
-              <p>A clear photo of a short list works best.</p>
+              <p>A clear photo of a short word list works best.</p>
             </div>
           )}
 
@@ -202,9 +202,9 @@ export function SpellingImport() {
               onClick={saveWords}
               disabled={selectedWords.length === 0}
             >
-              Practise these words <ArrowRight size={20} />
+              Play with these words <ArrowRight size={20} />
             </button>
-            <span>No test score. Just a useful set to come back to.</span>
+            <span>These words join the same Play world as words Buddy has met anywhere else.</span>
           </div>
         </section>
       </div>
