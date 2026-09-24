@@ -105,6 +105,8 @@ Priorities:
 - keep Build and Ride as deliberately different moods: Build exposes the piece yard, track palette and park-building tools; Ride removes workshop controls and makes the coaster, park and cart the focus;
 - grow the wider world from exploration too: each explored-word piece makes room for one persistent scenery object, with direct touch placement rather than points or a decoration currency;
 - test whether trees, ponds, rocks, flags, lamps and small park buildings make the coaster feel like a place worth returning to rather than just a completed track;
+- make Ride mode feel alive without turning it noisy: scenery can sway/glow while the cart moves, tunnels can darken the stage, launches can flash and station visitors can react;
+- keep cart customisation as immediate preference rather than progression: Classic, Rocket and Buggy are all available from the start;
 - keep ride feedback descriptive rather than scored: Buddy can call a coaster floaty, twisty, drop-heavy, boosted or tunnel-y and report its drops, airtime and inversions without ranking the child or the ride;
 - let words with more structure to notice create more adventurous track shapes such as camelbacks and loops, without treating those shapes as prizes for correctness;
 - treat every track piece as evidence that a word was explored, not that it was correct;

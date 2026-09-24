@@ -102,7 +102,7 @@ The model fallback is disabled by default and never supplies canonical phonics/p
 - `/read` — live camera capture, local OCR, selectable words, spoken help and child-controlled scaffolding.
 - `/practice` — three useful words at a time, drawn from encountered words or the active practice set, with whichever support the child chooses.
 - `/practice/add-spellings` — local photo/OCR import for school spelling lists with mandatory human review before saving.
-- `/practice/coaster` — the build-and-ride word world for the active practice set: direct visual track selection per explored word, separate Build and Ride modes, persistent placeable park scenery, cumulative lift/drop terrain, loops/corkscrews/tunnels, station launch speed, boosts/brakes, descriptive ride character, a cart-following ride camera and a momentum-based animated ride.
+- `/practice/coaster` — the build-and-ride word world for the active practice set: direct visual track selection per explored word, separate Build and Ride modes, persistent placeable park scenery, three freely chosen cart styles, cumulative lift/drop terrain, loops/corkscrews/tunnels, reactive ride effects, station launch speed, boosts/brakes, descriptive ride character, a cart-following camera and a momentum-based animated ride.
 - `/words` — “Words we've met”, derived from local learning events.
 - `/me` — tentative child-visible observations derived from repeated interactions.
 - `/discover` — initial Brain Quests.

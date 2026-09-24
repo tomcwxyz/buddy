@@ -1,4 +1,5 @@
 import type { CoasterLaunchPower, CoasterPieceKind } from "@/lib/practice/coaster";
+import { normaliseCartStyle, type CoasterCartStyle } from "@/lib/practice/coaster-cart";
 import {
   clampSceneryPosition,
   type CoasterSceneryKind,
@@ -27,6 +28,7 @@ export type CoasterState = {
   placedIds: string[];
   rides: number;
   launchPower: CoasterLaunchPower;
+  cartStyle: CoasterCartStyle;
   scenery: CoasterSceneryPlacement[];
 };
 
@@ -45,6 +47,7 @@ function newState(practiceSetId: string): CoasterState {
     placedIds: [],
     rides: 0,
     launchPower: 2,
+    cartStyle: "classic",
     scenery: [],
   };
 }
@@ -60,6 +63,7 @@ function normaliseState(practiceSetId: string, value?: Partial<CoasterState> | n
     pieces: Array.isArray(value.pieces) ? value.pieces : [],
     placedIds: Array.isArray(value.placedIds) ? value.placedIds : [],
     launchPower: value.launchPower === 1 || value.launchPower === 3 ? value.launchPower : 2,
+    cartStyle: normaliseCartStyle(value.cartStyle),
     scenery: Array.isArray(value.scenery)
       ? value.scenery
           .filter((item): item is CoasterSceneryPlacement => Boolean(item?.id && item?.kind))
@@ -139,6 +143,14 @@ export function setCoasterLaunchPower(
 ) {
   const state = readCoasterState(practiceSetId);
   return writeCoasterState({ ...state, launchPower });
+}
+
+export function setCoasterCartStyle(
+  practiceSetId: string,
+  cartStyle: CoasterCartStyle,
+) {
+  const state = readCoasterState(practiceSetId);
+  return writeCoasterState({ ...state, cartStyle });
 }
 
 export function placeCoasterPiece(practiceSetId: string, pieceId: string) {

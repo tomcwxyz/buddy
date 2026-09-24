@@ -11,6 +11,7 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent } from "react";
+import { CoasterCartGlyph, CoasterCartIcon } from "@/components/CoasterCart";
 import { CoasterPieceIcon } from "@/components/CoasterPieceIcon";
 import { CoasterSceneryGlyph, CoasterSceneryIcon } from "@/components/CoasterScenery";
 import { getWordSupport } from "@/lib/literacy/engine";
@@ -30,6 +31,10 @@ import {
   type CoasterPieceKind,
 } from "@/lib/practice/coaster";
 import {
+  COASTER_CARTS,
+  type CoasterCartStyle,
+} from "@/lib/practice/coaster-cart";
+import {
   COASTER_SCENERY,
   sceneryCapacityForExploredWords,
   type CoasterSceneryKind,
@@ -43,6 +48,7 @@ import {
   readCoasterState,
   recordCoasterRide,
   renameCoaster,
+  setCoasterCartStyle,
   setCoasterLaunchPower,
   removeCoasterScenery,
   setCoasterPieceKind,
@@ -116,6 +122,7 @@ export function CoasterBuilder() {
   const [selectedSceneryKind, setSelectedSceneryKind] = useState<CoasterSceneryKind | null>(null);
   const [selectedSceneryId, setSelectedSceneryId] = useState<string | null>(null);
   const [riding, setRiding] = useState(false);
+  const [activePieceKind, setActivePieceKind] = useState<CoasterPieceKind | null>(null);
   const [rideSpeed, setRideSpeed] = useState(0);
   const [peakSpeed, setPeakSpeed] = useState(0);
   const [rideMessage, setRideMessage] = useState("Build a bit of track, then send the cart.");
@@ -245,6 +252,7 @@ export function CoasterBuilder() {
     setEditingPieceId(null);
     setSelectedSceneryKind(null);
     setSelectedSceneryId(null);
+    setActivePieceKind(null);
     setCartPose(defaultCartPose());
     setRideMessage(nextMode === "ride"
       ? "Ready when you are."
@@ -256,6 +264,12 @@ export function CoasterBuilder() {
     setCoaster(setCoasterLaunchPower(practiceSet.id, power));
     setRideSpeed(COASTER_LAUNCH_SPEED[power]);
     setRideMessage(power === 1 ? "Gentle launch." : power === 2 ? "Quick launch." : "Wild launch.");
+  }
+
+  function chooseCartStyle(cartStyle: CoasterCartStyle) {
+    if (!practiceSet || riding) return;
+    setCoaster(setCoasterCartStyle(practiceSet.id, cartStyle));
+    setRideMessage(`${COASTER_CARTS[cartStyle].label} cart ready.`);
   }
 
   function runRide() {
@@ -270,6 +284,7 @@ export function CoasterBuilder() {
     let lastPieceIndex = -1;
 
     setRiding(true);
+    setActivePieceKind(null);
     setRideSpeed(speed);
     setPeakSpeed(speed);
     setRideMessage("Here we go.");
@@ -278,6 +293,7 @@ export function CoasterBuilder() {
 
     const stopRide = (message: string) => {
       setRiding(false);
+      setActivePieceKind(null);
       setRideMessage(message);
       setRideSpeed(speed);
       setPeakSpeed(peak);
@@ -307,6 +323,13 @@ export function CoasterBuilder() {
 
       if (pieceIndex >= 0 && pieceIndex !== lastPieceIndex) {
         const piece = placedPieces[pieceIndex];
+        setActivePieceKind(piece.kind);
+
+        if (piece.kind === "launch") setRideMessage("Boost!");
+        else if (piece.kind === "brake") setRideMessage("Brakes!");
+        else if (piece.kind === "tunnel") setRideMessage("Into the tunnel…");
+        else if (piece.kind === "steep-drop" || piece.kind === "drop") setRideMessage("Here comes the drop.");
+
         if (!canEnterPiece(speed, piece.kind)) {
           const needed = COASTER_PIECES[piece.kind].minimumSpeed;
           setCartPose({ x: point.x, y: point.y, angle, visible: true });
@@ -657,10 +680,29 @@ export function CoasterBuilder() {
                     aria-label={mode === "build" ? `Move ${COASTER_SCENERY[item.kind].label}` : undefined}
                   >
                     {selected && <circle cx="0" cy="4" r="38" fill="none" stroke="#b97c63" strokeWidth="3" strokeDasharray="6 5" />}
-                    <CoasterSceneryGlyph kind={item.kind} />
+                    <g className={`coaster-scenery-reactor scenery-${item.kind}${mode === "ride" && riding ? " alive" : ""}`}>
+                      <CoasterSceneryGlyph kind={item.kind} />
+                    </g>
                   </g>
                 );
               })}
+
+              {mode === "ride" && (
+                <g className={`coaster-visitors${riding ? " alive" : ""}`} aria-hidden="true">
+                  <g className="coaster-visitor visitor-one" transform="translate(102 198)">
+                    <circle cx="0" cy="-12" r="5" fill="#78677e" />
+                    <path d="M 0 -6 L 0 10 M 0 0 L -8 5 M 0 0 L 7 -5 M 0 10 L -6 20 M 0 10 L 6 20" stroke="#625e55" strokeWidth="3" strokeLinecap="round" />
+                  </g>
+                  <g className="coaster-visitor visitor-two" transform="translate(126 202)">
+                    <circle cx="0" cy="-12" r="5" fill="#b97c63" />
+                    <path d="M 0 -6 L 0 10 M 0 0 L -7 -6 M 0 0 L 8 5 M 0 10 L -5 20 M 0 10 L 6 20" stroke="#625e55" strokeWidth="3" strokeLinecap="round" />
+                  </g>
+                  <g className="coaster-visitor visitor-three" transform="translate(151 199)">
+                    <circle cx="0" cy="-12" r="5" fill="#71836a" />
+                    <path d="M 0 -6 L 0 10 M 0 0 L -7 4 M 0 0 L 7 3 M 0 10 L -5 20 M 0 10 L 6 20" stroke="#625e55" strokeWidth="3" strokeLinecap="round" />
+                  </g>
+                </g>
+              )}
 
               <g className="coaster-station">
                 <rect x="18" y="132" width="67" height="70" rx="7" fill="#b97c63" />
@@ -773,13 +815,22 @@ export function CoasterBuilder() {
                       <line x1="-38" y1="7" x2="-19" y2="7" stroke="#f4f0e8" strokeWidth="2" strokeLinecap="round" />
                     </g>
                   )}
-                  <rect x="-13" y="-9" width="27" height="15" rx="5" fill="#b97c63" stroke="#3f4440" strokeWidth="2.5" />
-                  <path d="M -9 -9 L -5 -17 L 7 -17 L 11 -9" fill="#f4f0e8" stroke="#3f4440" strokeWidth="2" strokeLinejoin="round" />
-                  <circle cx="-7" cy="8" r="4.5" fill="#3f4440" />
-                  <circle cx="8" cy="8" r="4.5" fill="#3f4440" />
+                  <CoasterCartGlyph style={coaster.cartStyle} />
                 </g>
               )}
             </svg>
+
+            {mode === "ride" && riding && activePieceKind === "tunnel" && (
+              <div className="coaster-tunnel-darkness" aria-hidden="true">
+                <span />
+              </div>
+            )}
+            {mode === "ride" && riding && activePieceKind === "launch" && (
+              <div className="coaster-launch-burst" aria-hidden="true"><span /><span /><span /></div>
+            )}
+            {mode === "ride" && riding && activePieceKind === "brake" && (
+              <div className="coaster-brake-pulse" aria-hidden="true" />
+            )}
 
             <div className="coaster-station-target" aria-hidden="true">Drop cart here</div>
 
@@ -871,6 +922,29 @@ export function CoasterBuilder() {
                 onChoose={(kind) => choosePieceKind(editingPiece.id, editingPiece.word, kind)}
               />
               <p>{COASTER_PIECES[editingPiece.kind].description}</p>
+            </div>
+          )}
+
+          {mode === "ride" && !riding && placedPieces.length > 0 && (
+            <div className="coaster-cart-picker">
+              <div>
+                <span>Your cart</span>
+                <strong>Pick what you want to ride.</strong>
+              </div>
+              <div className="coaster-cart-options" role="group" aria-label="Choose coaster cart">
+                {(Object.keys(COASTER_CARTS) as CoasterCartStyle[]).map((style) => (
+                  <button
+                    type="button"
+                    key={style}
+                    className={coaster.cartStyle === style ? "active" : ""}
+                    onClick={() => chooseCartStyle(style)}
+                    aria-pressed={coaster.cartStyle === style}
+                  >
+                    <CoasterCartIcon style={style} />
+                    <span>{COASTER_CARTS[style].label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
