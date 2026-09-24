@@ -12,6 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent } from "react";
 import { CoasterPieceIcon } from "@/components/CoasterPieceIcon";
+import { CoasterSceneryGlyph, CoasterSceneryIcon } from "@/components/CoasterScenery";
 import { getWordSupport } from "@/lib/literacy/engine";
 import { readLearningEvents } from "@/lib/learning/local-store";
 import {
@@ -29,13 +30,21 @@ import {
   type CoasterPieceKind,
 } from "@/lib/practice/coaster";
 import {
+  COASTER_SCENERY,
+  sceneryCapacityForExploredWords,
+  type CoasterSceneryKind,
+} from "@/lib/practice/coaster-scenery";
+import {
+  addCoasterScenery,
   earnCoasterPiece,
   moveCoasterPiece,
+  moveCoasterScenery,
   placeCoasterPiece,
   readCoasterState,
   recordCoasterRide,
   renameCoaster,
   setCoasterLaunchPower,
+  removeCoasterScenery,
   setCoasterPieceKind,
   unplaceCoasterPiece,
   type CoasterState,
@@ -104,6 +113,8 @@ export function CoasterBuilder() {
   const [loaded, setLoaded] = useState(false);
   const [mode, setMode] = useState<"build" | "ride">("build");
   const [editingPieceId, setEditingPieceId] = useState<string | null>(null);
+  const [selectedSceneryKind, setSelectedSceneryKind] = useState<CoasterSceneryKind | null>(null);
+  const [selectedSceneryId, setSelectedSceneryId] = useState<string | null>(null);
   const [riding, setRiding] = useState(false);
   const [rideSpeed, setRideSpeed] = useState(0);
   const [peakSpeed, setPeakSpeed] = useState(0);
@@ -173,6 +184,17 @@ export function CoasterBuilder() {
   const trackPath = trackGeometry.path;
   const rideCharacter = analyseRide(placedPieces.map((piece) => piece.kind));
   const editingPiece = coaster?.pieces.find((piece) => piece.id === editingPieceId) ?? null;
+  const sceneryCapacity = sceneryCapacityForExploredWords(coaster?.pieces.length ?? 0);
+  const selectedScenery = coaster?.scenery.find((item) => item.id === selectedSceneryId) ?? null;
+  const scenerySpaceLeft = Math.max(0, sceneryCapacity - (coaster?.scenery.length ?? 0));
+  const rideCameraWidth = Math.min(560, viewWidth);
+  const rideCameraX = Math.max(
+    0,
+    Math.min(viewWidth - rideCameraWidth, cartPose.x - rideCameraWidth * 0.34),
+  );
+  const worldViewBox = mode === "ride" && riding && viewWidth > rideCameraWidth
+    ? `${rideCameraX} 0 ${rideCameraWidth} 260`
+    : `0 0 ${viewWidth} 260`;
 
   function addPiece(pieceId: string) {
     if (!practiceSet) return;
@@ -221,6 +243,8 @@ export function CoasterBuilder() {
     if (riding) return;
     setMode(nextMode);
     setEditingPieceId(null);
+    setSelectedSceneryKind(null);
+    setSelectedSceneryId(null);
     setCartPose(defaultCartPose());
     setRideMessage(nextMode === "ride"
       ? "Ready when you are."
@@ -329,6 +353,58 @@ export function CoasterBuilder() {
     if (mode !== "build") return;
     const pieceId = event.dataTransfer.getData("text/buddy-coaster-piece");
     if (pieceId) addPiece(pieceId);
+  }
+
+  function chooseScenery(kind: CoasterSceneryKind) {
+    setSelectedSceneryId(null);
+    setSelectedSceneryKind((current) => current === kind ? null : kind);
+    setRideMessage(currentSceneryMessage(kind));
+  }
+
+  function currentSceneryMessage(kind: CoasterSceneryKind) {
+    return `Tap the park to place ${COASTER_SCENERY[kind].label.toLowerCase()}.`;
+  }
+
+  function onParkPointerDown(event: PointerEvent<SVGSVGElement>) {
+    if (mode !== "build" || riding || (!selectedSceneryKind && !selectedSceneryId) || !practiceSet) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const x = (event.clientX - rect.left) / rect.width;
+    const y = (event.clientY - rect.top) / rect.height;
+
+    if (selectedSceneryId) {
+      setCoaster(moveCoasterScenery(practiceSet.id, selectedSceneryId, x, y));
+      setRideMessage("Moved it. Tap somewhere else to move it again, or choose another park piece.");
+      return;
+    }
+
+    if (!selectedSceneryKind || scenerySpaceLeft <= 0) return;
+    setCoaster(addCoasterScenery({
+      practiceSetId: practiceSet.id,
+      kind: selectedSceneryKind,
+      x,
+      y,
+      capacity: sceneryCapacity,
+    }));
+    setRideMessage(`${COASTER_SCENERY[selectedSceneryKind].label} added to the park.`);
+    if (scenerySpaceLeft <= 1) setSelectedSceneryKind(null);
+  }
+
+  function selectPlacedScenery(event: PointerEvent<SVGGElement>, sceneryId: string) {
+    if (mode !== "build" || riding) return;
+    event.stopPropagation();
+    setSelectedSceneryKind(null);
+    setSelectedSceneryId((current) => current === sceneryId ? null : sceneryId);
+    setRideMessage("Selected. Tap somewhere in the park to move it.");
+  }
+
+  function removeSelectedScenery() {
+    if (!practiceSet || !selectedSceneryId) return;
+    setCoaster(removeCoasterScenery(practiceSet.id, selectedSceneryId));
+    setSelectedSceneryId(null);
+    setRideMessage("Scenery put away.");
   }
 
   function startCartDrag(event: PointerEvent<HTMLButtonElement>) {
@@ -540,9 +616,11 @@ export function CoasterBuilder() {
             onDrop={onTrackDrop}
           >
             <svg
-              className="coaster-world"
-              viewBox={`0 0 ${viewWidth} 260`}
+              className={`coaster-world${mode === "build" && (selectedSceneryKind || selectedSceneryId) ? " scenery-placement-active" : ""}${mode === "ride" && riding ? " camera-following" : ""}`}
+              viewBox={worldViewBox}
+              preserveAspectRatio="xMidYMid meet"
               role="img"
+              onPointerDown={onParkPointerDown}
               aria-label={`${coaster.rideName}, made from ${placedPieces.length} track pieces`}
             >
               <defs>
@@ -562,6 +640,27 @@ export function CoasterBuilder() {
                 <ellipse cx="248" cy="52" rx="18" ry="16" fill="#fff" />
                 <ellipse cx="289" cy="48" rx="22" ry="18" fill="#fff" />
               </g>
+
+              {coaster.scenery.map((item) => {
+                const x = item.x * viewWidth;
+                const y = item.y * 260;
+                const selected = mode === "build" && selectedSceneryId === item.id;
+                const scale = 0.78 + item.y * 0.28;
+
+                return (
+                  <g
+                    key={item.id}
+                    className={`coaster-scenery-item${selected ? " selected" : ""}`}
+                    transform={`translate(${x} ${y}) scale(${scale})`}
+                    onPointerDown={(event) => selectPlacedScenery(event, item.id)}
+                    role={mode === "build" ? "button" : undefined}
+                    aria-label={mode === "build" ? `Move ${COASTER_SCENERY[item.kind].label}` : undefined}
+                  >
+                    {selected && <circle cx="0" cy="4" r="38" fill="none" stroke="#b97c63" strokeWidth="3" strokeDasharray="6 5" />}
+                    <CoasterSceneryGlyph kind={item.kind} />
+                  </g>
+                );
+              })}
 
               <g className="coaster-station">
                 <rect x="18" y="132" width="67" height="70" rx="7" fill="#b97c63" />
@@ -704,7 +803,11 @@ export function CoasterBuilder() {
 
           <p className="coaster-board-hint">
             {mode === "build"
-              ? "Build height with lift track, spend it on drops, and use boosts when an inversion needs more momentum."
+              ? selectedSceneryKind
+                ? `Tap the park to place ${COASTER_SCENERY[selectedSceneryKind].label.toLowerCase()}.`
+                : selectedSceneryId
+                  ? "Tap somewhere in the park to move the selected scenery."
+                  : "Build the track, then grow the park around it. Every explored word makes room for another world piece."
               : "Drag the cart onto the station or press Send it. Then watch where the ride flies — or stalls."}
           </p>
 
@@ -832,6 +935,42 @@ export function CoasterBuilder() {
               <Link href="/practice">Back to the words <ArrowRight size={18} /></Link>
             </div>
           )}
+
+          <div className="coaster-park-builder">
+            <div className="coaster-park-heading">
+              <div>
+                <span>Park</span>
+                <strong>Grow the world around the ride</strong>
+              </div>
+              <span>{scenerySpaceLeft} space{scenerySpaceLeft === 1 ? "" : "s"} left</span>
+            </div>
+
+            <div className="coaster-scenery-palette" aria-label="Park scenery">
+              {(Object.keys(COASTER_SCENERY) as CoasterSceneryKind[]).map((kind) => (
+                <button
+                  type="button"
+                  key={kind}
+                  className={selectedSceneryKind === kind ? "active" : ""}
+                  onClick={() => chooseScenery(kind)}
+                  disabled={scenerySpaceLeft === 0 && selectedSceneryKind !== kind}
+                  aria-pressed={selectedSceneryKind === kind}
+                >
+                  <CoasterSceneryIcon kind={kind} />
+                  <span>{COASTER_SCENERY[kind].label}</span>
+                </button>
+              ))}
+            </div>
+
+            {selectedScenery && (
+              <div className="coaster-scenery-selected">
+                <span>Selected: {COASTER_SCENERY[selectedScenery.kind].label}</span>
+                <span>Tap the park to move it.</span>
+                <button type="button" onClick={removeSelectedScenery}>Put it away</button>
+              </div>
+            )}
+
+            <p>Exploring words makes room for the park to grow. There are no “better” decorations — just more ways to make this place yours.</p>
+          </div>
 
           <div className="coaster-game-rule">
             <strong>How this world grows</strong>

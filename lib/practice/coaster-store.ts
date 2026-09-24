@@ -1,10 +1,22 @@
 import type { CoasterLaunchPower, CoasterPieceKind } from "@/lib/practice/coaster";
+import {
+  clampSceneryPosition,
+  type CoasterSceneryKind,
+} from "@/lib/practice/coaster-scenery";
 
 export type CoasterPiece = {
   id: string;
   word: string;
   kind: CoasterPieceKind;
   earnedAt: string;
+};
+
+export type CoasterSceneryPlacement = {
+  id: string;
+  kind: CoasterSceneryKind;
+  x: number;
+  y: number;
+  placedAt: string;
 };
 
 export type CoasterState = {
@@ -15,6 +27,7 @@ export type CoasterState = {
   placedIds: string[];
   rides: number;
   launchPower: CoasterLaunchPower;
+  scenery: CoasterSceneryPlacement[];
 };
 
 const STORAGE_KEY = "buddy.coasters.v1";
@@ -32,6 +45,7 @@ function newState(practiceSetId: string): CoasterState {
     placedIds: [],
     rides: 0,
     launchPower: 2,
+    scenery: [],
   };
 }
 
@@ -46,6 +60,14 @@ function normaliseState(practiceSetId: string, value?: Partial<CoasterState> | n
     pieces: Array.isArray(value.pieces) ? value.pieces : [],
     placedIds: Array.isArray(value.placedIds) ? value.placedIds : [],
     launchPower: value.launchPower === 1 || value.launchPower === 3 ? value.launchPower : 2,
+    scenery: Array.isArray(value.scenery)
+      ? value.scenery
+          .filter((item): item is CoasterSceneryPlacement => Boolean(item?.id && item?.kind))
+          .map((item) => ({
+            ...item,
+            ...clampSceneryPosition(Number(item.x) || 0.5, Number(item.y) || 0.72),
+          }))
+      : [],
   };
 }
 
@@ -152,6 +174,55 @@ export function moveCoasterPiece(
   [placedIds[currentIndex], placedIds[nextIndex]] = [placedIds[nextIndex], placedIds[currentIndex]];
 
   return writeCoasterState({ ...state, placedIds });
+}
+
+export function addCoasterScenery(input: {
+  practiceSetId: string;
+  kind: CoasterSceneryKind;
+  x: number;
+  y: number;
+  capacity: number;
+}) {
+  const state = readCoasterState(input.practiceSetId);
+  if (state.scenery.length >= input.capacity) return state;
+
+  const position = clampSceneryPosition(input.x, input.y);
+  const placement: CoasterSceneryPlacement = {
+    id: globalThis.crypto?.randomUUID?.() ?? `scenery-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    kind: input.kind,
+    ...position,
+    placedAt: new Date().toISOString(),
+  };
+
+  return writeCoasterState({
+    ...state,
+    scenery: [...state.scenery, placement],
+  });
+}
+
+export function moveCoasterScenery(
+  practiceSetId: string,
+  sceneryId: string,
+  x: number,
+  y: number,
+) {
+  const state = readCoasterState(practiceSetId);
+  const position = clampSceneryPosition(x, y);
+
+  return writeCoasterState({
+    ...state,
+    scenery: state.scenery.map((item) => item.id === sceneryId
+      ? { ...item, ...position }
+      : item),
+  });
+}
+
+export function removeCoasterScenery(practiceSetId: string, sceneryId: string) {
+  const state = readCoasterState(practiceSetId);
+  return writeCoasterState({
+    ...state,
+    scenery: state.scenery.filter((item) => item.id !== sceneryId),
+  });
 }
 
 export function renameCoaster(practiceSetId: string, rideName: string) {

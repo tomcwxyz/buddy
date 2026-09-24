@@ -192,7 +192,13 @@ The ride uses intentionally game-like momentum: descents add speed, climbs and f
 
 `analyseRide` derives descriptive ride characteristics from the built sequence: inversions, airtime moments, drops, boosts, brakes and tunnels plus loose traits such as `floaty`, `twisty` or `drop-heavy`. These are descriptions of what the child made, never a score or mastery signal.
 
-The coaster surface now has explicit Build and Ride modes. Build exposes the piece yard, construction order and a direct visual palette of all shapes unlocked by each explored word. Ride hides the workshop, expands the coaster stage, reveals the draggable cart and gives the launch its own dock. The same local coaster state backs both modes; switching mode changes presentation and available interaction, not the underlying ride.
+The coaster surface now has explicit Build and Ride modes. Build exposes the piece yard, construction order, a direct visual palette of all shapes unlocked by each explored word, and the park scenery palette. Ride hides the workshop, expands the coaster stage, reveals the draggable cart and gives the launch its own dock. The same local coaster state backs both modes; switching mode changes presentation and available interaction, not the underlying ride.
+
+The same `buddy.coasters.v1` record now also stores a `scenery` array. Older saved coasters normalise to an empty array, so no storage migration is required. Each scenery placement stores a kind plus normalised X/Y world coordinates. Normalised coordinates mean a tree or pond stays proportionally positioned even when more track increases the SVG width. In Build mode the child chooses a scenery type and taps directly on the park to place it; tapping an existing item selects it, and tapping elsewhere moves it. Ride mode renders the scenery but makes it inert.
+
+The scenery capacity is deliberately derived from the number of explored-word coaster pieces: one explored word makes room for one world object. There is no scenery currency, rarity tier or correctness gate. The principle remains exploration → making → play.
+
+For longer rides, Ride mode now switches to a cart-following SVG viewBox while the cart is moving. Build always retains the full-track view.
 
 ## Learning Map alpha
 

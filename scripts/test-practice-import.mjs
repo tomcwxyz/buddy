@@ -20,6 +20,7 @@ async function importTsModule(path) {
 const spelling = await importTsModule("../lib/practice/spelling-import.ts");
 const progress = await importTsModule("../lib/practice/progress.ts");
 const coaster = await importTsModule("../lib/practice/coaster.ts");
+const scenery = await importTsModule("../lib/practice/coaster-scenery.ts");
 
 const fakeWord = (text, x0, y0) => ({
   text,
@@ -145,6 +146,27 @@ const cases = [
         assert.equal(segment.endY >= 62, true);
         assert.equal(segment.endY <= 194, true);
       }
+    },
+  ],
+  [
+    "the park grows one scenery space for each explored-word piece",
+    () => {
+      assert.equal(scenery.sceneryCapacityForExploredWords(0), 1);
+      assert.equal(scenery.sceneryCapacityForExploredWords(3), 3);
+      assert.equal(scenery.sceneryCapacityForExploredWords(11), 11);
+    },
+  ],
+  [
+    "scenery stays inside the tappable park world",
+    () => {
+      assert.deepEqual(
+        scenery.clampSceneryPosition(-2, 4),
+        { x: 0.06, y: 0.9 },
+      );
+      assert.deepEqual(
+        scenery.clampSceneryPosition(0.5, 0.6),
+        { x: 0.5, y: 0.6 },
+      );
     },
   ],
   [
