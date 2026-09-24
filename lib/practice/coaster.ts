@@ -11,6 +11,8 @@ export type CoasterPieceKind =
   | "loop"
   | "double-loop"
   | "corkscrew"
+  | "jump"
+  | "mega-jump"
   | "tunnel"
   | "launch"
   | "brake";
@@ -43,6 +45,7 @@ type CoasterPieceDefinition = {
   airtime?: number;
   drops?: number;
   tunnel?: boolean;
+  stunt?: "jump" | "mega-jump";
 };
 
 export type TrackSegment = {
@@ -69,6 +72,7 @@ export type RideCharacter = {
   boosts: number;
   brakes: number;
   tunnels: number;
+  stunts: number;
   traits: string[];
 };
 
@@ -186,6 +190,26 @@ export const COASTER_PIECES: Record<CoasterPieceKind, CoasterPieceDefinition> = 
     minimumSpeed: 20,
     inversions: 1,
   },
+  jump: {
+    label: "Stunt jump",
+    shortLabel: "Jump",
+    description: "Leave the rails, fly the gap and try a flip if you have the speed.",
+    adventure: 2,
+    speedDelta: -4,
+    minimumSpeed: 22,
+    airtime: 2,
+    stunt: "jump",
+  },
+  "mega-jump": {
+    label: "Mega jump",
+    shortLabel: "Mega jump",
+    description: "A huge gap with room for two or three flips if the run-up is wild enough.",
+    adventure: 4,
+    speedDelta: -7,
+    minimumSpeed: 30,
+    airtime: 3,
+    stunt: "mega-jump",
+  },
   tunnel: {
     label: "Tunnel",
     shortLabel: "Tunnel",
@@ -254,16 +278,16 @@ export function coasterPieceOptionsForWord(shape: CoasterWordShape): CoasterPiec
   const adventure = coasterAdventureForWord(shape);
 
   if (adventure >= 4) {
-    return ["double-loop", "corkscrew", "steep-drop", "loop", "launch", "tunnel"];
+    return ["mega-jump", "double-loop", "corkscrew", "loop", "steep-drop", "jump", "launch"];
   }
   if (adventure >= 3) {
-    return ["loop", "corkscrew", "steep-drop", "launch", "camelback", "tunnel"];
+    return ["jump", "loop", "corkscrew", "steep-drop", "launch", "tunnel"];
   }
   if (adventure >= 2) {
-    return ["launch", "lift", "drop", "tunnel", "camelback", "swoop"];
+    return ["jump", "launch", "lift", "drop", "tunnel", "swoop"];
   }
   if (adventure >= 1) {
-    return ["lift", "drop", "hill", "dip", "bunny-hop", "brake"];
+    return ["lift", "drop", "jump", "hill", "bunny-hop", "brake"];
   }
   return ["straight", "lift", "drop", "hill"];
 }
@@ -295,6 +319,60 @@ export function speedLabel(speed: number) {
   if (speed < 34) return "quick";
   if (speed < 46) return "fast";
   return "flying";
+}
+
+export function isAirbornePiece(kind: CoasterPieceKind) {
+  return kind === "jump" || kind === "mega-jump";
+}
+
+export function stuntFlipsForSpeed(kind: CoasterPieceKind, speed: number) {
+  if (kind === "mega-jump") {
+    if (speed >= 48) return 3;
+    if (speed >= 38) return 2;
+    if (speed >= 30) return 1;
+    return 0;
+  }
+
+  if (kind === "jump") {
+    if (speed >= 44) return 2;
+    if (speed >= 30) return 1;
+  }
+
+  return 0;
+}
+
+export function stuntRotationDegrees(
+  kind: CoasterPieceKind,
+  progress: number,
+  flips: number,
+) {
+  if (!isAirbornePiece(kind) || flips <= 0) return 0;
+  const eased = 0.5 - Math.cos(Math.PI * Math.max(0, Math.min(1, progress))) / 2;
+  return eased * flips * 360;
+}
+
+export function visibleTrackPathsForSegment(
+  kind: CoasterPieceKind,
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+) {
+  if (kind === "jump") {
+    return [
+      `M ${startX} ${startY} Q ${startX + 20} ${startY - 4} ${startX + 33} ${startY - 30}`,
+      `M ${endX - 31} ${endY - 28} Q ${endX - 18} ${endY - 4} ${endX} ${endY}`,
+    ];
+  }
+
+  if (kind === "mega-jump") {
+    return [
+      `M ${startX} ${startY} Q ${startX + 18} ${startY - 8} ${startX + 29} ${startY - 40}`,
+      `M ${endX - 28} ${endY - 38} Q ${endX - 15} ${endY - 5} ${endX} ${endY}`,
+    ];
+  }
+
+  return [piecePathD(kind, startX, startY, endX - startX, endY)];
 }
 
 export function pieceEndY(kind: CoasterPieceKind, startY: number) {
@@ -381,6 +459,10 @@ export function piecePathD(
         `C ${x + 14} ${y - 36} ${x + 30} ${y + 36} ${x + 44} ${y}`,
         `C ${x + 58} ${y - 36} ${x + 76} ${y + 36} ${x + width} ${endY}`,
       ].join(" ");
+    case "jump":
+      return `M ${x} ${y} Q ${x + half} ${y - 68} ${x + width} ${endY}`;
+    case "mega-jump":
+      return `M ${x} ${y} Q ${x + half} ${y - 96} ${x + width} ${endY}`;
     case "tunnel":
     case "launch":
     case "brake":
@@ -424,6 +506,8 @@ export function trackGeometryForKinds(
       : kind === "camelback" ? currentY - 38
       : kind === "bunny-hop" ? currentY - 28
       : kind === "corkscrew" ? currentY - 36
+      : kind === "jump" ? currentY - 68
+      : kind === "mega-jump" ? currentY - 96
       : Math.min(currentY, endY);
     const localBottom = kind === "dip" ? currentY + 48
       : kind === "swoop" ? currentY + 45
@@ -462,6 +546,7 @@ export function analyseRide(kinds: CoasterPieceKind[]): RideCharacter {
     boosts: 0,
     brakes: 0,
     tunnels: 0,
+    stunts: 0,
     traits: [],
   };
 
@@ -473,6 +558,7 @@ export function analyseRide(kinds: CoasterPieceKind[]): RideCharacter {
     if (kind === "launch") result.boosts += 1;
     if (kind === "brake") result.brakes += 1;
     if (piece.tunnel) result.tunnels += 1;
+    if (piece.stunt) result.stunts += 1;
   }
 
   if (result.inversions >= 3) result.traits.push("upside-down chaos");
@@ -485,6 +571,8 @@ export function analyseRide(kinds: CoasterPieceKind[]): RideCharacter {
   else if (result.drops > 0) result.traits.push("dippy");
 
   if (result.boosts >= 2) result.traits.push("boosted");
+  if (result.stunts >= 2) result.traits.push("stunt-crazy");
+  else if (result.stunts > 0) result.traits.push("airborne");
   if (result.tunnels > 0) result.traits.push("tunnel-y");
 
   if (result.traits.length === 0 && kinds.length > 0) result.traits.push("flowing");

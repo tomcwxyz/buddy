@@ -117,6 +117,37 @@ const cases = [
     },
   ],
   [
+    "stunt jumps turn run-up speed into flips",
+    () => {
+      assert.equal(coaster.canEnterPiece(18, "jump"), false);
+      assert.equal(coaster.canEnterPiece(24, "jump"), true);
+      assert.equal(coaster.stuntFlipsForSpeed("jump", 24), 0);
+      assert.equal(coaster.stuntFlipsForSpeed("jump", 32), 1);
+      assert.equal(coaster.stuntFlipsForSpeed("jump", 46), 2);
+      assert.equal(coaster.stuntFlipsForSpeed("mega-jump", 38), 2);
+      assert.equal(coaster.stuntFlipsForSpeed("mega-jump", 50), 3);
+    },
+  ],
+  [
+    "jump rails leave a visible gap while the ride path stays continuous",
+    () => {
+      const rails = coaster.visibleTrackPathsForSegment("jump", 0, 100, 92, 100);
+      assert.equal(rails.length, 2);
+      assert.match(rails[0], /^M 0 100/);
+      assert.match(rails[1], /M 61 72/);
+      const ridePath = coaster.piecePathD("jump", 0, 100, 92, 100);
+      assert.match(ridePath, /^M 0 100 Q /);
+    },
+  ],
+  [
+    "stunt rotation completes whole flips through the air",
+    () => {
+      assert.equal(coaster.stuntRotationDegrees("straight", 0.5, 2), 0);
+      assert.equal(Math.round(coaster.stuntRotationDegrees("jump", 1, 1)), 360);
+      assert.equal(Math.round(coaster.stuntRotationDegrees("mega-jump", 1, 3)), 1080);
+    },
+  ],
+  [
     "launch and brake pieces change ride speed",
     () => {
       const launch = coaster.speedAfterPiece(20, "launch");
@@ -203,13 +234,15 @@ const cases = [
     "ride character describes the built track without producing a score",
     () => {
       const character = coaster.analyseRide([
-        "launch", "steep-drop", "bunny-hop", "loop", "double-loop", "tunnel",
+        "launch", "steep-drop", "bunny-hop", "jump", "mega-jump", "loop", "double-loop", "tunnel",
       ]);
       assert.equal(character.inversions, 3);
       assert.equal(character.airtimeMoments >= 3, true);
       assert.equal(character.drops, 1);
       assert.equal(character.boosts, 1);
       assert.equal(character.tunnels, 1);
+      assert.equal(character.stunts, 2);
+      assert.equal(character.traits.includes("stunt-crazy"), true);
       assert.equal(character.traits.includes("upside-down chaos"), true);
       assert.equal("score" in character, false);
     },

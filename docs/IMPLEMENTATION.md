@@ -190,6 +190,8 @@ Track SVG geometry is generated from the placed sequence; the same SVG path driv
 
 The ride uses intentionally game-like momentum: descents add speed, climbs and friction remove it, launch/brake pieces change it, and inversions have minimum entry speeds. A stalled ride is therefore a construction problem to play with — reorder the track, build height, add a launch, use a drop, or change station launch power — rather than a learning penalty.
 
+Stunt physics extends that same model without introducing a separate score system. `jump` and `mega-jump` pieces have a continuous hidden ride path but only render the take-off and landing rails, so the cart visibly leaves the track. Minimum entry speed determines whether the gap can be cleared. Once airborne, run-up speed determines 0–3 whole-cart flips via `stuntFlipsForSpeed` and `stuntRotationDegrees`. The same ride loop still owns the motion; there is no second physics engine or correctness signal.
+
 `analyseRide` derives descriptive ride characteristics from the built sequence: inversions, airtime moments, drops, boosts, brakes and tunnels plus loose traits such as `floaty`, `twisty` or `drop-heavy`. These are descriptions of what the child made, never a score or mastery signal.
 
 The coaster surface now has explicit Build and Ride modes. Build exposes the piece yard, construction order, a direct visual palette of all shapes unlocked by each explored word, and the park scenery palette. Ride hides the workshop, expands the coaster stage, reveals the draggable cart and gives the launch its own dock. The same local coaster state backs both modes; switching mode changes presentation and available interaction, not the underlying ride.

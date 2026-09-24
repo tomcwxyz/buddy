@@ -99,8 +99,10 @@ Priorities:
 - check whether the confirmation/edit step catches OCR mistakes quickly enough;
 - keep practice sessions to a few words even when the source list is longer;
 - vary the practice interaction using sound, chunks, meaning, examples and reconstruction rather than repeated copying;
-- test the build-and-ride coaster with the child: direct visual piece choice, construction, rearranging, the Build → Ride transition, launch speed, cart dragging, stalls and rerunning the ride should feel like play rather than a disguised progress screen;
-- tune the simple speed/momentum model from play rather than chasing physical realism; the interesting question is whether track order creates understandable experimentation;
+- test the build-and-ride coaster with the child: direct visual piece choice, construction, rearranging, the Build → Ride transition, launch speed, cart dragging, stalls, jumps, flips and rerunning the ride should feel like play rather than a disguised progress screen;
+- tune the simple speed/momentum model from play rather than chasing physical realism; track order should create understandable experimentation;
+- push the ride towards a physics toy: Stunt Jump and Mega Jump pieces leave visible gaps in the rails, require enough run-up to clear, and turn extra speed into one, two or three airborne flips;
+- keep stunt failure playful and legible: a cart that cannot clear a gap simply stops the run at the ramp and invites a rebuild — drop first, move a launch, try again — rather than penalising the child;
 - test whether cumulative terrain (lift → drop → inversion) creates a stronger sense of designing a ride than isolated decorative shapes;
 - keep Build and Ride as deliberately different moods: Build exposes the piece yard, track palette and park-building tools; Ride removes workshop controls and makes the coaster, park and cart the focus;
 - grow the wider world from exploration too: each explored-word piece makes room for one persistent scenery object, with direct touch placement rather than points or a decoration currency;

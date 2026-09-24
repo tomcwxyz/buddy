@@ -2612,3 +2612,75 @@
     display: none;
   }
 }
+
+
+/* Stunt-physics ride layer */
+.coaster-stunt-marker {
+  pointer-events: none;
+}
+
+.coaster-stunt-marker path {
+  animation: coaster-stunt-dash 1.2s linear infinite;
+}
+
+.coaster-stunt-airtime {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  z-index: 4;
+  min-width: 112px;
+  padding: 9px 14px;
+  border: 2px solid rgba(63, 68, 64, 0.78);
+  border-radius: 999px;
+  background: rgba(247, 239, 224, 0.92);
+  color: var(--buddy-ink);
+  box-shadow: 0 12px 28px rgba(62, 54, 43, 0.18);
+  transform: translateX(-50%) rotate(-2deg);
+  text-align: center;
+  pointer-events: none;
+  animation: coaster-stunt-pop 420ms cubic-bezier(.2,.9,.24,1.28) both;
+}
+
+.coaster-stunt-airtime strong,
+.coaster-stunt-airtime span {
+  display: block;
+}
+
+.coaster-stunt-airtime strong {
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+
+.coaster-stunt-airtime span {
+  margin-top: 1px;
+  color: var(--buddy-ink-soft);
+  font-size: 0.66rem;
+}
+
+.coaster-layout.ride-mode .coaster-board:has(.coaster-stunt-airtime) {
+  box-shadow:
+    0 26px 58px rgba(62, 54, 43, 0.18),
+    inset 0 0 0 2px rgba(185, 124, 99, 0.08);
+}
+
+@keyframes coaster-stunt-dash {
+  to { stroke-dashoffset: -24; }
+}
+
+@keyframes coaster-stunt-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px) rotate(3deg) scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) rotate(-2deg) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coaster-stunt-marker path,
+  .coaster-stunt-airtime {
+    animation: none;
+  }
+}
