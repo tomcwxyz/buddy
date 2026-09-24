@@ -2806,3 +2806,202 @@
     animation: none;
   }
 }
+
+
+/* Visible coaster track toolbox */
+.coaster-track-kit {
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid rgba(98, 94, 85, 0.14);
+  border-radius: 20px;
+  background: rgba(251, 248, 242, 0.82);
+}
+
+.coaster-track-kit-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.coaster-track-kit-heading span,
+.coaster-track-kit-heading strong,
+.coaster-track-kit-heading small {
+  display: block;
+}
+
+.coaster-track-kit-heading span {
+  color: var(--buddy-ink-soft);
+  font-size: 0.72rem;
+}
+
+.coaster-track-kit-heading strong {
+  margin-top: 2px;
+  font-size: 0.98rem;
+}
+
+.coaster-track-kit-heading small {
+  max-width: 280px;
+  color: var(--buddy-ink-soft);
+  font-size: 0.68rem;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.coaster-track-kit-groups {
+  display: grid;
+  gap: 12px;
+}
+
+.coaster-track-kit-group > span {
+  display: block;
+  margin: 0 0 6px 2px;
+  color: var(--buddy-ink-soft);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.coaster-track-kit-group > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.coaster-track-kit-group button {
+  min-width: 0;
+  border: 1px solid var(--buddy-line);
+  border-radius: 14px;
+  padding: 7px 6px 8px;
+  background: var(--buddy-paper-raised);
+  color: var(--buddy-ink);
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.coaster-track-kit-group button:hover,
+.coaster-track-kit-group button:focus-visible {
+  border-color: rgba(185, 124, 99, 0.52);
+  outline: none;
+}
+
+.coaster-track-kit-group button.active {
+  border-color: var(--buddy-clay);
+  background: color-mix(in srgb, var(--buddy-clay) 10%, var(--buddy-paper-raised));
+}
+
+.coaster-track-kit-group button.unavailable {
+  opacity: 0.48;
+}
+
+.coaster-track-kit-group button svg {
+  width: 68px;
+  max-width: 100%;
+  height: 40px;
+}
+
+.coaster-track-kit-group button > span {
+  overflow: hidden;
+  width: 100%;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coaster-track-kit-group button small {
+  color: var(--buddy-ink-soft);
+  font-size: 0.59rem;
+}
+
+.coaster-track-kit-picker {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(98, 94, 85, 0.055);
+}
+
+.coaster-track-kit-picker > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.coaster-track-kit-picker > div:first-child > svg {
+  flex: 0 0 auto;
+  width: 84px;
+  height: 52px;
+}
+
+.coaster-track-kit-picker strong,
+.coaster-track-kit-picker span {
+  display: block;
+}
+
+.coaster-track-kit-picker span,
+.coaster-track-kit-picker p {
+  color: var(--buddy-ink-soft);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.coaster-track-kit-picker p {
+  margin: 10px 0 8px;
+}
+
+.coaster-track-kit-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.coaster-track-kit-words button {
+  border: 1px solid var(--buddy-line);
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: var(--buddy-paper-raised);
+  color: var(--buddy-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.coaster-track-kit-words button:hover,
+.coaster-track-kit-words button:focus-visible {
+  border-color: var(--buddy-clay);
+  outline: none;
+}
+
+.coaster-track-kit-none {
+  margin-bottom: 0 !important;
+}
+
+@media (max-width: 720px) {
+  .coaster-track-kit-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .coaster-track-kit-heading small {
+    max-width: none;
+    text-align: left;
+  }
+
+  .coaster-track-kit-group > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 460px) {
+  .coaster-track-kit-group > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
