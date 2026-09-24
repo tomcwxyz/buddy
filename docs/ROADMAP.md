@@ -103,7 +103,8 @@ Priorities:
 - tune the simple speed/momentum model from play rather than chasing physical realism; track order should create understandable experimentation;
 - push the ride towards a physics toy: Stunt Jump and Mega Jump pieces leave visible gaps in the rails, require enough run-up to clear, and turn extra speed into one, two or three airborne flips;
 - move construction away from a horizontal list into a connected route: Left bank and Right bank pieces now hand a changed heading to whatever is built next, and every segment starts from the previous segment's real endpoint;
-- keep extending that connected-route model towards freer RollerCoaster-Tycoon-like building: larger turns, half-pipes, wall rides, junction-like experiments and deliberately questionable landings should all use the same endpoint/heading system rather than special-case animation;
+- keep extending that connected-route model towards freer RollerCoaster-Tycoon-like building: the first crazy-track kit now includes 45° sweepers, a half-pipe and a wall ride, all using the same endpoint/heading and momentum systems rather than special-case animation;
+- next push construction itself closer to a park-builder: make the endpoint a stronger drop target, add larger spatial pieces and start testing deliberately questionable landings / disconnected experiments without turning them into failure states;
 - keep stunt failure playful and legible: a cart that cannot clear a gap simply stops the run at the ramp and invites a rebuild — drop first, move a launch, try again — rather than penalising the child;
 - test whether cumulative terrain (lift → drop → inversion) creates a stronger sense of designing a ride than isolated decorative shapes;
 - keep Build and Ride as deliberately different moods: Build exposes the piece yard, track palette and park-building tools; Ride removes workshop controls and makes the coaster, park and cart the focus;

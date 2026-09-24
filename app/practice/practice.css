@@ -2737,3 +2737,72 @@
     animation: none;
   }
 }
+
+
+/* Crazy track kit */
+.coaster-build-endpoint.drop-ready {
+  filter: drop-shadow(0 8px 18px rgba(185, 124, 99, 0.28));
+}
+
+.coaster-build-endpoint.drop-ready circle:first-child {
+  fill: #f4df8d;
+  stroke-width: 4;
+  animation: coaster-endpoint-ready 520ms ease-in-out infinite alternate;
+}
+
+.coaster-wild-trick {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  z-index: 4;
+  min-width: 132px;
+  padding: 10px 15px;
+  border: 2px solid rgba(63, 68, 64, 0.78);
+  border-radius: 18px;
+  background: rgba(244, 240, 232, 0.93);
+  color: var(--buddy-ink);
+  box-shadow: 0 14px 30px rgba(62, 54, 43, 0.2);
+  transform: translateX(-50%) rotate(2deg);
+  text-align: center;
+  pointer-events: none;
+  animation: coaster-wild-pop 360ms cubic-bezier(.2,.9,.24,1.28) both;
+}
+
+.coaster-wild-trick strong,
+.coaster-wild-trick span {
+  display: block;
+}
+
+.coaster-wild-trick strong {
+  font-size: 0.96rem;
+  letter-spacing: 0.05em;
+}
+
+.coaster-wild-trick span {
+  margin-top: 2px;
+  color: var(--buddy-ink-soft);
+  font-size: 0.67rem;
+}
+
+@keyframes coaster-endpoint-ready {
+  from { transform: scale(0.95); opacity: 0.72; }
+  to { transform: scale(1.12); opacity: 1; }
+}
+
+@keyframes coaster-wild-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px) rotate(-4deg) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) rotate(2deg) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coaster-build-endpoint.drop-ready circle:first-child,
+  .coaster-wild-trick {
+    animation: none;
+  }
+}

@@ -119,6 +119,59 @@ const cases = [
     },
   ],
   [
+    "crazy track kit widens the toybox for richly explored words",
+    () => {
+      const options = coaster.coasterPieceOptionsForWord({
+        word: "extraordinary",
+        chunks: 4,
+        syllables: 5,
+        signals: { together: true, meaning: true },
+      });
+      for (const kind of ["sweep-left", "sweep-right", "half-pipe", "wall-ride"]) {
+        assert.equal(options.includes(kind), true);
+      }
+      assert.equal(options.includes("loop"), true);
+      assert.equal(options.includes("mega-jump"), true);
+    },
+  ],
+  [
+    "sweepers are longer and turn harder than small bank pieces",
+    () => {
+      assert.equal(
+        coaster.pieceWidthForKind("sweep-left") > coaster.pieceWidthForKind("bank-left"),
+        true,
+      );
+      assert.equal(coaster.headingDeltaForPiece("bank-left"), -22.5);
+      assert.equal(coaster.headingDeltaForPiece("sweep-left"), -45);
+      assert.equal(coaster.headingDeltaForPiece("sweep-right"), 45);
+    },
+  ],
+  [
+    "connected geometry honours different physical piece lengths",
+    () => {
+      const geometry = coaster.connectedTrackGeometryForKinds([
+        "straight", "sweep-right", "half-pipe", "wall-ride",
+      ]);
+      assert.equal(geometry.segments[0].width, coaster.pieceWidthForKind("straight"));
+      assert.equal(geometry.segments[1].width, coaster.pieceWidthForKind("sweep-right"));
+      assert.equal(geometry.segments[2].width, coaster.pieceWidthForKind("half-pipe"));
+      assert.equal(geometry.segments[3].width, coaster.pieceWidthForKind("wall-ride"));
+      assert.equal(geometry.segments[2].width > geometry.segments[0].width, true);
+      assert.equal(geometry.segments[3].width > geometry.segments[0].width, true);
+    },
+  ],
+  [
+    "wall ride and half-pipe are momentum experiments, not free animations",
+    () => {
+      assert.equal(coaster.canEnterPiece(18, "half-pipe"), false);
+      assert.equal(coaster.canEnterPiece(22, "half-pipe"), true);
+      assert.equal(coaster.canEnterPiece(28, "wall-ride"), false);
+      assert.equal(coaster.canEnterPiece(32, "wall-ride"), true);
+      assert.match(coaster.piecePathD("half-pipe", 0, 0, 140, 0), /C/);
+      assert.match(coaster.piecePathD("wall-ride", 0, 0, 124, 0), /C/);
+    },
+  ],
+  [
     "banked turns change the heading handed to the next piece",
     () => {
       const geometry = coaster.connectedTrackGeometryForKinds([
@@ -279,14 +332,14 @@ const cases = [
     "ride character describes the built track without producing a score",
     () => {
       const character = coaster.analyseRide([
-        "launch", "steep-drop", "bunny-hop", "jump", "mega-jump", "loop", "double-loop", "tunnel",
+        "launch", "steep-drop", "bunny-hop", "jump", "mega-jump", "half-pipe", "wall-ride", "loop", "double-loop", "tunnel",
       ]);
       assert.equal(character.inversions, 3);
       assert.equal(character.airtimeMoments >= 3, true);
-      assert.equal(character.drops, 1);
+      assert.equal(character.drops, 3);
       assert.equal(character.boosts, 1);
       assert.equal(character.tunnels, 1);
-      assert.equal(character.stunts, 2);
+      assert.equal(character.stunts, 4);
       assert.equal(character.traits.includes("stunt-crazy"), true);
       assert.equal(character.traits.includes("upside-down chaos"), true);
       assert.equal("score" in character, false);

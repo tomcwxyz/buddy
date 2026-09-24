@@ -141,6 +141,7 @@ export function CoasterBuilder() {
   const [peakSpeed, setPeakSpeed] = useState(0);
   const [rideMessage, setRideMessage] = useState("Build a bit of track, then send the cart.");
   const [cartPose, setCartPose] = useState<CartPose>(defaultCartPose);
+  const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
   const [cartDrag, setCartDrag] = useState<DragOffset>({
     x: 0,
     y: 0,
@@ -387,6 +388,10 @@ export function CoasterBuilder() {
         else if (piece.kind === "tunnel") setRideMessage("Into the tunnel…");
         else if (piece.kind === "bank-left") setRideMessage("Banking left!");
         else if (piece.kind === "bank-right") setRideMessage("Banking right!");
+        else if (piece.kind === "sweep-left") setRideMessage("Big sweep left!");
+        else if (piece.kind === "sweep-right") setRideMessage("Big sweep right!");
+        else if (piece.kind === "half-pipe") setRideMessage("Into the half-pipe!");
+        else if (piece.kind === "wall-ride") setRideMessage("Ride the wall!");
         else if (piece.kind === "jump" || piece.kind === "mega-jump") {
           setRideMessage(
             stuntFlipsInPiece >= 3 ? "Triple flip!"
@@ -452,6 +457,11 @@ export function CoasterBuilder() {
   function onPieceDragStart(event: DragEvent, pieceId: string) {
     event.dataTransfer.setData("text/buddy-coaster-piece", pieceId);
     event.dataTransfer.effectAllowed = "move";
+    setDraggingPieceId(pieceId);
+  }
+
+  function onPieceDragEnd() {
+    setDraggingPieceId(null);
   }
 
   function onTrackDrop(event: DragEvent) {
@@ -459,6 +469,7 @@ export function CoasterBuilder() {
     if (mode !== "build") return;
     const pieceId = event.dataTransfer.getData("text/buddy-coaster-piece");
     if (pieceId) addPiece(pieceId);
+    setDraggingPieceId(null);
   }
 
   function chooseScenery(kind: CoasterSceneryKind) {
@@ -851,9 +862,9 @@ export function CoasterBuilder() {
                     <g transform={`translate(${segment.startX} ${segment.startY}) rotate(${segment.heading})`}>
                       {piece.kind === "lift" && (
                         <g opacity="0.72">
-                          <text x={PIECE_WIDTH / 2} y={Math.min(0, segment.localEndY) - 14} textAnchor="middle" className="coaster-svg-help">LIFT</text>
+                          <text x={segment.width / 2} y={Math.min(0, segment.localEndY) - 14} textAnchor="middle" className="coaster-svg-help">LIFT</text>
                           <path
-                            d={`M 12 -6 L ${PIECE_WIDTH - 12} ${segment.localEndY - 6}`}
+                            d={`M 12 -6 L ${segment.width - 12} ${segment.localEndY - 6}`}
                             stroke="#78677e"
                             strokeWidth="2"
                             strokeDasharray="5 6"
@@ -864,12 +875,12 @@ export function CoasterBuilder() {
                       {piece.kind === "tunnel" && (
                         <g className="coaster-tunnel" opacity="0.88">
                           <path
-                            d={`M 8 24 Q ${PIECE_WIDTH / 2} -42 ${PIECE_WIDTH - 8} ${segment.localEndY + 24}`}
+                            d={`M 8 24 Q ${segment.width / 2} -42 ${segment.width - 8} ${segment.localEndY + 24}`}
                             fill="#625e55"
                             opacity="0.2"
                           />
                           <path
-                            d={`M 13 20 Q ${PIECE_WIDTH / 2} -32 ${PIECE_WIDTH - 13} ${segment.localEndY + 20}`}
+                            d={`M 13 20 Q ${segment.width / 2} -32 ${segment.width - 13} ${segment.localEndY + 20}`}
                             fill="none"
                             stroke="#625e55"
                             strokeWidth="5"
@@ -897,13 +908,13 @@ export function CoasterBuilder() {
 
                       {(piece.kind === "bank-left" || piece.kind === "bank-right") && (
                         <g className="coaster-bank-marker">
-                          <text x={PIECE_WIDTH / 2} y="-42" textAnchor="middle" className="coaster-svg-help">
+                          <text x={segment.width / 2} y="-42" textAnchor="middle" className="coaster-svg-help">
                             {piece.kind === "bank-left" ? "BANK LEFT" : "BANK RIGHT"}
                           </text>
                           <path
                             d={piece.kind === "bank-left"
-                              ? `M ${PIECE_WIDTH / 2 + 14} -30 L ${PIECE_WIDTH / 2} -42 L ${PIECE_WIDTH / 2 - 14} -30`
-                              : `M ${PIECE_WIDTH / 2 - 14} 30 L ${PIECE_WIDTH / 2} 42 L ${PIECE_WIDTH / 2 + 14} 30`}
+                              ? `M ${segment.width / 2 + 14} -30 L ${segment.width / 2} -42 L ${segment.width / 2 - 14} -30`
+                              : `M ${segment.width / 2 - 14} 30 L ${segment.width / 2} 42 L ${segment.width / 2 + 14} 30`}
                             fill="none"
                             stroke="#b97c63"
                             strokeWidth="3"
@@ -916,7 +927,7 @@ export function CoasterBuilder() {
                       {isAirbornePiece(piece.kind) && (
                         <g className="coaster-stunt-marker">
                           <path
-                            d={`M 34 -37 Q ${PIECE_WIDTH / 2} -55 ${PIECE_WIDTH - 32} ${segment.localEndY - 37}`}
+                            d={`M 34 -37 Q ${segment.width / 2} -55 ${segment.width - 32} ${segment.localEndY - 37}`}
                             fill="none"
                             stroke="#b97c63"
                             strokeWidth="2"
@@ -924,7 +935,7 @@ export function CoasterBuilder() {
                             opacity="0.62"
                           />
                           <text
-                            x={PIECE_WIDTH / 2}
+                            x={segment.width / 2}
                             y={piece.kind === "mega-jump" ? -82 : -56}
                             textAnchor="middle"
                             className="coaster-svg-help"
@@ -971,7 +982,7 @@ export function CoasterBuilder() {
 
               {mode === "build" && placedPieces.length > 0 && (
                 <g
-                  className="coaster-build-endpoint"
+                  className={`coaster-build-endpoint${draggingPieceId ? " drop-ready" : ""}`}
                   transform={`translate(${trackEndpoint.x} ${trackEndpoint.y}) rotate(${trackEndpoint.heading})`}
                   aria-hidden="true"
                 >
@@ -1020,6 +1031,12 @@ export function CoasterBuilder() {
                 <span>{Math.round(rideSpeed)} mph</span>
               </div>
             )}
+            {mode === "ride" && riding && (activePieceKind === "wall-ride" || activePieceKind === "half-pipe") && (
+              <div className="coaster-wild-trick" aria-hidden="true">
+                <strong>{activePieceKind === "wall-ride" ? "WALL RIDE!" : "HALF-PIPE!"}</strong>
+                <span>{Math.round(rideSpeed)} mph</span>
+              </div>
+            )}
 
             <div className="coaster-station-target" aria-hidden="true">Drop cart here</div>
 
@@ -1047,7 +1064,9 @@ export function CoasterBuilder() {
                 ? `Tap the park to place ${COASTER_SCENERY[selectedSceneryKind].label.toLowerCase()}.`
                 : selectedSceneryId
                   ? "Tap somewhere in the park to move the selected scenery."
-                  : "Build the track, then mess with the physics: use drops and launches for run-up, put jumps where the cart can clear them, and see what flips."
+                  : draggingPieceId
+                    ? "Drop it on the world — it will snap onto BUILD HERE."
+                    : "Build from the endpoint. Try sweepers, half-pipes and wall rides, then move launches and drops around until the ridiculous bits work."
               : "Drag the cart onto the station or press Send it. Then watch where the ride flies — or stalls."}
           </p>
 
@@ -1169,6 +1188,7 @@ export function CoasterBuilder() {
                     key={piece.id}
                     draggable
                     onDragStart={(event) => onPieceDragStart(event, piece.id)}
+                    onDragEnd={onPieceDragEnd}
                   >
                     <button type="button" className="coaster-piece-add" onClick={() => addPiece(piece.id)}>
                       <CoasterPieceIcon kind={piece.kind} />
