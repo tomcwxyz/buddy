@@ -336,7 +336,7 @@ const cases = [
       ]);
       assert.equal(character.inversions, 3);
       assert.equal(character.airtimeMoments >= 3, true);
-      assert.equal(character.drops, 1);
+      assert.equal(character.drops, 3);
       assert.equal(character.boosts, 1);
       assert.equal(character.tunnels, 1);
       assert.equal(character.stunts, 4);
