@@ -2229,3 +2229,282 @@
     transition: none;
   }
 }
+
+
+/* Coaster alive-world ride effects + cart choice */
+.coaster-cart-picker {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(98, 94, 85, 0.14);
+  border-radius: 20px;
+  background: rgba(251, 248, 242, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.coaster-cart-picker > div:first-child > span {
+  display: block;
+  color: var(--buddy-ink-soft);
+  font-size: 0.72rem;
+}
+
+.coaster-cart-picker > div:first-child > strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.94rem;
+}
+
+.coaster-cart-options {
+  display: flex;
+  gap: 7px;
+}
+
+.coaster-cart-options button {
+  width: 90px;
+  min-height: 72px;
+  border: 1px solid var(--buddy-line);
+  border-radius: 15px;
+  padding: 6px;
+  background: var(--buddy-paper-raised);
+  color: var(--buddy-ink-soft);
+  display: grid;
+  justify-items: center;
+  cursor: pointer;
+  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+
+.coaster-cart-options button:hover,
+.coaster-cart-options button:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(185, 124, 99, 0.45);
+  outline: none;
+}
+
+.coaster-cart-options button.active {
+  border-color: var(--buddy-clay);
+  background: color-mix(in srgb, var(--buddy-clay) 10%, var(--buddy-paper-raised));
+  color: var(--buddy-ink);
+}
+
+.coaster-cart-options svg {
+  width: 58px;
+  height: 43px;
+}
+
+.coaster-cart-options span {
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.coaster-scenery-reactor {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.coaster-scenery-reactor.alive.scenery-tree {
+  animation: coaster-tree-sway 2.8s ease-in-out infinite alternate;
+}
+
+.coaster-scenery-reactor.alive.scenery-bush {
+  animation: coaster-bush-shiver 2.2s ease-in-out infinite alternate;
+}
+
+.coaster-scenery-reactor.alive.scenery-flowers {
+  animation: coaster-flower-bob 1.9s ease-in-out infinite alternate;
+}
+
+.coaster-scenery-reactor.alive.scenery-flag {
+  animation: coaster-flag-wave 1.2s ease-in-out infinite alternate;
+}
+
+.coaster-scenery-reactor.alive.scenery-lamp {
+  animation: coaster-lamp-glow 1.8s ease-in-out infinite alternate;
+}
+
+.coaster-scenery-reactor.alive.scenery-pond {
+  animation: coaster-pond-glimmer 2.7s ease-in-out infinite alternate;
+}
+
+.coaster-tunnel-darkness,
+.coaster-launch-burst,
+.coaster-brake-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.coaster-tunnel-darkness {
+  background:
+    radial-gradient(
+      circle at 34% 48%,
+      rgba(23, 24, 25, 0.18) 0 46px,
+      rgba(23, 24, 25, 0.73) 110px,
+      rgba(23, 24, 25, 0.92) 100%
+    );
+  animation: coaster-tunnel-in 180ms ease-out both;
+}
+
+.coaster-tunnel-darkness > span {
+  position: absolute;
+  left: 32%;
+  top: 45%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f4df8d;
+  box-shadow: 0 0 18px 7px rgba(244, 223, 141, 0.6);
+  animation: coaster-tunnel-lamp 620ms ease-in-out infinite alternate;
+}
+
+.coaster-launch-burst {
+  overflow: hidden;
+  background: radial-gradient(circle at 35% 52%, rgba(244, 223, 141, 0.24), transparent 30%);
+}
+
+.coaster-launch-burst span {
+  position: absolute;
+  left: 15%;
+  width: 36%;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(244, 240, 232, 0.84);
+  transform-origin: right center;
+  animation: coaster-boost-line 500ms ease-out infinite;
+}
+
+.coaster-launch-burst span:nth-child(1) { top: 34%; animation-delay: 0ms; }
+.coaster-launch-burst span:nth-child(2) { top: 51%; animation-delay: 110ms; }
+.coaster-launch-burst span:nth-child(3) { top: 68%; animation-delay: 220ms; }
+
+.coaster-brake-pulse {
+  border: 5px solid rgba(120, 103, 126, 0.0);
+  box-shadow: inset 0 0 0 0 rgba(120, 103, 126, 0.0);
+  animation: coaster-brake-thump 320ms ease-out infinite alternate;
+}
+
+@keyframes coaster-tree-sway {
+  from { transform: rotate(-1.8deg); }
+  to { transform: rotate(2.2deg); }
+}
+
+@keyframes coaster-bush-shiver {
+  from { transform: scaleX(0.98) scaleY(1.01); }
+  to { transform: scaleX(1.02) scaleY(0.99); }
+}
+
+@keyframes coaster-flower-bob {
+  from { transform: translateY(0) rotate(-1deg); }
+  to { transform: translateY(-2px) rotate(1deg); }
+}
+
+@keyframes coaster-flag-wave {
+  from { transform: skewX(-2deg) rotate(-1deg); }
+  to { transform: skewX(4deg) rotate(1.5deg); }
+}
+
+@keyframes coaster-lamp-glow {
+  from { filter: drop-shadow(0 0 1px rgba(242, 217, 139, 0.15)); }
+  to { filter: drop-shadow(0 0 8px rgba(242, 217, 139, 0.9)); }
+}
+
+@keyframes coaster-pond-glimmer {
+  from { opacity: 0.9; }
+  to { opacity: 1; filter: brightness(1.08); }
+}
+
+@keyframes coaster-tunnel-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes coaster-tunnel-lamp {
+  from { opacity: 0.4; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1.15); }
+}
+
+@keyframes coaster-boost-line {
+  from { transform: translateX(-35px) scaleX(0.25); opacity: 0; }
+  28% { opacity: 0.9; }
+  to { transform: translateX(180px) scaleX(1.15); opacity: 0; }
+}
+
+@keyframes coaster-brake-thump {
+  from {
+    border-color: rgba(120, 103, 126, 0.08);
+    box-shadow: inset 0 0 0 0 rgba(120, 103, 126, 0.0);
+  }
+  to {
+    border-color: rgba(120, 103, 126, 0.38);
+    box-shadow: inset 0 0 35px 2px rgba(120, 103, 126, 0.16);
+  }
+}
+
+@media (max-width: 720px) {
+  .coaster-cart-picker {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .coaster-cart-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .coaster-cart-options button {
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coaster-cart-options button,
+  .coaster-scenery-reactor.alive,
+  .coaster-tunnel-darkness,
+  .coaster-tunnel-darkness > span,
+  .coaster-launch-burst span,
+  .coaster-brake-pulse {
+    animation: none;
+    transition: none;
+  }
+
+  .coaster-scenery-reactor.alive {
+    transform: none;
+  }
+}
+
+
+.coaster-visitor {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.coaster-visitors.alive .visitor-one {
+  animation: coaster-visitor-wave 1.1s ease-in-out infinite alternate;
+}
+
+.coaster-visitors.alive .visitor-two {
+  animation: coaster-visitor-bounce 0.9s ease-in-out infinite alternate;
+}
+
+.coaster-visitors.alive .visitor-three {
+  animation: coaster-visitor-wave 1.35s ease-in-out 140ms infinite alternate-reverse;
+}
+
+@keyframes coaster-visitor-wave {
+  from { transform: rotate(-1.5deg); }
+  to { transform: rotate(2.5deg); }
+}
+
+@keyframes coaster-visitor-bounce {
+  from { transform: translateY(0); }
+  to { transform: translateY(-3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coaster-visitor {
+    animation: none !important;
+  }
+}

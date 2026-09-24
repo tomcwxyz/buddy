@@ -200,6 +200,10 @@ The scenery capacity is deliberately derived from the number of explored-word co
 
 For longer rides, Ride mode now switches to a cart-following SVG viewBox while the cart is moving. Build always retains the full-track view.
 
+Ride mode also has a lightweight reactive-world layer. The current track piece is surfaced by the same animation loop that already calculates speed. Entering a tunnel darkens the stage around the followed cart; launch and brake track get transient visual effects; scenery gains quiet motion only while the cart is moving; and a few non-scored station visitors react to the ride. All motion honours `prefers-reduced-motion`.
+
+Cart style is stored alongside the coaster as `classic`, `rocket` or `buggy`. All three are available immediately. `normaliseCartStyle` makes older local state safe and deliberately treats cart choice as preference rather than an unlock system.
+
 ## Learning Map alpha
 
 `lib/learning/local-store.ts` stores a capped local event stream in browser storage. Events describe support requested and words encountered rather than mistakes or correctness. The Learning Map remains device-local and child-visible/rejectable by design.

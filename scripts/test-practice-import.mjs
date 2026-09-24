@@ -20,6 +20,7 @@ async function importTsModule(path) {
 const spelling = await importTsModule("../lib/practice/spelling-import.ts");
 const progress = await importTsModule("../lib/practice/progress.ts");
 const coaster = await importTsModule("../lib/practice/coaster.ts");
+const cart = await importTsModule("../lib/practice/coaster-cart.ts");
 const scenery = await importTsModule("../lib/practice/coaster-scenery.ts");
 
 const fakeWord = (text, x0, y0) => ({
@@ -146,6 +147,16 @@ const cases = [
         assert.equal(segment.endY >= 62, true);
         assert.equal(segment.endY <= 194, true);
       }
+    },
+  ],
+  [
+    "cart choice is preference, not progression",
+    () => {
+      assert.equal(cart.normaliseCartStyle("classic"), "classic");
+      assert.equal(cart.normaliseCartStyle("rocket"), "rocket");
+      assert.equal(cart.normaliseCartStyle("buggy"), "buggy");
+      assert.equal(cart.normaliseCartStyle("something-old"), "classic");
+      assert.deepEqual(Object.keys(cart.COASTER_CARTS).sort(), ["buggy", "classic", "rocket"]);
     },
   ],
   [
