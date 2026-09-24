@@ -113,7 +113,52 @@ const cases = [
       });
       assert.equal(quiet.includes("straight"), true);
       assert.equal(explored.includes("launch"), true);
+      assert.equal(explored.includes("bank-left"), true);
+      assert.equal(explored.includes("bank-right"), true);
       assert.equal(explored.length > quiet.length, true);
+    },
+  ],
+  [
+    "banked turns change the heading handed to the next piece",
+    () => {
+      const geometry = coaster.connectedTrackGeometryForKinds([
+        "straight", "bank-left", "straight", "bank-right", "straight",
+      ]);
+      assert.equal(geometry.segments[0].heading, 0);
+      assert.equal(geometry.segments[1].heading, 0);
+      assert.equal(geometry.segments[1].endHeading < 0, true);
+      assert.equal(geometry.segments[2].heading < 0, true);
+      assert.equal(geometry.segments[3].endHeading, 0);
+      assert.equal(Math.round(geometry.segments[4].heading), 0);
+    },
+  ],
+  [
+    "connected pieces share real endpoints instead of index-based positions",
+    () => {
+      const geometry = coaster.connectedTrackGeometryForKinds([
+        "bank-right", "lift", "jump", "bank-left", "drop",
+      ]);
+      for (let index = 1; index < geometry.segments.length; index += 1) {
+        const previous = geometry.segments[index - 1];
+        const current = geometry.segments[index];
+        assert.equal(Math.abs(previous.endX - current.startX) < 0.0001, true);
+        assert.equal(Math.abs(previous.endY - current.startY) < 0.0001, true);
+        assert.equal(previous.endHeading, current.heading);
+      }
+      const endpoint = coaster.connectedTrackEndpoint([
+        "bank-right", "lift", "jump", "bank-left", "drop",
+      ]);
+      const last = geometry.segments.at(-1);
+      assert.equal(Math.abs(endpoint.x - last.endX) < 0.0001, true);
+      assert.equal(Math.abs(endpoint.y - last.endY) < 0.0001, true);
+    },
+  ],
+  [
+    "turning route coordinates rotate local track points correctly",
+    () => {
+      const rotated = coaster.rotateLocalPoint({ x: 10, y: 0 }, { x: 5, y: 5 }, 90);
+      assert.equal(Math.round(rotated.x), 5);
+      assert.equal(Math.round(rotated.y), 15);
     },
   ],
   [

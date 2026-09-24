@@ -11,6 +11,8 @@ export type CoasterPieceKind =
   | "loop"
   | "double-loop"
   | "corkscrew"
+  | "bank-left"
+  | "bank-right"
   | "jump"
   | "mega-jump"
   | "tunnel"
@@ -190,6 +192,22 @@ export const COASTER_PIECES: Record<CoasterPieceKind, CoasterPieceDefinition> = 
     minimumSpeed: 20,
     inversions: 1,
   },
+  "bank-left": {
+    label: "Bank left",
+    shortLabel: "Left bank",
+    description: "Bend the route left and point the next piece somewhere new.",
+    adventure: 2,
+    speedDelta: -2,
+    minimumSpeed: 10,
+  },
+  "bank-right": {
+    label: "Bank right",
+    shortLabel: "Right bank",
+    description: "Bend the route right and change where the coaster heads next.",
+    adventure: 2,
+    speedDelta: -2,
+    minimumSpeed: 10,
+  },
   jump: {
     label: "Stunt jump",
     shortLabel: "Jump",
@@ -278,16 +296,16 @@ export function coasterPieceOptionsForWord(shape: CoasterWordShape): CoasterPiec
   const adventure = coasterAdventureForWord(shape);
 
   if (adventure >= 4) {
-    return ["mega-jump", "double-loop", "corkscrew", "loop", "steep-drop", "jump", "launch"];
+    return ["mega-jump", "double-loop", "corkscrew", "loop", "bank-left", "bank-right", "steep-drop", "jump", "launch"];
   }
   if (adventure >= 3) {
-    return ["jump", "loop", "corkscrew", "steep-drop", "launch", "tunnel"];
+    return ["jump", "loop", "corkscrew", "bank-left", "bank-right", "steep-drop", "launch", "tunnel"];
   }
   if (adventure >= 2) {
-    return ["jump", "launch", "lift", "drop", "tunnel", "swoop"];
+    return ["jump", "launch", "bank-left", "bank-right", "lift", "drop", "tunnel", "swoop"];
   }
   if (adventure >= 1) {
-    return ["lift", "drop", "jump", "hill", "bunny-hop", "brake"];
+    return ["lift", "drop", "bank-left", "bank-right", "jump", "hill", "bunny-hop", "brake"];
   }
   return ["straight", "lift", "drop", "hill"];
 }
@@ -459,6 +477,10 @@ export function piecePathD(
         `C ${x + 14} ${y - 36} ${x + 30} ${y + 36} ${x + 44} ${y}`,
         `C ${x + 58} ${y - 36} ${x + 76} ${y + 36} ${x + width} ${endY}`,
       ].join(" ");
+    case "bank-left":
+      return `M ${x} ${y} C ${x + quarter} ${y} ${x + width - quarter} ${y - 30} ${x + width} ${endY}`;
+    case "bank-right":
+      return `M ${x} ${y} C ${x + quarter} ${y} ${x + width - quarter} ${y + 30} ${x + width} ${endY}`;
     case "jump":
       return `M ${x} ${y} Q ${x + half} ${y - 68} ${x + width} ${endY}`;
     case "mega-jump":
@@ -582,4 +604,164 @@ export function analyseRide(kinds: CoasterPieceKind[]): RideCharacter {
 
 export function coasterViewBoxWidth(pieceCount: number, width = 92) {
   return Math.max(620, 76 + (Math.max(pieceCount, 5) * width) + 64);
+}
+
+
+export const CONNECTED_TRACK_HEIGHT = 420;
+export const CONNECTED_TRACK_START_X = 92;
+export const CONNECTED_TRACK_START_Y = 210;
+export const CONNECTED_TRACK_STATION_X = 28;
+export const CONNECTED_TRACK_PIECE_WIDTH = 92;
+export const CONNECTED_TRACK_GROUND_Y = 372;
+
+export type ConnectedTrackPoint = {
+  x: number;
+  y: number;
+};
+
+export type ConnectedTrackSegment = {
+  kind: CoasterPieceKind;
+  index: number;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  heading: number;
+  endHeading: number;
+  localEndY: number;
+  localPath: string;
+  visibleLocalPaths: string[];
+};
+
+export type ConnectedTrackGeometry = {
+  segments: ConnectedTrackSegment[];
+  stationStart: ConnectedTrackPoint;
+  stationEnd: ConnectedTrackPoint;
+  width: number;
+  height: number;
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+};
+
+function toRadians(degrees: number) {
+  return degrees * Math.PI / 180;
+}
+
+export function headingDeltaForPiece(kind: CoasterPieceKind) {
+  if (kind === "bank-left") return -22.5;
+  if (kind === "bank-right") return 22.5;
+  return 0;
+}
+
+export function rotateLocalPoint(
+  point: ConnectedTrackPoint,
+  origin: ConnectedTrackPoint,
+  heading: number,
+) {
+  const radians = toRadians(heading);
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  return {
+    x: origin.x + point.x * cos - point.y * sin,
+    y: origin.y + point.x * sin + point.y * cos,
+  };
+}
+
+export function connectedTrackGeometryForKinds(
+  kinds: CoasterPieceKind[],
+  pieceWidth = CONNECTED_TRACK_PIECE_WIDTH,
+): ConnectedTrackGeometry {
+  const segments: ConnectedTrackSegment[] = [];
+  let x = CONNECTED_TRACK_START_X;
+  let y = CONNECTED_TRACK_START_Y;
+  let heading = 0;
+
+  let minX = CONNECTED_TRACK_STATION_X;
+  let maxX = CONNECTED_TRACK_START_X;
+  let minY = CONNECTED_TRACK_START_Y;
+  let maxY = CONNECTED_TRACK_START_Y;
+
+  for (const [index, kind] of kinds.entries()) {
+    const requestedLocalEndY = COASTER_PIECES[kind].elevationDelta ?? 0;
+    const candidateEnd = rotateLocalPoint(
+      { x: pieceWidth, y: requestedLocalEndY },
+      { x, y },
+      heading,
+    );
+
+    let localEndY = requestedLocalEndY;
+    if (candidateEnd.y < 72 || candidateEnd.y > CONNECTED_TRACK_HEIGHT - 72) {
+      localEndY = 0;
+    }
+
+    const end = rotateLocalPoint(
+      { x: pieceWidth, y: localEndY },
+      { x, y },
+      heading,
+    );
+
+    const endHeading = clamp(
+      heading + headingDeltaForPiece(kind),
+      -55,
+      55,
+    );
+
+    const localPath = piecePathD(kind, 0, 0, pieceWidth, localEndY);
+    const visibleLocalPaths = visibleTrackPathsForSegment(
+      kind,
+      0,
+      0,
+      pieceWidth,
+      localEndY,
+    );
+
+    segments.push({
+      kind,
+      index,
+      startX: x,
+      startY: y,
+      endX: end.x,
+      endY: end.y,
+      heading,
+      endHeading,
+      localEndY,
+      localPath,
+      visibleLocalPaths,
+    });
+
+    minX = Math.min(minX, x, end.x);
+    maxX = Math.max(maxX, x, end.x);
+    minY = Math.min(minY, y, end.y - 105);
+    maxY = Math.max(maxY, y, end.y + 105);
+
+    x = end.x;
+    y = end.y;
+    heading = endHeading;
+  }
+
+  return {
+    segments,
+    stationStart: { x: CONNECTED_TRACK_STATION_X, y: CONNECTED_TRACK_START_Y },
+    stationEnd: { x: CONNECTED_TRACK_START_X, y: CONNECTED_TRACK_START_Y },
+    width: Math.max(760, maxX + 96),
+    height: CONNECTED_TRACK_HEIGHT,
+    minX,
+    maxX,
+    minY: Math.max(0, minY),
+    maxY: Math.min(CONNECTED_TRACK_HEIGHT, maxY),
+  };
+}
+
+export function connectedTrackEndpoint(kinds: CoasterPieceKind[]) {
+  const geometry = connectedTrackGeometryForKinds(kinds);
+  const last = geometry.segments.at(-1);
+  return last
+    ? { x: last.endX, y: last.endY, heading: last.endHeading }
+    : {
+        x: geometry.stationEnd.x,
+        y: geometry.stationEnd.y,
+        heading: 0,
+      };
 }
