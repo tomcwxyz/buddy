@@ -4,6 +4,7 @@ import {
   clampSceneryPosition,
   type CoasterSceneryKind,
 } from "@/lib/practice/coaster-scenery";
+import { PLAY_WORLD_ID } from "@/lib/practice/play-world";
 
 export type CoasterPiece = {
   id: string;
@@ -22,6 +23,10 @@ export type CoasterSceneryPlacement = {
 
 export type CoasterState = {
   version: 1;
+  /**
+   * Legacy storage field name. This now identifies the Play world as well as
+   * older set-specific coaster records.
+   */
   practiceSetId: string;
   rideName: string;
   pieces: CoasterPiece[];
@@ -90,8 +95,82 @@ function writeAll(states: Record<string, CoasterState>) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(states));
 }
 
+function migrateLegacyCoastersIntoPlayWorld(states: Record<string, CoasterState>) {
+  const legacy = Object.entries(states)
+    .filter(([id]) => id !== PLAY_WORLD_ID)
+    .map(([id, state]) => normaliseState(id, state));
+
+  if (legacy.length === 0) return newState(PLAY_WORLD_ID);
+
+  const anchor = legacy.reduce((best, state) => (
+    state.pieces.length > best.pieces.length ? state : best
+  ));
+
+  const pieces: CoasterPiece[] = [];
+  const pieceByWord = new Map<string, CoasterPiece>();
+  const legacyPieceIdToWorldId = new Map<string, string>();
+
+  for (const state of legacy) {
+    for (const piece of state.pieces) {
+      const key = piece.word.trim().toLocaleLowerCase("en-GB");
+      let worldPiece = pieceByWord.get(key);
+      if (!worldPiece) {
+        worldPiece = { ...piece };
+        pieceByWord.set(key, worldPiece);
+        pieces.push(worldPiece);
+      }
+      legacyPieceIdToWorldId.set(piece.id, worldPiece.id);
+    }
+  }
+
+  const placedIds: string[] = [];
+  const placed = new Set<string>();
+  for (const state of legacy) {
+    for (const legacyId of state.placedIds) {
+      const worldId = legacyPieceIdToWorldId.get(legacyId);
+      if (!worldId || placed.has(worldId)) continue;
+      placed.add(worldId);
+      placedIds.push(worldId);
+    }
+  }
+
+  const scenery: CoasterSceneryPlacement[] = [];
+  const sceneryIds = new Set<string>();
+  for (const state of legacy) {
+    for (const item of state.scenery) {
+      if (sceneryIds.has(item.id)) continue;
+      sceneryIds.add(item.id);
+      scenery.push(item);
+    }
+  }
+
+  const world: CoasterState = {
+    ...newState(PLAY_WORLD_ID),
+    rideName: anchor.rideName,
+    pieces,
+    placedIds,
+    rides: legacy.reduce((total, state) => total + state.rides, 0),
+    launchPower: anchor.launchPower,
+    cartStyle: anchor.cartStyle,
+    scenery,
+  };
+
+  states[PLAY_WORLD_ID] = world;
+  writeAll(states);
+  return world;
+}
+
 export function readCoasterState(practiceSetId: string) {
-  return normaliseState(practiceSetId, readAll()[practiceSetId]);
+  const states = readAll();
+
+  if (practiceSetId === PLAY_WORLD_ID) {
+    const existing = states[PLAY_WORLD_ID];
+    return existing
+      ? normaliseState(PLAY_WORLD_ID, existing)
+      : migrateLegacyCoastersIntoPlayWorld(states);
+  }
+
+  return normaliseState(practiceSetId, states[practiceSetId]);
 }
 
 export function writeCoasterState(state: CoasterState) {
@@ -107,7 +186,9 @@ export function earnCoasterPiece(input: {
   kind: CoasterPieceKind;
 }) {
   const state = readCoasterState(input.practiceSetId);
-  const existing = state.pieces.find((piece) => piece.word === input.word);
+  const existing = state.pieces.find(
+    (piece) => piece.word.toLocaleLowerCase("en-GB") === input.word.toLocaleLowerCase("en-GB"),
+  );
   if (existing) return { state, piece: existing, isNew: false };
 
   const piece: CoasterPiece = {

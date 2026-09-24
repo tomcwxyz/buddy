@@ -16,7 +16,8 @@ import {
   type PracticeWord,
 } from "@/lib/practice/engine";
 import { coasterPieceKindForWord } from "@/lib/practice/coaster";
-import { earnCoasterPiece } from "@/lib/practice/coaster-store";
+import { earnCoasterPiece, readCoasterState } from "@/lib/practice/coaster-store";
+import { PLAY_WORLD_ID } from "@/lib/practice/play-world";
 import { explorationSignalsForWord, exploredWordsForPracticeSet } from "@/lib/practice/progress";
 import {
   readActivePracticeSet,
@@ -50,6 +51,7 @@ export function PracticeSession() {
   const [words, setWords] = useState<PracticeWord[]>([]);
   const [practiceSet, setPracticeSet] = useState<PracticeSet | null>(null);
   const [exploredSetWords, setExploredSetWords] = useState<Set<string>>(new Set());
+  const [worldPieceCount, setWorldPieceCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [index, setIndex] = useState(0);
   const [reveal, setReveal] = useState<Reveal>("none");
@@ -63,6 +65,7 @@ export function PracticeSession() {
   function loadPractice() {
     const events = readLearningEvents();
     const activeSet = readActivePracticeSet();
+    setWorldPieceCount(readCoasterState(PLAY_WORLD_ID).pieces.length);
 
     if (activeSet?.words.length) {
       const explored = exploredWordsForPracticeSet(events, activeSet.id);
@@ -198,29 +201,31 @@ export function PracticeSession() {
       });
     }
 
-    if (practiceSet) {
-      const pieceKind = coasterPieceKindForWord({
-        word: current.word,
-        chunks: support?.chunks.length ?? 1,
-        syllables: lookup?.soundGuide?.syllables,
-        signals: explorationSignalsForWord(
-          readLearningEvents(),
-          practiceSet.id,
-          current.word,
-        ),
-      });
-      earnCoasterPiece({
-        practiceSetId: practiceSet.id,
-        word: current.word,
-        kind: pieceKind,
-      });
+    const pieceKind = coasterPieceKindForWord({
+      word: current.word,
+      chunks: support?.chunks.length ?? 1,
+      syllables: lookup?.soundGuide?.syllables,
+      signals: explorationSignalsForWord(
+        readLearningEvents(),
+        current.word,
+      ),
+    });
 
-      recordLearningEvent({
-        kind: "practice_explored",
-        word: current.word,
-        source: "practice",
-        practiceSetId: practiceSet.id,
-      });
+    const earned = earnCoasterPiece({
+      practiceSetId: PLAY_WORLD_ID,
+      word: current.word,
+      kind: pieceKind,
+    });
+    setWorldPieceCount(earned.state.pieces.length);
+
+    recordLearningEvent({
+      kind: "practice_explored",
+      word: current.word,
+      source: "practice",
+      practiceSetId: practiceSet?.id,
+    });
+
+    if (practiceSet) {
       setExploredSetWords((previous) => {
         const next = new Set(previous);
         next.add(current.word);
@@ -261,10 +266,10 @@ export function PracticeSession() {
         <div>
           <p className="eyebrow">Tiny practice</p>
           <h1>Bring some words.</h1>
-          <p>Use words Buddy has met while reading, or turn a spelling list from school into a practice set.</p>
+          <p>Use words Buddy has met while reading, bring in a list, or add a few yourself. However they arrive, they all feed the same Play world.</p>
           <div className="practice-finish-actions">
             <Link className="practice-primary" href="/practice/add-spellings">
-              <Camera size={20} /> Add school spellings
+              <Camera size={20} /> Add some words
             </Link>
             <Link className="practice-secondary" href="/read">
               Read with me <ArrowRight size={20} />
@@ -280,35 +285,27 @@ export function PracticeSession() {
       <section className="practice-shell practice-finished">
         <div className="practice-finish-visual">
           <BuddyPresence label="That's plenty for now." />
-          {practiceSet && (
-            <div className="coaster-finish-teaser">
-              <span>Your coaster</span>
-              <strong>Those words left you track pieces.</strong>
-              <p>Build the ride, move the pieces around, then send the cart.</p>
-              <Link href="/practice/coaster">Go to the coaster <ArrowRight size={18} /></Link>
-            </div>
-          )}
+          <div className="coaster-finish-teaser">
+            <span>Your Play world</span>
+            <strong>Those words changed your world.</strong>
+            <p>Every word you explore gives you something to build with, wherever that word came from.</p>
+            <Link href="/practice/coaster">Go to the coaster <ArrowRight size={18} /></Link>
+          </div>
         </div>
         <div>
           <p className="eyebrow">Done</p>
           <h1>Three words. That's it.</h1>
-          <p>
-            {practiceSet
-              ? "You explored three words. That gives you real things to build and play with — no score involved."
-              : "No score to chase. Buddy will bring useful things back another time."}
-          </p>
+          <p>You explored three words. They are now part of the same world you build and play in — no score involved.</p>
           <div className="practice-finish-actions">
-            {practiceSet && (
-              <>
-                <Link className="practice-primary" href="/practice/coaster">
-                  Build the ride <ArrowRight size={20} />
-                </Link>
-                <button type="button" className="practice-secondary" onClick={anotherFew}>
-                  {exploredSetWords.size < practiceSet.words.length ? "Explore another few" : "Play with the words again"}
-                </button>
-              </>
-            )}
-            <Link className={practiceSet ? "practice-secondary" : "practice-primary"} href="/">Back home</Link>
+            <Link className="practice-primary" href="/practice/coaster">
+              Build the ride <ArrowRight size={20} />
+            </Link>
+            <button type="button" className="practice-secondary" onClick={anotherFew}>
+              {practiceSet && exploredSetWords.size >= practiceSet.words.length
+                ? "Play with these words again"
+                : "Explore another few"}
+            </button>
+            <Link className="practice-secondary" href="/">Back home</Link>
             <Link className="practice-secondary" href="/words">Words we've met</Link>
           </div>
         </div>
@@ -336,36 +333,30 @@ export function PracticeSession() {
           label={reveal === "none" ? "Have a look first." : "Use whatever helps."}
         />
 
-        {practiceSet ? (
-          <>
-            <div className="coaster-practice-callout">
-              <span>Your coaster</span>
-              <strong>{exploredSetWords.size} words explored</strong>
-              <p>Every explored word leaves a piece in your coaster yard.</p>
-              <Link href="/practice/coaster">Build the ride <ArrowRight size={16} /></Link>
-            </div>
-            <div className="practice-set-actions">
-              <Link href="/practice/add-spellings"><Camera size={17} /> Add another list</Link>
-              <button type="button" onClick={useRememberedWords}>Use words we've met</button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="practice-progress" aria-label={`Word ${index + 1} of ${words.length}`}>
-              {words.map((word, wordIndex) => (
-                <span key={word.word} className={wordIndex === index ? "current" : wordIndex < index ? "past" : ""} />
-              ))}
-            </div>
-            <p className="practice-count">Word {index + 1} of {words.length}</p>
-            <Link className="practice-add-spellings" href="/practice/add-spellings">
-              <Camera size={17} /> Got spellings from school?
-            </Link>
-          </>
-        )}
+        <div className="coaster-practice-callout">
+          <span>Your Play world</span>
+          <strong>{worldPieceCount} word{worldPieceCount === 1 ? "" : "s"} in the world</strong>
+          <p>Every word you explore here can become something to build and play with.</p>
+          <Link href="/practice/coaster">Go to the coaster <ArrowRight size={16} /></Link>
+        </div>
+
+        <div className="practice-progress" aria-label={`Word ${index + 1} of ${words.length}`}>
+          {words.map((word, wordIndex) => (
+            <span key={word.word} className={wordIndex === index ? "current" : wordIndex < index ? "past" : ""} />
+          ))}
+        </div>
+        <p className="practice-count">Word {index + 1} of {words.length}</p>
+
+        <div className="practice-set-actions">
+          <Link href="/practice/add-spellings"><Camera size={17} /> Add some words</Link>
+          {practiceSet && (
+            <button type="button" onClick={useRememberedWords}>Use words we've met</button>
+          )}
+        </div>
       </div>
 
       <article className="practice-card">
-        <p className="eyebrow">{practiceSet ? practiceSet.label : "One we've met before"}</p>
+        <p className="eyebrow">{practiceSet ? practiceSet.label : "A word to play with"}</p>
         <h1>{current.word}</h1>
         {lookup?.partOfSpeech && <span className="practice-word-kind">{lookup.partOfSpeech}</span>}
         <p className="practice-prompt">{current.openingPrompt}</p>

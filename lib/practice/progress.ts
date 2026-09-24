@@ -12,14 +12,21 @@ export function exploredWordsForPracticeSet(
   );
 }
 
+export function exploredWordsForPlay(events: LearningEvent[]) {
+  return new Set(
+    events
+      .filter((event) => event.kind === "practice_explored")
+      .map((event) => event.word)
+      .filter((word): word is string => Boolean(word)),
+  );
+}
 
 export function explorationSignalsForWord(
   events: LearningEvent[],
-  practiceSetId: string,
   word: string,
 ) {
   const relevant = events.filter(
-    (event) => event.practiceSetId === practiceSetId && event.word === word,
+    (event) => event.source === "practice" && event.word === word,
   );
 
   return {

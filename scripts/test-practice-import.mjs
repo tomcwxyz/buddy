@@ -22,6 +22,7 @@ const progress = await importTsModule("../lib/practice/progress.ts");
 const coaster = await importTsModule("../lib/practice/coaster.ts");
 const cart = await importTsModule("../lib/practice/coaster-cart.ts");
 const scenery = await importTsModule("../lib/practice/coaster-scenery.ts");
+const playWorld = await importTsModule("../lib/practice/play-world.ts");
 
 const fakeWord = (text, x0, y0) => ({
   text,
@@ -59,6 +60,24 @@ const cases = [
         { id: "4", at: "", kind: "practice_explored", word: "friend", practiceSetId: "b" },
       ];
       assert.deepEqual([...progress.exploredWordsForPracticeSet(events, "a")], ["because"]);
+      assert.deepEqual(
+        [...progress.exploredWordsForPlay(events)],
+        ["because", "friend"],
+      );
+    },
+  ],
+  [
+    "Play has one shared world regardless of word source",
+    () => {
+      assert.equal(playWorld.PLAY_WORLD_ID, "buddy-play-world");
+      const events = [
+        { id: "1", at: "", kind: "word_heard", word: "because", source: "practice", practiceSetId: "school" },
+        { id: "2", at: "", kind: "meaning_requested", word: "because", source: "practice" },
+      ];
+      assert.deepEqual(
+        progress.explorationSignalsForWord(events, "because"),
+        { heard: true, clue: false, together: false, meaning: true },
+      );
     },
   ],
   [

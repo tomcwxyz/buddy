@@ -55,8 +55,8 @@ import {
   unplaceCoasterPiece,
   type CoasterState,
 } from "@/lib/practice/coaster-store";
-import { explorationSignalsForWord, exploredWordsForPracticeSet } from "@/lib/practice/progress";
-import { readActivePracticeSet, type PracticeSet } from "@/lib/practice/sets";
+import { PLAY_WORLD_ID } from "@/lib/practice/play-world";
+import { explorationSignalsForWord, exploredWordsForPlay } from "@/lib/practice/progress";
 
 type CartPose = {
   x: number;
@@ -114,7 +114,6 @@ function TrackChoicePalette({
 }
 
 export function CoasterBuilder() {
-  const [practiceSet, setPracticeSet] = useState<PracticeSet | null>(null);
   const [coaster, setCoaster] = useState<CoasterState | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [mode, setMode] = useState<"build" | "ride">("build");
@@ -141,25 +140,19 @@ export function CoasterBuilder() {
   const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const set = readActivePracticeSet();
-    setPracticeSet(set);
-
-    if (!set) {
-      setLoaded(true);
-      return;
-    }
-
-    const explored = exploredWordsForPracticeSet(readLearningEvents(), set.id);
-    let state = readCoasterState(set.id);
+    const events = readLearningEvents();
+    const explored = exploredWordsForPlay(events);
+    let state = readCoasterState(PLAY_WORLD_ID);
 
     explored.forEach((word) => {
       const support = getWordSupport(word);
       const earned = earnCoasterPiece({
-        practiceSetId: set.id,
+        practiceSetId: PLAY_WORLD_ID,
         word,
         kind: coasterPieceKindForWord({
           word,
           chunks: support.chunks.length,
+          signals: explorationSignalsForWord(events, word),
         }),
       });
       state = earned.state;
@@ -204,25 +197,21 @@ export function CoasterBuilder() {
     : `0 0 ${viewWidth} 260`;
 
   function addPiece(pieceId: string) {
-    if (!practiceSet) return;
-    setCoaster(placeCoasterPiece(practiceSet.id, pieceId));
+    setCoaster(placeCoasterPiece(PLAY_WORLD_ID, pieceId));
     setRideMessage("Nice. The track just changed.");
   }
 
   function removePiece(pieceId: string) {
-    if (!practiceSet) return;
-    setCoaster(unplaceCoasterPiece(practiceSet.id, pieceId));
+    setCoaster(unplaceCoasterPiece(PLAY_WORLD_ID, pieceId));
     setRideMessage("Piece back in the yard.");
   }
 
   function movePiece(pieceId: string, direction: -1 | 1) {
-    if (!practiceSet) return;
-    setCoaster(moveCoasterPiece(practiceSet.id, pieceId, direction));
+    setCoaster(moveCoasterPiece(PLAY_WORLD_ID, pieceId, direction));
   }
 
   function saveName(value: string) {
-    if (!practiceSet) return;
-    setCoaster(renameCoaster(practiceSet.id, value));
+    setCoaster(renameCoaster(PLAY_WORLD_ID, value));
   }
 
   function pieceOptions(word: string) {
@@ -230,15 +219,12 @@ export function CoasterBuilder() {
     return coasterPieceOptionsForWord({
       word,
       chunks: support.chunks.length,
-      signals: practiceSet
-        ? explorationSignalsForWord(readLearningEvents(), practiceSet.id, word)
-        : undefined,
+      signals: explorationSignalsForWord(readLearningEvents(), word),
     });
   }
 
   function choosePieceKind(pieceId: string, word: string, kind: CoasterPieceKind) {
-    if (!practiceSet) return;
-    setCoaster(setCoasterPieceKind(practiceSet.id, pieceId, kind));
+    setCoaster(setCoasterPieceKind(PLAY_WORLD_ID, pieceId, kind));
     setRideMessage(`${word} is now ${COASTER_PIECES[kind].shortLabel.toLowerCase()} track.`);
   }
 
@@ -260,21 +246,21 @@ export function CoasterBuilder() {
   }
 
   function chooseLaunchPower(power: CoasterLaunchPower) {
-    if (!practiceSet || riding) return;
-    setCoaster(setCoasterLaunchPower(practiceSet.id, power));
+    if (riding) return;
+    setCoaster(setCoasterLaunchPower(PLAY_WORLD_ID, power));
     setRideSpeed(COASTER_LAUNCH_SPEED[power]);
     setRideMessage(power === 1 ? "Gentle launch." : power === 2 ? "Quick launch." : "Wild launch.");
   }
 
   function chooseCartStyle(cartStyle: CoasterCartStyle) {
-    if (!practiceSet || riding) return;
-    setCoaster(setCoasterCartStyle(practiceSet.id, cartStyle));
+    if (riding) return;
+    setCoaster(setCoasterCartStyle(PLAY_WORLD_ID, cartStyle));
     setRideMessage(`${COASTER_CARTS[cartStyle].label} cart ready.`);
   }
 
   function runRide() {
     const path = trackRef.current;
-    if (!path || !practiceSet || !coaster || placedPieces.length === 0 || riding) return;
+    if (!path || !coaster || placedPieces.length === 0 || riding) return;
 
     const totalLength = path.getTotalLength();
     let distance = 0;
@@ -289,7 +275,7 @@ export function CoasterBuilder() {
     setPeakSpeed(speed);
     setRideMessage("Here we go.");
     setCartPose({ ...defaultCartPose(), visible: true });
-    setCoaster(recordCoasterRide(practiceSet.id));
+    setCoaster(recordCoasterRide(PLAY_WORLD_ID));
 
     const stopRide = (message: string) => {
       setRiding(false);
@@ -389,7 +375,7 @@ export function CoasterBuilder() {
   }
 
   function onParkPointerDown(event: PointerEvent<SVGSVGElement>) {
-    if (mode !== "build" || riding || (!selectedSceneryKind && !selectedSceneryId) || !practiceSet) return;
+    if (mode !== "build" || riding || (!selectedSceneryKind && !selectedSceneryId)) return;
 
     const rect = event.currentTarget.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
@@ -398,14 +384,14 @@ export function CoasterBuilder() {
     const y = (event.clientY - rect.top) / rect.height;
 
     if (selectedSceneryId) {
-      setCoaster(moveCoasterScenery(practiceSet.id, selectedSceneryId, x, y));
+      setCoaster(moveCoasterScenery(PLAY_WORLD_ID, selectedSceneryId, x, y));
       setRideMessage("Moved it. Tap somewhere else to move it again, or choose another park piece.");
       return;
     }
 
     if (!selectedSceneryKind || scenerySpaceLeft <= 0) return;
     setCoaster(addCoasterScenery({
-      practiceSetId: practiceSet.id,
+      practiceSetId: PLAY_WORLD_ID,
       kind: selectedSceneryKind,
       x,
       y,
@@ -424,8 +410,8 @@ export function CoasterBuilder() {
   }
 
   function removeSelectedScenery() {
-    if (!practiceSet || !selectedSceneryId) return;
-    setCoaster(removeCoasterScenery(practiceSet.id, selectedSceneryId));
+    if (!selectedSceneryId) return;
+    setCoaster(removeCoasterScenery(PLAY_WORLD_ID, selectedSceneryId));
     setSelectedSceneryId(null);
     setRideMessage("Scenery put away.");
   }
@@ -478,7 +464,7 @@ export function CoasterBuilder() {
     return <section className="coaster-loading">Opening the ride…</section>;
   }
 
-  if (!practiceSet || !coaster) {
+  if (!coaster) {
     return (
       <section className="coaster-empty">
         <p className="eyebrow">Your word world</p>
@@ -496,7 +482,7 @@ export function CoasterBuilder() {
       <header className="coaster-header">
         <div>
           <Link href="/practice" className="coaster-back"><ArrowLeft size={18} /> Practice</Link>
-          <p className="eyebrow">Built from {practiceSet.label}</p>
+          <p className="eyebrow">Built from words you've explored</p>
           {mode === "build" ? (
             <input
               className="coaster-name"
@@ -1005,7 +991,7 @@ export function CoasterBuilder() {
           ) : (
             <div className="coaster-yard-empty">
               <CoasterPieceIcon kind="loop" />
-              <p>Explore more words to find more pieces for this ride.</p>
+              <p>Explore more words to find more pieces for this world.</p>
               <Link href="/practice">Back to the words <ArrowRight size={18} /></Link>
             </div>
           )}
@@ -1043,7 +1029,7 @@ export function CoasterBuilder() {
               </div>
             )}
 
-            <p>Exploring words makes room for the park to grow. There are no “better” decorations — just more ways to make this place yours.</p>
+            <p>Exploring words makes room for the park to grow, wherever those words came from. There are no “better” decorations — just more ways to make this place yours.</p>
           </div>
 
           <div className="coaster-game-rule">
