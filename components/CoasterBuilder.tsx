@@ -24,9 +24,13 @@ import {
   coasterPieceKindForWord,
   coasterPieceOptionsForWord,
   coasterViewBoxWidth,
+  isAirbornePiece,
   speedAfterPiece,
   speedLabel,
+  stuntFlipsForSpeed,
+  stuntRotationDegrees,
   trackGeometryForKinds,
+  visibleTrackPathsForSegment,
   type CoasterLaunchPower,
   type CoasterPieceKind,
 } from "@/lib/practice/coaster";
@@ -122,6 +126,8 @@ export function CoasterBuilder() {
   const [selectedSceneryId, setSelectedSceneryId] = useState<string | null>(null);
   const [riding, setRiding] = useState(false);
   const [activePieceKind, setActivePieceKind] = useState<CoasterPieceKind | null>(null);
+  const [activeStuntFlips, setActiveStuntFlips] = useState(0);
+  const [rideFlips, setRideFlips] = useState(0);
   const [rideSpeed, setRideSpeed] = useState(0);
   const [peakSpeed, setPeakSpeed] = useState(0);
   const [rideMessage, setRideMessage] = useState("Build a bit of track, then send the cart.");
@@ -239,6 +245,7 @@ export function CoasterBuilder() {
     setSelectedSceneryKind(null);
     setSelectedSceneryId(null);
     setActivePieceKind(null);
+    setActiveStuntFlips(0);
     setCartPose(defaultCartPose());
     setRideMessage(nextMode === "ride"
       ? "Ready when you are."
@@ -268,9 +275,13 @@ export function CoasterBuilder() {
     let speed = COASTER_LAUNCH_SPEED[coaster.launchPower];
     let peak = speed;
     let lastPieceIndex = -1;
+    let stuntFlipsInPiece = 0;
+    let totalFlips = 0;
 
     setRiding(true);
     setActivePieceKind(null);
+    setActiveStuntFlips(0);
+    setRideFlips(0);
     setRideSpeed(speed);
     setPeakSpeed(speed);
     setRideMessage("Here we go.");
@@ -280,6 +291,7 @@ export function CoasterBuilder() {
     const stopRide = (message: string) => {
       setRiding(false);
       setActivePieceKind(null);
+      setActiveStuntFlips(0);
       setRideMessage(message);
       setRideSpeed(speed);
       setPeakSpeed(peak);
@@ -292,7 +304,7 @@ export function CoasterBuilder() {
 
       const point = path.getPointAtLength(Math.min(totalLength, distance));
       const ahead = path.getPointAtLength(Math.min(totalLength, distance + 4));
-      const angle = Math.atan2(ahead.y - point.y, ahead.x - point.x) * 180 / Math.PI;
+      const baseAngle = Math.atan2(ahead.y - point.y, ahead.x - point.x) * 180 / Math.PI;
 
       // In SVG coordinates positive Y is downhill, so descent adds momentum and
       // climbing takes it away. This is deliberately game-like rather than a
@@ -309,20 +321,44 @@ export function CoasterBuilder() {
 
       if (pieceIndex >= 0 && pieceIndex !== lastPieceIndex) {
         const piece = placedPieces[pieceIndex];
+        const previousPiece = lastPieceIndex >= 0 ? placedPieces[lastPieceIndex] : null;
+
+        if (previousPiece && isAirbornePiece(previousPiece.kind)) {
+          setRideMessage(stuntFlipsInPiece > 0 ? "Landed it!" : "Back on the rails.");
+        }
+
         setActivePieceKind(piece.kind);
+        stuntFlipsInPiece = stuntFlipsForSpeed(piece.kind, speed);
+        setActiveStuntFlips(stuntFlipsInPiece);
 
         if (piece.kind === "launch") setRideMessage("Boost!");
         else if (piece.kind === "brake") setRideMessage("Brakes!");
         else if (piece.kind === "tunnel") setRideMessage("Into the tunnel…");
-        else if (piece.kind === "steep-drop" || piece.kind === "drop") setRideMessage("Here comes the drop.");
+        else if (piece.kind === "jump" || piece.kind === "mega-jump") {
+          setRideMessage(
+            stuntFlipsInPiece >= 3 ? "Triple flip!"
+              : stuntFlipsInPiece === 2 ? "Double flip!"
+                : stuntFlipsInPiece === 1 ? "Flip!"
+                  : "Airborne!",
+          );
+        } else if (piece.kind === "steep-drop" || piece.kind === "drop") {
+          setRideMessage("Here comes the drop.");
+        }
 
         if (!canEnterPiece(speed, piece.kind)) {
           const needed = COASTER_PIECES[piece.kind].minimumSpeed;
-          setCartPose({ x: point.x, y: point.y, angle, visible: true });
+          setCartPose({ x: point.x, y: point.y, angle: baseAngle, visible: true });
           stopRide(
-            `Not enough speed for the ${COASTER_PIECES[piece.kind].shortLabel.toLowerCase()} — you had ${Math.round(speed)} mph and need about ${needed}. Try a launch or a dip before it.`,
+            isAirbornePiece(piece.kind)
+              ? `Not enough run-up to clear the ${COASTER_PIECES[piece.kind].shortLabel.toLowerCase()} — ${Math.round(speed)} mph this time, about ${needed} needed. Move a launch or a drop before it and try again.`
+              : `Not enough speed for the ${COASTER_PIECES[piece.kind].shortLabel.toLowerCase()} — you had ${Math.round(speed)} mph and need about ${needed}. Try a launch or a dip before it.`,
           );
           return;
+        }
+
+        if (isAirbornePiece(piece.kind) && stuntFlipsInPiece > 0) {
+          totalFlips += stuntFlipsInPiece;
+          setRideFlips(totalFlips);
         }
 
         speed = speedAfterPiece(speed, piece.kind);
@@ -330,13 +366,22 @@ export function CoasterBuilder() {
         lastPieceIndex = pieceIndex;
       }
 
+      const activeSegment = pieceIndex >= 0 ? trackGeometry.segments[pieceIndex] : null;
+      const segmentProgress = activeSegment
+        ? Math.max(0, Math.min(1, (point.x - activeSegment.startX) / Math.max(1, activeSegment.endX - activeSegment.startX)))
+        : 0;
+      const activeKind = pieceIndex >= 0 ? placedPieces[pieceIndex]?.kind : null;
+      const stuntRotation = activeKind
+        ? stuntRotationDegrees(activeKind, segmentProgress, stuntFlipsInPiece)
+        : 0;
+
       peak = Math.max(peak, speed);
       setRideSpeed(speed);
       setPeakSpeed(peak);
       setCartPose({
         x: point.x,
         y: point.y,
-        angle,
+        angle: baseAngle + stuntRotation,
         visible: true,
       });
 
@@ -345,7 +390,11 @@ export function CoasterBuilder() {
         distance += speed * (dt / 1000) * 4.25;
         frameRef.current = requestAnimationFrame(tick);
       } else {
-        stopRide(`Made it. Peak speed ${Math.round(peak)} mph — ${speedLabel(peak)}.`);
+        stopRide(
+          totalFlips > 0
+            ? `Made it — ${totalFlips} ${totalFlips === 1 ? "flip" : "flips"} and a peak of ${Math.round(peak)} mph.`
+            : `Made it. Peak speed ${Math.round(peak)} mph — ${speedLabel(peak)}.`,
+        );
       }
     };
 
@@ -614,6 +663,7 @@ export function CoasterBuilder() {
                 {rideCharacter.drops > 0 && <span>{rideCharacter.drops} drop{rideCharacter.drops === 1 ? "" : "s"}</span>}
                 {rideCharacter.tunnels > 0 && <span>{rideCharacter.tunnels} tunnel{rideCharacter.tunnels === 1 ? "" : "s"}</span>}
                 {rideCharacter.boosts > 0 && <span>{rideCharacter.boosts} boost{rideCharacter.boosts === 1 ? "" : "s"}</span>}
+                {rideCharacter.stunts > 0 && <span>{rideCharacter.stunts} stunt jump{rideCharacter.stunts === 1 ? "" : "s"}</span>}
               </div>
             </div>
           )}
@@ -762,27 +812,70 @@ export function CoasterBuilder() {
                         <text x={startX + 36} y={startY - 20} textAnchor="middle" className="coaster-svg-help">BRAKE</text>
                       </g>
                     )}
+
+                    {isAirbornePiece(piece.kind) && (
+                      <g className="coaster-stunt-marker">
+                        <path
+                          d={`M ${startX + 34} ${startY - 37} Q ${startX + PIECE_WIDTH / 2} ${startY - 55} ${supportX - 32} ${supportY - 37}`}
+                          fill="none"
+                          stroke="#b97c63"
+                          strokeWidth="2"
+                          strokeDasharray="5 7"
+                          opacity="0.62"
+                        />
+                        <text x={startX + PIECE_WIDTH / 2} y={Math.min(startY, supportY) - (piece.kind === "mega-jump" ? 82 : 56)} textAnchor="middle" className="coaster-svg-help">
+                          {piece.kind === "mega-jump" ? "MEGA AIR" : "AIR"}
+                        </text>
+                      </g>
+                    )}
+
+                    {visibleTrackPathsForSegment(piece.kind, startX, startY, supportX, supportY).map((visiblePath, pathIndex) => (
+                      <g key={`${piece.id}-rail-${pathIndex}`}>
+                        <path
+                          d={visiblePath}
+                          fill="none"
+                          stroke="#3f4440"
+                          strokeWidth="9"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d={visiblePath}
+                          fill="none"
+                          stroke="#d9b86c"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeDasharray="8 8"
+                        />
+                      </g>
+                    ))}
                   </g>
                 );
               })}
 
               <path
-                ref={trackRef}
-                d={trackPath}
+                d={`M 28 ${BASELINE_Y} L 76 ${BASELINE_Y}`}
                 fill="none"
                 stroke="#3f4440"
                 strokeWidth="9"
                 strokeLinecap="round"
-                strokeLinejoin="round"
               />
               <path
-                d={trackPath}
+                d={`M 28 ${BASELINE_Y} L 76 ${BASELINE_Y}`}
                 fill="none"
                 stroke="#d9b86c"
                 strokeWidth="3"
                 strokeLinecap="round"
-                strokeLinejoin="round"
                 strokeDasharray="8 8"
+              />
+              <path
+                ref={trackRef}
+                d={trackPath}
+                fill="none"
+                stroke="transparent"
+                strokeWidth="2"
+                pointerEvents="none"
               />
 
               {placedPieces.length === 0 && (
@@ -817,6 +910,12 @@ export function CoasterBuilder() {
             {mode === "ride" && riding && activePieceKind === "brake" && (
               <div className="coaster-brake-pulse" aria-hidden="true" />
             )}
+            {mode === "ride" && riding && activePieceKind && isAirbornePiece(activePieceKind) && (
+              <div className="coaster-stunt-airtime" aria-hidden="true">
+                <strong>{activeStuntFlips > 0 ? `${activeStuntFlips}× FLIP` : "AIR!"}</strong>
+                <span>{Math.round(rideSpeed)} mph</span>
+              </div>
+            )}
 
             <div className="coaster-station-target" aria-hidden="true">Drop cart here</div>
 
@@ -844,7 +943,7 @@ export function CoasterBuilder() {
                 ? `Tap the park to place ${COASTER_SCENERY[selectedSceneryKind].label.toLowerCase()}.`
                 : selectedSceneryId
                   ? "Tap somewhere in the park to move the selected scenery."
-                  : "Build the track, then grow the park around it. Every explored word makes room for another world piece."
+                  : "Build the track, then mess with the physics: use drops and launches for run-up, put jumps where the cart can clear them, and see what flips."
               : "Drag the cart onto the station or press Send it. Then watch where the ride flies — or stalls."}
           </p>
 
