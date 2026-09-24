@@ -102,11 +102,13 @@ Priorities:
 - test the build-and-ride coaster with the child: direct visual piece choice, construction, rearranging, the Build → Ride transition, launch speed, cart dragging, stalls and rerunning the ride should feel like play rather than a disguised progress screen;
 - tune the simple speed/momentum model from play rather than chasing physical realism; the interesting question is whether track order creates understandable experimentation;
 - test whether cumulative terrain (lift → drop → inversion) creates a stronger sense of designing a ride than isolated decorative shapes;
-- keep Build and Ride as deliberately different moods: Build exposes the piece yard and track palette; Ride removes workshop controls and makes the coaster and cart the focus;
+- keep Build and Ride as deliberately different moods: Build exposes the piece yard, track palette and park-building tools; Ride removes workshop controls and makes the coaster, park and cart the focus;
+- grow the wider world from exploration too: each explored-word piece makes room for one persistent scenery object, with direct touch placement rather than points or a decoration currency;
+- test whether trees, ponds, rocks, flags, lamps and small park buildings make the coaster feel like a place worth returning to rather than just a completed track;
 - keep ride feedback descriptive rather than scored: Buddy can call a coaster floaty, twisty, drop-heavy, boosted or tunnel-y and report its drops, airtime and inversions without ranking the child or the ride;
 - let words with more structure to notice create more adventurous track shapes such as camelbacks and loops, without treating those shapes as prizes for correctness;
 - treat every track piece as evidence that a word was explored, not that it was correct;
-- explore world-building beyond track pieces only after the construction loop itself is compelling: scenery, stations, tunnels, ride names and eventually other kinds of worlds can grow from the same exploration → making → play model;
+- continue world-building beyond track pieces now that the construction loop is compelling: the first park layer has persistent scenery placement, while stations, paths, additional ride objects and eventually other kinds of worlds can grow from the same exploration → making → play model;
 - allow school lists, child-chosen words and Buddy-suggested revisiting to coexist without implying that any list is a deficit record.
 
 Success is a child wanting to explore words because doing so gives them interesting material to make and play with, without needing points, streaks or reward inflation.
