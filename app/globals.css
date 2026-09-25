@@ -472,3 +472,101 @@ button {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* Phone layout: real dimensions rather than visually scaling desktop boxes. */
+@media (max-width: 620px) {
+  .topbar,
+  .main {
+    width: calc(100% - 20px);
+  }
+
+  .topbar {
+    padding-top: 18px;
+  }
+
+  .main {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom));
+  }
+
+  .hero-panel {
+    min-height: 430px;
+    padding: 24px 22px;
+  }
+
+  .hero-title {
+    font-size: clamp(3rem, 14vw, 4.35rem);
+  }
+
+  .hero-subtitle {
+    margin-top: 18px;
+    font-size: 1.05rem;
+  }
+
+  .buddy-stage {
+    min-height: 132px;
+  }
+
+  .buddy-presence {
+    width: 132px;
+    height: 132px;
+    aspect-ratio: auto;
+  }
+
+  .buddy-blob {
+    position: relative;
+    z-index: 1;
+    width: 104px;
+    height: 112px;
+  }
+
+  .buddy-shadow {
+    width: 84px;
+    height: 15px;
+  }
+
+  .buddy-label {
+    display: none;
+  }
+
+  .action-card {
+    min-height: 132px;
+    padding: 20px;
+    gap: 14px;
+  }
+
+  .action-copy h2 {
+    font-size: 1.55rem;
+  }
+
+  .action-copy p {
+    font-size: 0.98rem;
+    line-height: 1.45;
+  }
+
+  .bottom-nav {
+    left: 10px;
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    width: auto;
+    transform: none;
+    padding: 6px;
+  }
+
+  .nav-item {
+    min-height: 48px;
+    padding: 0 8px;
+    gap: 5px;
+    font-size: 0.82rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .nav-item span {
+    font-size: 0.74rem;
+  }
+
+  .nav-item {
+    padding-inline: 5px;
+  }
+}
