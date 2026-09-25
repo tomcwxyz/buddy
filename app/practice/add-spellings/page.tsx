@@ -9,7 +9,7 @@ export default function AddSpellingsPage() {
     <div className="app-shell">
       <header className="topbar">
         <Link className="wordmark" href="/practice"><ArrowLeft size={18} /> buddy</Link>
-        <div className="topbar-note">Turn a school list into something useful.</div>
+        <div className="topbar-note">Bring words into Play.</div>
       </header>
       <main className="main">
         <PlayNav />
