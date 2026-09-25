@@ -1,0 +1,46 @@
+name: Browser flow
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "refactor/**"
+      - "feature/**"
+      - "fix/**"
+
+jobs:
+  play-flow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Use Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm install
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start Buddy
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/buddy-dev.log 2>&1 &
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3000 > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/buddy-dev.log
+          exit 1
+
+      - name: Test Play flow
+        run: npm run test:e2e
