@@ -68,7 +68,9 @@ test("the phone shell stays inside the viewport", async ({ page }) => {
   await expectNoHorizontalOverflow(page);
 });
 
-test("a word-piece can be dragged from the dock onto the coaster world", async ({ page }) => {
+test("a word-piece can be dragged from the dock onto the coaster world", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile-chromium", "Touch drag is exercised on the mobile project.");
+
   await page.goto("/practice/add-spellings");
   await page.getByRole("button", { name: "Add a word" }).click();
   await page.getByLabel("Spelling word").fill("cat");
