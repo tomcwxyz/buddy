@@ -336,7 +336,7 @@ export function PracticeSession() {
         <div className="coaster-practice-callout">
           <span>Your Play world</span>
           <strong>{worldPieceCount} word{worldPieceCount === 1 ? "" : "s"} in the world</strong>
-          <p>Every word you explore here can become something to build and play with.</p>
+          <p>Every word you explore here gives you something to make with.</p>
           <Link href="/practice/coaster">Go to the coaster <ArrowRight size={16} /></Link>
         </div>
 
@@ -358,10 +358,10 @@ export function PracticeSession() {
       <article className="practice-card">
         <p className="eyebrow">{practiceSet ? practiceSet.label : "A word to play with"}</p>
         <h1>{current.word}</h1>
-        {lookup?.partOfSpeech && <span className="practice-word-kind">{lookup.partOfSpeech}</span>}
-        <p className="practice-prompt">{current.openingPrompt}</p>
+        {reveal === "meaning" && lookup?.partOfSpeech && <span className="practice-word-kind">{lookup.partOfSpeech}</span>}
+        <p className="practice-prompt">Have a look first. Ask for whatever helps.</p>
 
-        {lookup?.soundGuide && (
+        {(reveal === "clue" || reveal === "together") && lookup?.soundGuide && (
           <div className="practice-sound-guide">
             <div>
               <strong>Listen + notice</strong>
