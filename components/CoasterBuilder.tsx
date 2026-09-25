@@ -88,6 +88,15 @@ type DragOffset = {
 const PIECE_WIDTH = CONNECTED_TRACK_PIECE_WIDTH;
 const WORLD_HEIGHT = CONNECTED_TRACK_HEIGHT;
 
+function defaultCartPose(): CartPose {
+  return {
+    x: CONNECTED_TRACK_STATION_X,
+    y: CONNECTED_TRACK_START_Y,
+    angle: 0,
+    visible: false,
+  };
+}
+
 export function CoasterBuilder() {
   const [coaster, setCoaster] = useState<CoasterState | null>(null);
   const [loaded, setLoaded] = useState(false);
