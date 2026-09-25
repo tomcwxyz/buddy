@@ -537,7 +537,7 @@ export function CoasterBuilder() {
       <section className="coaster-empty">
         <p className="eyebrow">Your word world</p>
         <h1>No coaster yet.</h1>
-        <p>Bring in a spelling list and explore a few words. Each word will give you something real to build with.</p>
+        <p>Explore a few words first. Each one becomes something you can build with here.</p>
         <Link className="practice-primary" href="/practice/add-spellings">
           Add some spellings <ArrowRight size={20} />
         </Link>
@@ -563,16 +563,9 @@ export function CoasterBuilder() {
           )}
           <p className="coaster-intro">
             {mode === "build"
-              ? "Every word you explore gives you a piece. Choose its shape, build the ride, then test what you made."
+              ? "Your words are building material. Make something, change it, then see what happens."
               : "Workshop closed. Just the ride now."}
           </p>
-        </div>
-        <div className="coaster-stats" aria-label="Coaster information">
-          <span><strong>{coaster.pieces.length}</strong> pieces found</span>
-          <span><strong>{coaster.rides}</strong> rides</span>
-          {placedPieces.length > 0 && (
-            <span><strong>{placedPieces.length}</strong> on this ride</span>
-          )}
         </div>
       </header>
 
