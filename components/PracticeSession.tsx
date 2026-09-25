@@ -294,8 +294,8 @@ export function PracticeSession() {
         </div>
         <div>
           <p className="eyebrow">Done</p>
-          <h1>Three words. That's it.</h1>
-          <p>You explored three words. They are now part of the same world you build and play in — no score involved.</p>
+          <h1>{words.length === 1 ? "One word. That's enough." : `${words.length} words. That's enough.`}</h1>
+          <p>You explored {words.length === 1 ? "a word" : `${words.length} words`}. {words.length === 1 ? "It is" : "They are"} now part of the same world you build and play in — no score involved.</p>
           <div className="practice-finish-actions">
             <Link className="practice-primary" href="/practice/coaster">
               Build the ride <ArrowRight size={20} />
