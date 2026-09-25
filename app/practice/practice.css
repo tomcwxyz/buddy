@@ -3163,3 +3163,162 @@
     transition: none;
   }
 }
+
+
+/* Phone Play layout: keep every panel inside the viewport. */
+@media (max-width: 800px) {
+  .practice-shell {
+    gap: 12px;
+  }
+
+  .practice-side {
+    min-width: 0;
+    min-height: 0;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    grid-template-areas:
+      "buddy world"
+      "progress progress"
+      "count actions";
+    align-items: center;
+    gap: 10px 14px;
+    overflow: hidden;
+  }
+
+  .practice-side .buddy-presence {
+    grid-area: buddy;
+    width: 84px;
+    height: 84px;
+    margin: 0;
+    transform: none;
+  }
+
+  .practice-side .buddy-blob {
+    width: 66px;
+    height: 72px;
+  }
+
+  .practice-side .buddy-shadow {
+    width: 56px;
+    height: 11px;
+  }
+
+  .practice-side .coaster-practice-callout {
+    grid-area: world;
+    min-width: 0;
+    width: auto;
+    margin: 0;
+    padding: 12px 14px;
+  }
+
+  .practice-side .coaster-practice-callout p {
+    display: none;
+  }
+
+  .practice-side .coaster-practice-callout strong {
+    overflow-wrap: anywhere;
+  }
+
+  .practice-side .practice-progress {
+    grid-area: progress;
+    min-width: 0;
+  }
+
+  .practice-side .practice-count {
+    grid-area: count;
+    margin: 0;
+  }
+
+  .practice-side .practice-set-actions {
+    grid-area: actions;
+    min-width: 0;
+    margin: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  .practice-side .practice-set-actions a,
+  .practice-side .practice-set-actions button {
+    min-width: 0;
+    font-size: 0.78rem;
+  }
+
+  .practice-card {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .practice-empty,
+  .practice-finished {
+    min-width: 0;
+    gap: 22px;
+  }
+
+  .practice-empty > .buddy-presence,
+  .practice-finish-visual .buddy-presence {
+    margin-inline: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .play-nav {
+    margin-bottom: 12px;
+    padding: 8px;
+    border-radius: 18px;
+  }
+
+  .play-nav-title {
+    padding: 3px 5px;
+  }
+
+  .play-nav-title strong {
+    font-size: 0.84rem;
+  }
+
+  .play-nav-items {
+    gap: 4px;
+  }
+
+  .play-nav-items a {
+    min-height: 46px;
+    padding: 8px 6px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+  }
+
+  .practice-card {
+    padding: 24px 18px;
+  }
+
+  .practice-card h1 {
+    font-size: clamp(3.2rem, 18vw, 5rem);
+  }
+
+  .practice-prompt {
+    font-size: 1.05rem;
+  }
+
+  .practice-help-actions {
+    margin-top: 24px;
+    gap: 8px;
+  }
+
+  .practice-help-actions button {
+    min-width: 0;
+    font-size: 0.9rem;
+  }
+
+  .practice-empty,
+  .practice-finished {
+    padding: 26px 20px;
+    border-radius: 24px;
+  }
+
+  .practice-empty h1,
+  .practice-finished h1 {
+    font-size: clamp(2.8rem, 14vw, 4.2rem);
+  }
+}
