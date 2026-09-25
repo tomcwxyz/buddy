@@ -45,7 +45,7 @@ The alpha now supports:
 17. local learning events recorded only after a selected OCR word is lexically recognised;
 18. `Words we've met` and a three-word Practice loop derived from those events;
 19. photographed school spelling lists converted into reviewed local practice sets;
-20. any word explored in Play produces a piece in the same shared world, with more structurally interesting words able to create hills, dips, camelbacks and loops;
+20. any word explored in Play produces a piece in the same shared world, with word structure influencing a suggested starting shape while every explored word can use the full track toybox;
 21. `/practice`, `/practice/coaster` and `/practice/add-spellings` sit under one visible Play sub-navigation: Words / World / Add words; `/practice/coaster` provides the persistent construction world.
 
 Page images are not uploaded by Buddy in this alpha. OCR runs in the browser. Tesseract language/wasm resources may still be downloaded by the OCR library at runtime.
@@ -182,9 +182,9 @@ The flow is deliberately review-first:
 
 `practice_explored` is separate from `practice_known`. Every completed Play word now contributes to the same shared world identified by `buddy-play-world`, regardless of whether the word came from reading, a photographed list or manual entry. Correctness is not an input to `coasterPieceKindForWord`.
 
-The coaster is deliberately a construction toy rather than a progress meter. The shared Play world lives inside the existing `buddy.coasters.v1` storage record and contains the earned piece inventory, placed-piece order, ride name, ride count, station launch power, cart choice and scenery. On first read, older set-specific coaster records are folded into the shared Play world: pieces are deduplicated by word, placed track is preserved where possible, ride counts are combined, and scenery is carried across. The legacy set-specific records are left untouched as a safety fallback.
+The coaster is deliberately a construction toy rather than a progress meter. Build keeps the world visually primary, with Track and Park controls in secondary drawers rather than a permanent dashboard. The shared Play world lives inside the existing `buddy.coasters.v1` storage record and contains the earned piece inventory, placed-piece order, ride name, ride count, station launch power, cart choice and scenery. On first read, older set-specific coaster records are folded into the shared Play world: pieces are deduplicated by word, placed track is preserved where possible, ride counts are combined, and scenery is carried across. The legacy set-specific records are left untouched as a safety fallback.
 
-A word now unlocks a small set of compatible track shapes rather than permanently mapping to one shape. More exploration and more structure to notice can widen those options, but correctness is never consulted. The child can cycle the shape of any earned piece.
+Every explored word-piece can use the full track toybox. Word structure and exploration can influence the suggested starting shape, but they do not gate later choices and correctness is never consulted.
 
 Track SVG geometry is generated from the placed sequence; the same SVG path drives the cart animation. Terrain pieces now have cumulative elevation: lift sections finish higher and drops finish lower, within a clamped construction window so repeated terrain changes remain visible. Supports, tunnels and ride markers are positioned from the generated segment geometry rather than from a fixed baseline.
 
