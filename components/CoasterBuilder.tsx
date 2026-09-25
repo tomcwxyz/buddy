@@ -7,13 +7,15 @@ import {
   CaretLeft,
   CaretRight,
   Play,
-  Plus,
   Trash,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { CoasterBuildTools } from "@/components/CoasterBuildTools";
 import { CoasterCartGlyph, CoasterCartIcon } from "@/components/CoasterCart";
+import { CoasterModeSwitch } from "@/components/CoasterModeSwitch";
 import { CoasterPieceIcon } from "@/components/CoasterPieceIcon";
-import { CoasterSceneryGlyph, CoasterSceneryIcon } from "@/components/CoasterScenery";
+import { CoasterSceneryGlyph } from "@/components/CoasterScenery";
+import { CoasterTrackPalette } from "@/components/CoasterTrackPalette";
 import { getWordSupport } from "@/lib/literacy/engine";
 import { readLearningEvents } from "@/lib/learning/local-store";
 import {
@@ -86,65 +88,6 @@ type DragOffset = {
 const PIECE_WIDTH = CONNECTED_TRACK_PIECE_WIDTH;
 const WORLD_HEIGHT = CONNECTED_TRACK_HEIGHT;
 
-const TRACK_KIT_GROUPS: Array<{ label: string; kinds: CoasterPieceKind[] }> = [
-  {
-    label: "Shape",
-    kinds: ["straight", "lift", "drop", "hill", "dip", "bunny-hop", "swoop", "camelback", "tunnel"],
-  },
-  {
-    label: "Turn",
-    kinds: ["bank-left", "bank-right", "sweep-left", "sweep-right"],
-  },
-  {
-    label: "Speed",
-    kinds: ["launch", "brake"],
-  },
-  {
-    label: "Stunts",
-    kinds: ["jump", "mega-jump", "loop", "double-loop", "corkscrew", "half-pipe", "wall-ride"],
-  },
-];
-
-function defaultCartPose(): CartPose {
-  return {
-    x: CONNECTED_TRACK_STATION_X,
-    y: CONNECTED_TRACK_START_Y,
-    angle: 0,
-    visible: false,
-  };
-}
-
-function TrackChoicePalette({
-  word,
-  currentKind,
-  options,
-  onChoose,
-  compact = false,
-}: {
-  word: string;
-  currentKind: CoasterPieceKind;
-  options: CoasterPieceKind[];
-  onChoose: (kind: CoasterPieceKind) => void;
-  compact?: boolean;
-}) {
-  return (
-    <div className={`coaster-track-palette${compact ? " compact" : ""}`} aria-label={`Choose track shape for ${word}`}>
-      {options.map((kind) => (
-        <button
-          type="button"
-          key={kind}
-          className={currentKind === kind ? "active" : ""}
-          onClick={() => onChoose(kind)}
-          aria-pressed={currentKind === kind}
-        >
-          <CoasterPieceIcon kind={kind} />
-          <span>{COASTER_PIECES[kind].shortLabel}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export function CoasterBuilder() {
   const [coaster, setCoaster] = useState<CoasterState | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -161,7 +104,6 @@ export function CoasterBuilder() {
   const [peakSpeed, setPeakSpeed] = useState(0);
   const [rideMessage, setRideMessage] = useState("Build a bit of track, then send the cart.");
   const [cartPose, setCartPose] = useState<CartPose>(defaultCartPose);
-  const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
   const [cartDrag, setCartDrag] = useState<DragOffset>({
     x: 0,
     y: 0,
@@ -263,10 +205,6 @@ export function CoasterBuilder() {
   function choosePieceKind(pieceId: string, word: string, kind: CoasterPieceKind) {
     setCoaster(setCoasterPieceKind(PLAY_WORLD_ID, pieceId, kind));
     setRideMessage(`${word} is now ${COASTER_PIECES[kind].shortLabel.toLowerCase()} track.`);
-  }
-
-  function piecesThatCanBecome(kind: CoasterPieceKind) {
-    return (coaster?.pieces ?? []).filter((piece) => pieceOptions(piece.word).includes(kind));
   }
 
   function buildFromTrackKit(pieceId: string, word: string, kind: CoasterPieceKind) {
@@ -486,24 +424,6 @@ export function CoasterBuilder() {
     frameRef.current = requestAnimationFrame(tick);
   }
 
-  function onPieceDragStart(event: DragEvent, pieceId: string) {
-    event.dataTransfer.setData("text/buddy-coaster-piece", pieceId);
-    event.dataTransfer.effectAllowed = "move";
-    setDraggingPieceId(pieceId);
-  }
-
-  function onPieceDragEnd() {
-    setDraggingPieceId(null);
-  }
-
-  function onTrackDrop(event: DragEvent) {
-    event.preventDefault();
-    if (mode !== "build") return;
-    const pieceId = event.dataTransfer.getData("text/buddy-coaster-piece");
-    if (pieceId) addPiece(pieceId);
-    setDraggingPieceId(null);
-  }
-
   function chooseScenery(kind: CoasterSceneryKind) {
     setSelectedSceneryId(null);
     setSelectedSceneryKind((current) => current === kind ? null : kind);
@@ -517,11 +437,13 @@ export function CoasterBuilder() {
   function onParkPointerDown(event: PointerEvent<SVGSVGElement>) {
     if (mode !== "build" || riding || (!selectedSceneryKind && !selectedSceneryId)) return;
 
-    const rect = event.currentTarget.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
+    const svg = event.currentTarget;
+    const matrix = svg.getScreenCTM();
+    if (!matrix) return;
 
-    const x = (event.clientX - rect.left) / rect.width;
-    const y = (event.clientY - rect.top) / rect.height;
+    const worldPoint = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+    const x = worldPoint.x / viewWidth;
+    const y = worldPoint.y / WORLD_HEIGHT;
 
     if (selectedSceneryId) {
       setCoaster(moveCoasterScenery(PLAY_WORLD_ID, selectedSceneryId, x, y));
@@ -541,12 +463,23 @@ export function CoasterBuilder() {
     if (scenerySpaceLeft <= 1) setSelectedSceneryKind(null);
   }
 
-  function selectPlacedScenery(event: PointerEvent<SVGGElement>, sceneryId: string) {
+  function togglePlacedScenery(sceneryId: string) {
     if (mode !== "build" || riding) return;
-    event.stopPropagation();
     setSelectedSceneryKind(null);
     setSelectedSceneryId((current) => current === sceneryId ? null : sceneryId);
     setRideMessage("Selected. Tap somewhere in the park to move it.");
+  }
+
+  function selectPlacedScenery(event: PointerEvent<SVGGElement>, sceneryId: string) {
+    event.stopPropagation();
+    togglePlacedScenery(sceneryId);
+  }
+
+  function selectPlacedSceneryWithKeyboard(event: KeyboardEvent<SVGGElement>, sceneryId: string) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    event.stopPropagation();
+    togglePlacedScenery(sceneryId);
   }
 
   function removeSelectedScenery() {
