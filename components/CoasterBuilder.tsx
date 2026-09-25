@@ -1146,7 +1146,7 @@ export function CoasterBuilder() {
                 : selectedSceneryId
                   ? "Tap somewhere in the park to move the selected scenery."
                   : inventory.length > 0
-                    ? "Grab a word-piece below and drag it onto the coaster — or tap it to snap it on."
+                    ? "Grab a word-piece above and drag it onto the coaster — or tap it to snap it on."
                     : "Everything you have is on the ride. Change the order or reshape a piece below."
               : "Drag the cart onto the station or press Send it. Then watch where the ride flies — or stalls."}
           </p>
