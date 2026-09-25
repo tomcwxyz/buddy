@@ -85,6 +85,18 @@ type DragOffset = {
   startY: number;
 };
 
+type PieceDrag = {
+  pieceId: string;
+  word: string;
+  kind: CoasterPieceKind;
+  pointerId: number;
+  x: number;
+  y: number;
+  startX: number;
+  startY: number;
+  overBoard: boolean;
+};
+
 const PIECE_WIDTH = CONNECTED_TRACK_PIECE_WIDTH;
 const WORLD_HEIGHT = CONNECTED_TRACK_HEIGHT;
 
@@ -121,6 +133,7 @@ export function CoasterBuilder() {
     startX: 0,
     startY: 0,
   });
+  const [pieceDrag, setPieceDrag] = useState<PieceDrag | null>(null);
 
   const boardRef = useRef<HTMLDivElement>(null);
   const stationRef = useRef<SVGPathElement>(null);
@@ -428,6 +441,84 @@ export function CoasterBuilder() {
     frameRef.current = requestAnimationFrame(tick);
   }
 
+  function placePieceAtEnd(pieceId: string, word: string) {
+    setCoaster(placeCoasterPiece(PLAY_WORLD_ID, pieceId));
+    setRideMessage(`${word} snapped onto the end.`);
+  }
+
+  function startPieceDrag(
+    event: PointerEvent<HTMLButtonElement>,
+    piece: CoasterState["pieces"][number],
+  ) {
+    if (mode !== "build" || riding) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setPieceDrag({
+      pieceId: piece.id,
+      word: piece.word,
+      kind: piece.kind,
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      startX: event.clientX,
+      startY: event.clientY,
+      overBoard: false,
+    });
+    setRideMessage(`Drag ${piece.word} onto the coaster.`);
+  }
+
+  function movePieceDrag(event: PointerEvent<HTMLButtonElement>) {
+    setPieceDrag((current) => {
+      if (!current || current.pointerId !== event.pointerId) return current;
+      const rect = boardRef.current?.getBoundingClientRect();
+      const overBoard = Boolean(
+        rect
+        && event.clientX >= rect.left
+        && event.clientX <= rect.right
+        && event.clientY >= rect.top
+        && event.clientY <= rect.bottom,
+      );
+      return {
+        ...current,
+        x: event.clientX,
+        y: event.clientY,
+        overBoard,
+      };
+    });
+  }
+
+  function finishPieceDrag(event: PointerEvent<HTMLButtonElement>) {
+    const current = pieceDrag;
+    if (!current || current.pointerId !== event.pointerId) return;
+
+    const rect = boardRef.current?.getBoundingClientRect();
+    const overBoard = Boolean(
+      rect
+      && event.clientX >= rect.left
+      && event.clientX <= rect.right
+      && event.clientY >= rect.top
+      && event.clientY <= rect.bottom,
+    );
+    const distance = Math.hypot(
+      event.clientX - current.startX,
+      event.clientY - current.startY,
+    );
+
+    if (overBoard || distance < 8) {
+      placePieceAtEnd(current.pieceId, current.word);
+    } else {
+      setRideMessage(`${current.word} is still waiting in your pieces.`);
+    }
+
+    setPieceDrag(null);
+  }
+
+  function cancelPieceDrag(event: PointerEvent<HTMLButtonElement>) {
+    if (!pieceDrag || pieceDrag.pointerId !== event.pointerId) return;
+    setPieceDrag(null);
+    setRideMessage("Piece back in your dock.");
+  }
+
   function chooseScenery(kind: CoasterSceneryKind) {
     setSelectedSceneryId(null);
     setSelectedSceneryKind((current) => current === kind ? null : kind);
@@ -676,7 +767,7 @@ export function CoasterBuilder() {
           )}
 
           <div
-            className={`coaster-board ${mode === "ride" ? "ride-stage" : "build-stage"}${cartDrag.active ? " cart-dragging" : ""}`}
+            className={`coaster-board ${mode === "ride" ? "ride-stage" : "build-stage"}${cartDrag.active ? " cart-dragging" : ""}${pieceDrag?.overBoard ? " piece-drop-ready" : ""}`}
             ref={boardRef}
           >
             <svg
@@ -930,7 +1021,7 @@ export function CoasterBuilder() {
 
               {mode === "build" && placedPieces.length > 0 && (
                 <g
-                  className="coaster-build-endpoint"
+                  className={`coaster-build-endpoint${pieceDrag?.overBoard ? " drop-ready" : ""}`}
                   transform={`translate(${trackEndpoint.x} ${trackEndpoint.y}) rotate(${trackEndpoint.heading})`}
                   aria-hidden="true"
                 >
@@ -944,7 +1035,7 @@ export function CoasterBuilder() {
               {placedPieces.length === 0 && (
                 <g opacity="0.62">
                   <path d={`M ${trackGeometry.stationEnd.x} ${trackGeometry.stationEnd.y} L ${trackGeometry.stationEnd.x + PIECE_WIDTH} ${trackGeometry.stationEnd.y}`} stroke="#625e55" strokeWidth="8" strokeLinecap="round" strokeDasharray="10 11" />
-                  <text x={trackGeometry.stationEnd.x + PIECE_WIDTH / 2} y={trackGeometry.stationEnd.y + 30} textAnchor="middle" className="coaster-svg-help">drop a piece here</text>
+                  <text x={trackGeometry.stationEnd.x + PIECE_WIDTH / 2} y={trackGeometry.stationEnd.y + 30} textAnchor="middle" className="coaster-svg-help">DROP A WORD-PIECE HERE</text>
                 </g>
               )}
 
@@ -1006,15 +1097,59 @@ export function CoasterBuilder() {
             )}
           </div>
 
+          {pieceDrag && (
+            <div
+              className={`coaster-piece-drag-ghost${pieceDrag.overBoard ? " over-board" : ""}`}
+              style={{ left: pieceDrag.x, top: pieceDrag.y }}
+              aria-hidden="true"
+            >
+              <CoasterPieceIcon kind={pieceDrag.kind} />
+              <span>{COASTER_PIECES[pieceDrag.kind].shortLabel}</span>
+              <strong>{pieceDrag.word}</strong>
+            </div>
+          )}
+
           <p className="coaster-board-hint">
             {mode === "build"
               ? selectedSceneryKind
                 ? `Tap the park to place ${COASTER_SCENERY[selectedSceneryKind].label.toLowerCase()}.`
                 : selectedSceneryId
                   ? "Tap somewhere in the park to move the selected scenery."
-                  : "Use Add track below: choose a shape, then a word-piece. It snaps onto BUILD HERE."
+                  : inventory.length > 0
+                    ? "Grab a word-piece below and drag it onto the coaster — or tap it to snap it on."
+                    : "Everything you have is on the ride. Change the order or reshape a piece below."
               : "Drag the cart onto the station or press Send it. Then watch where the ride flies — or stalls."}
           </p>
+
+          {mode === "build" && inventory.length > 0 && (
+            <section className="coaster-piece-dock" aria-label="Word-pieces ready to build">
+              <div className="coaster-piece-dock-heading">
+                <div>
+                  <span>Your pieces</span>
+                  <strong>Drag one onto the coaster.</strong>
+                </div>
+                <small>Tap also works.</small>
+              </div>
+              <div className="coaster-piece-dock-row">
+                {inventory.map((piece) => (
+                  <button
+                    type="button"
+                    key={piece.id}
+                    className={pieceDrag?.pieceId === piece.id ? "dragging" : ""}
+                    onPointerDown={(event) => startPieceDrag(event, piece)}
+                    onPointerMove={movePieceDrag}
+                    onPointerUp={finishPieceDrag}
+                    onPointerCancel={cancelPieceDrag}
+                    aria-label={`Drag ${piece.word} onto the track`}
+                  >
+                    <CoasterPieceIcon kind={piece.kind} />
+                    <span>{COASTER_PIECES[piece.kind].shortLabel}</span>
+                    <strong>{piece.word}</strong>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
           {mode === "build" && placedPieces.length > 0 && (
             <div className="coaster-track-order" aria-label="Track pieces in order">
