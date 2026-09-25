@@ -86,9 +86,15 @@ test("a word-piece can be dragged from the dock onto the coaster world", async (
   const target = await board.boundingBox();
   if (!source || !target) throw new Error("Coaster drag target was not measurable");
 
+  const viewport = page.viewportSize();
+  const dropX = target.x + target.width * 0.58;
+  const dropY = viewport
+    ? Math.max(target.y + 28, Math.min(target.y + target.height - 28, viewport.height - 48))
+    : target.y + Math.min(90, target.height * 0.25);
+
   await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
   await page.mouse.down();
-  await page.mouse.move(target.x + target.width * 0.58, target.y + target.height * 0.52, { steps: 8 });
+  await page.mouse.move(dropX, dropY, { steps: 8 });
   await page.mouse.up();
 
   await expect(page.locator(".coaster-build-endpoint")).toBeVisible();
