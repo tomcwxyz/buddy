@@ -175,11 +175,6 @@ export function CoasterBuilder() {
     ? `${rideCameraX} 0 ${rideCameraWidth} ${WORLD_HEIGHT}`
     : `0 0 ${viewWidth} ${WORLD_HEIGHT}`;
 
-  function addPiece(pieceId: string) {
-    setCoaster(placeCoasterPiece(PLAY_WORLD_ID, pieceId));
-    setRideMessage("Nice. The track just changed.");
-  }
-
   function removePiece(pieceId: string) {
     setCoaster(unplaceCoasterPiece(PLAY_WORLD_ID, pieceId));
     setRideMessage("Piece back in the yard.");
@@ -581,30 +576,12 @@ export function CoasterBuilder() {
         </div>
       </header>
 
-      <div className="coaster-mode-switch" role="tablist" aria-label="Coaster mode">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === "build"}
-          className={mode === "build" ? "active" : ""}
-          onClick={() => switchMode("build")}
-          disabled={riding}
-        >
-          <span>Build</span>
-          <small>Choose pieces and shape the track</small>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === "ride"}
-          className={mode === "ride" ? "active" : ""}
-          onClick={() => switchMode("ride")}
-          disabled={placedPieces.length === 0 || riding}
-        >
-          <span>Ride</span>
-          <small>Clear the workshop and test it</small>
-        </button>
-      </div>
+      <CoasterModeSwitch
+        mode={mode}
+        canRide={placedPieces.length > 0}
+        riding={riding}
+        onChange={switchMode}
+      />
 
       <div className={`coaster-layout ${mode === "ride" ? "ride-mode" : "build-mode"}`}>
         <section className="coaster-world-card">
@@ -614,18 +591,20 @@ export function CoasterBuilder() {
               <strong>{placedPieces.length === 0 ? "Start your track." : rideMessage}</strong>
             </div>
 
-            <div className="coaster-speed-readout" aria-live="polite">
-              <span>Speed</span>
-              <strong>{Math.round(riding ? rideSpeed : COASTER_LAUNCH_SPEED[coaster.launchPower])} mph</strong>
-              <small>
-                {riding
-                  ? `${speedLabel(rideSpeed)} · peak ${Math.round(peakSpeed)}`
-                  : "at the station"}
-              </small>
-              <span className="coaster-speed-meter" aria-hidden="true">
-                <i style={{ width: `${Math.min(100, ((riding ? rideSpeed : COASTER_LAUNCH_SPEED[coaster.launchPower]) / 62) * 100)}%` }} />
-              </span>
-            </div>
+            {mode === "ride" && (
+              <div className="coaster-speed-readout" aria-live="polite">
+                <span>Speed</span>
+                <strong>{Math.round(riding ? rideSpeed : COASTER_LAUNCH_SPEED[coaster.launchPower])} mph</strong>
+                <small>
+                  {riding
+                    ? `${speedLabel(rideSpeed)} · peak ${Math.round(peakSpeed)}`
+                    : "at the station"}
+                </small>
+                <span className="coaster-speed-meter" aria-hidden="true">
+                  <i style={{ width: `${Math.min(100, ((riding ? rideSpeed : COASTER_LAUNCH_SPEED[coaster.launchPower]) / 62) * 100)}%` }} />
+                </span>
+              </div>
+            )}
 
             {mode === "build" ? (
               <button
@@ -650,7 +629,8 @@ export function CoasterBuilder() {
             )}
           </div>
 
-          <div className="coaster-launch-strip">
+          {mode === "ride" && (
+            <div className="coaster-launch-strip">
             <div>
               <span>Station launch</span>
               <strong>How fast should the cart leave?</strong>
@@ -673,9 +653,10 @@ export function CoasterBuilder() {
                 </button>
               ))}
             </div>
-          </div>
+            </div>
+          )}
 
-          {placedPieces.length > 0 && (
+          {mode === "ride" && placedPieces.length > 0 && (
             <div className="coaster-character" aria-label="Ride character">
               <div>
                 <span>Ride character</span>
@@ -695,8 +676,6 @@ export function CoasterBuilder() {
           <div
             className={`coaster-board ${mode === "ride" ? "ride-stage" : "build-stage"}${cartDrag.active ? " cart-dragging" : ""}`}
             ref={boardRef}
-            onDragOver={(event) => mode === "build" && event.preventDefault()}
-            onDrop={onTrackDrop}
           >
             <svg
               className={`coaster-world${mode === "build" && (selectedSceneryKind || selectedSceneryId) ? " scenery-placement-active" : ""}${mode === "ride" && riding ? " camera-following" : ""}`}
@@ -744,8 +723,10 @@ export function CoasterBuilder() {
                     className={`coaster-scenery-item${selected ? " selected" : ""}`}
                     transform={`translate(${x} ${y}) scale(${scale})`}
                     onPointerDown={(event) => selectPlacedScenery(event, item.id)}
+                    onKeyDown={(event) => selectPlacedSceneryWithKeyboard(event, item.id)}
                     role={mode === "build" ? "button" : undefined}
-                    aria-label={mode === "build" ? `Move ${COASTER_SCENERY[item.kind].label}` : undefined}
+                    tabIndex={mode === "build" ? 0 : undefined}
+                    aria-label={mode === "build" ? `Select ${COASTER_SCENERY[item.kind].label} to move it` : undefined}
                   >
                     {selected && <circle cx="0" cy="4" r="38" fill="none" stroke="#b97c63" strokeWidth="3" strokeDasharray="6 5" />}
                     <g className={`coaster-scenery-reactor scenery-${item.kind}${mode === "ride" && riding ? " alive" : ""}`}>
@@ -947,7 +928,7 @@ export function CoasterBuilder() {
 
               {mode === "build" && placedPieces.length > 0 && (
                 <g
-                  className={`coaster-build-endpoint${draggingPieceId ? " drop-ready" : ""}`}
+                  className="coaster-build-endpoint"
                   transform={`translate(${trackEndpoint.x} ${trackEndpoint.y}) rotate(${trackEndpoint.heading})`}
                   aria-hidden="true"
                 >
@@ -1029,9 +1010,7 @@ export function CoasterBuilder() {
                 ? `Tap the park to place ${COASTER_SCENERY[selectedSceneryKind].label.toLowerCase()}.`
                 : selectedSceneryId
                   ? "Tap somewhere in the park to move the selected scenery."
-                  : draggingPieceId
-                    ? "Drop it on the world — it will snap onto BUILD HERE."
-                    : "Build from the endpoint. Try sweepers, half-pipes and wall rides, then move launches and drops around until the ridiculous bits work."
+                  : "Use Add track below: choose a shape, then a word-piece. It snaps onto BUILD HERE."
               : "Drag the cart onto the station or press Send it. Then watch where the ride flies — or stalls."}
           </p>
 
@@ -1088,7 +1067,7 @@ export function CoasterBuilder() {
                 </div>
                 <button type="button" onClick={() => setEditingPieceId(null)}>Done</button>
               </div>
-              <TrackChoicePalette
+              <CoasterTrackPalette
                 word={editingPiece.word}
                 currentKind={editingPiece.kind}
                 options={pieceOptions(editingPiece.word)}
@@ -1134,189 +1113,21 @@ export function CoasterBuilder() {
           )}
         </section>
 
-        {mode === "build" && <aside className="coaster-yard">
-          <div className="coaster-track-kit">
-            <div className="coaster-track-kit-heading">
-              <div>
-                <span>Track kit</span>
-                <strong>What do you want to build?</strong>
-              </div>
-              <small>Every shape stays visible. Word-pieces decide what you can use right now.</small>
-            </div>
-
-            <div className="coaster-track-kit-groups">
-              {TRACK_KIT_GROUPS.map((group) => (
-                <div className="coaster-track-kit-group" key={group.label}>
-                  <span>{group.label}</span>
-                  <div>
-                    {group.kinds.map((kind) => {
-                      const compatible = piecesThatCanBecome(kind);
-                      const waiting = compatible.filter((piece) => !coaster.placedIds.includes(piece.id));
-                      const available = compatible.length > 0;
-                      return (
-                        <button
-                          type="button"
-                          key={kind}
-                          className={`${selectedKitKind === kind ? "active " : ""}${available ? "" : "unavailable"}`.trim()}
-                          onClick={() => setSelectedKitKind((current) => current === kind ? null : kind)}
-                          aria-pressed={selectedKitKind === kind}
-                        >
-                          <CoasterPieceIcon kind={kind} />
-                          <span>{COASTER_PIECES[kind].shortLabel}</span>
-                          <small>{waiting.length > 0 ? `${waiting.length} ready` : available ? "on track" : "not yet"}</small>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {selectedKitKind && (() => {
-              const compatible = piecesThatCanBecome(selectedKitKind);
-              const waiting = compatible.filter((piece) => !coaster.placedIds.includes(piece.id));
-              const alreadyPlaced = compatible.filter((piece) => coaster.placedIds.includes(piece.id));
-              return (
-                <div className="coaster-track-kit-picker">
-                  <div>
-                    <CoasterPieceIcon kind={selectedKitKind} />
-                    <div>
-                      <strong>{COASTER_PIECES[selectedKitKind].label}</strong>
-                      <span>{COASTER_PIECES[selectedKitKind].description}</span>
-                    </div>
-                  </div>
-
-                  {waiting.length > 0 ? (
-                    <>
-                      <p>Pick a word-piece and it will snap onto <strong>BUILD HERE</strong> as this shape.</p>
-                      <div className="coaster-track-kit-words">
-                        {waiting.map((piece) => (
-                          <button
-                            type="button"
-                            key={piece.id}
-                            onClick={() => buildFromTrackKit(piece.id, piece.word, selectedKitKind)}
-                          >
-                            <Plus size={15} /> {piece.word}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  ) : alreadyPlaced.length > 0 ? (
-                    <>
-                      <p>Your current word-pieces that can make this shape are already on the ride. Change one in place:</p>
-                      <div className="coaster-track-kit-words">
-                        {alreadyPlaced.map((piece) => (
-                          <button
-                            type="button"
-                            key={piece.id}
-                            onClick={() => choosePieceKind(piece.id, piece.word, selectedKitKind)}
-                          >
-                            {piece.word}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <p className="coaster-track-kit-none">
-                      No word in your world can take this shape yet. It stays here so the toybox is visible — exploring more words can create different building material.
-                    </p>
-                  )}
-                </div>
-              );
-            })()}
-
-          </div>
-
-          <div className="coaster-yard-heading">
-            <div>
-              <span>Piece yard</span>
-              <strong>{inventory.length > 0 ? "What should we build next?" : "Everything is on the track."}</strong>
-            </div>
-            <span>{inventory.length} waiting</span>
-          </div>
-
-          {inventory.length > 0 ? (
-            <div className="coaster-piece-grid">
-              {inventory.map((piece) => {
-                const options = pieceOptions(piece.word);
-                return (
-                  <div
-                    className={`coaster-piece-card adventure-${COASTER_PIECES[piece.kind].adventure}`}
-                    key={piece.id}
-                    draggable
-                    onDragStart={(event) => onPieceDragStart(event, piece.id)}
-                    onDragEnd={onPieceDragEnd}
-                  >
-                    <button type="button" className="coaster-piece-add" onClick={() => addPiece(piece.id)}>
-                      <CoasterPieceIcon kind={piece.kind} />
-                      <span>{COASTER_PIECES[piece.kind].shortLabel}</span>
-                      <strong>{piece.word}</strong>
-                      <small>{COASTER_PIECES[piece.kind].description}</small>
-                      <i><Plus size={15} /> Add to track</i>
-                    </button>
-                    <div className="coaster-yard-palette">
-                      <span>Choose its shape</span>
-                      <TrackChoicePalette
-                        word={piece.word}
-                        currentKind={piece.kind}
-                        options={options}
-                        compact
-                        onChoose={(kind) => choosePieceKind(piece.id, piece.word, kind)}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="coaster-yard-empty">
-              <CoasterPieceIcon kind="loop" />
-              <p>Explore more words to find more pieces for this world.</p>
-              <Link href="/practice">Back to the words <ArrowRight size={18} /></Link>
-            </div>
-          )}
-
-          <div className="coaster-park-builder">
-            <div className="coaster-park-heading">
-              <div>
-                <span>Park</span>
-                <strong>Grow the world around the ride</strong>
-              </div>
-              <span>{scenerySpaceLeft} space{scenerySpaceLeft === 1 ? "" : "s"} left</span>
-            </div>
-
-            <div className="coaster-scenery-palette" aria-label="Park scenery">
-              {(Object.keys(COASTER_SCENERY) as CoasterSceneryKind[]).map((kind) => (
-                <button
-                  type="button"
-                  key={kind}
-                  className={selectedSceneryKind === kind ? "active" : ""}
-                  onClick={() => chooseScenery(kind)}
-                  disabled={scenerySpaceLeft === 0 && selectedSceneryKind !== kind}
-                  aria-pressed={selectedSceneryKind === kind}
-                >
-                  <CoasterSceneryIcon kind={kind} />
-                  <span>{COASTER_SCENERY[kind].label}</span>
-                </button>
-              ))}
-            </div>
-
-            {selectedScenery && (
-              <div className="coaster-scenery-selected">
-                <span>Selected: {COASTER_SCENERY[selectedScenery.kind].label}</span>
-                <span>Tap the park to move it.</span>
-                <button type="button" onClick={removeSelectedScenery}>Put it away</button>
-              </div>
-            )}
-
-            <p>Exploring words makes room for the park to grow, wherever those words came from. There are no “better” decorations — just more ways to make this place yours.</p>
-          </div>
-
-          <div className="coaster-game-rule">
-            <strong>How this world grows</strong>
-            <p>Trying, listening, asking for help and digging into words all count. Each explored word gives you track choices. Then the game is yours: arrange pieces, manage speed, move launches and brakes, and see whether the cart makes the ride.</p>
-          </div>
-        </aside>}
+        {mode === "build" && (
+          <CoasterBuildTools
+            coaster={coaster}
+            inventory={inventory}
+            selectedKitKind={selectedKitKind}
+            selectedSceneryKind={selectedSceneryKind}
+            selectedScenery={selectedScenery}
+            scenerySpaceLeft={scenerySpaceLeft}
+            onSelectKitKind={setSelectedKitKind}
+            onBuildPiece={buildFromTrackKit}
+            onChangePlacedPiece={choosePieceKind}
+            onChooseScenery={chooseScenery}
+            onRemoveSelectedScenery={removeSelectedScenery}
+          />
+        )}
       </div>
     </section>
   );
