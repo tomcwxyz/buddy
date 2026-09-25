@@ -21,7 +21,7 @@ test("a word can move from Add words into the shared build-and-ride world", asyn
   await expect(page.getByText("Listen + notice")).toBeVisible();
 
   await page.getByRole("button", { name: "Done with this one" }).click();
-  await expect(page.getByText("Three words. That's it.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "One word. That's enough." })).toBeVisible();
 
   await page.getByRole("link", { name: "Build the ride" }).click();
   await expect(page).toHaveURL(/\/practice\/coaster$/);
