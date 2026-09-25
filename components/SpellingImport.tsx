@@ -119,7 +119,6 @@ export function SpellingImport() {
             <input
               type="file"
               accept="image/*"
-              capture="environment"
               onChange={(event) => void choosePhoto(event.target.files?.[0] ?? null)}
             />
           </label>
