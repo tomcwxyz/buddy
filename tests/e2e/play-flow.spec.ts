@@ -38,7 +38,7 @@ test("a word can move from Add words into the shared build-and-ride world", asyn
 
   await page.locator("summary").filter({ hasText: "Add track" }).click();
   await page.getByRole("button", { name: "Loop", exact: true }).click();
-  await page.getByRole("button", { name: /because/i }).click();
+  await page.locator(".coaster-track-kit-picker").getByRole("button", { name: "because", exact: true }).click();
 
   await expect(page.locator(".coaster-build-endpoint")).toBeVisible();
   await page.getByRole("button", { name: "Ride mode", exact: true }).click();
