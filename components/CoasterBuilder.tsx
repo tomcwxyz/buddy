@@ -766,6 +766,36 @@ export function CoasterBuilder() {
             </div>
           )}
 
+          {mode === "build" && inventory.length > 0 && (
+            <section className="coaster-piece-dock" aria-label="Word-pieces ready to build">
+              <div className="coaster-piece-dock-heading">
+                <div>
+                  <span>Your pieces</span>
+                  <strong>Drag one onto the coaster.</strong>
+                </div>
+                <small>Tap also works.</small>
+              </div>
+              <div className="coaster-piece-dock-row">
+                {inventory.map((piece) => (
+                  <button
+                    type="button"
+                    key={piece.id}
+                    className={pieceDrag?.pieceId === piece.id ? "dragging" : ""}
+                    onPointerDown={(event) => startPieceDrag(event, piece)}
+                    onPointerMove={movePieceDrag}
+                    onPointerUp={finishPieceDrag}
+                    onPointerCancel={cancelPieceDrag}
+                    aria-label={`Drag ${piece.word} onto the track`}
+                  >
+                    <CoasterPieceIcon kind={piece.kind} />
+                    <span>{COASTER_PIECES[piece.kind].shortLabel}</span>
+                    <strong>{piece.word}</strong>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
           <div
             className={`coaster-board ${mode === "ride" ? "ride-stage" : "build-stage"}${cartDrag.active ? " cart-dragging" : ""}${pieceDrag?.overBoard ? " piece-drop-ready" : ""}`}
             ref={boardRef}
@@ -1120,36 +1150,6 @@ export function CoasterBuilder() {
                     : "Everything you have is on the ride. Change the order or reshape a piece below."
               : "Drag the cart onto the station or press Send it. Then watch where the ride flies — or stalls."}
           </p>
-
-          {mode === "build" && inventory.length > 0 && (
-            <section className="coaster-piece-dock" aria-label="Word-pieces ready to build">
-              <div className="coaster-piece-dock-heading">
-                <div>
-                  <span>Your pieces</span>
-                  <strong>Drag one onto the coaster.</strong>
-                </div>
-                <small>Tap also works.</small>
-              </div>
-              <div className="coaster-piece-dock-row">
-                {inventory.map((piece) => (
-                  <button
-                    type="button"
-                    key={piece.id}
-                    className={pieceDrag?.pieceId === piece.id ? "dragging" : ""}
-                    onPointerDown={(event) => startPieceDrag(event, piece)}
-                    onPointerMove={movePieceDrag}
-                    onPointerUp={finishPieceDrag}
-                    onPointerCancel={cancelPieceDrag}
-                    aria-label={`Drag ${piece.word} onto the track`}
-                  >
-                    <CoasterPieceIcon kind={piece.kind} />
-                    <span>{COASTER_PIECES[piece.kind].shortLabel}</span>
-                    <strong>{piece.word}</strong>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
 
           {mode === "build" && placedPieces.length > 0 && (
             <div className="coaster-track-order" aria-label="Track pieces in order">
