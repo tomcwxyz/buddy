@@ -27,7 +27,7 @@ test("a word can move from Add words into the shared build-and-ride world", asyn
   await expect(page).toHaveURL(/\/practice\/coaster$/);
 
   await page.locator("summary").filter({ hasText: "Add track" }).click();
-  await page.getByRole("button", { name: "Loop" }).click();
+  await page.getByRole("button", { name: "Loop", exact: true }).click();
   await page.getByRole("button", { name: /because/i }).click();
 
   await expect(page.getByText("BUILD HERE")).toBeVisible();
