@@ -30,7 +30,7 @@ test("a word can move from Add words into the shared build-and-ride world", asyn
   await page.getByRole("button", { name: "Loop", exact: true }).click();
   await page.getByRole("button", { name: /because/i }).click();
 
-  await expect(page.getByText("BUILD HERE")).toBeVisible();
+  await expect(page.locator(".coaster-build-endpoint")).toBeVisible();
   await page.getByRole("button", { name: "Ride" }).click();
   await expect(page.getByText("Station launch")).toBeVisible();
   await expect(page.getByRole("button", { name: "Send it" }).first()).toBeVisible();
