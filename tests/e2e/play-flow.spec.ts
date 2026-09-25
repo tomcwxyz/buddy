@@ -16,9 +16,9 @@ test("a word can move from Add words into the shared build-and-ride world", asyn
   await expect(page.getByRole("heading", { name: "because" })).toBeVisible();
 
   // Support stays hidden until the child asks.
-  await expect(page.getByText("Listen + notice")).toHaveCount(0);
+  await expect(page.locator(".practice-reveal")).toHaveCount(0);
   await page.getByRole("button", { name: "Give me a clue" }).click();
-  await expect(page.getByText("Listen + notice")).toBeVisible();
+  await expect(page.locator(".practice-reveal")).toBeVisible();
 
   await page.getByRole("button", { name: "Done with this one" }).click();
   await expect(page.getByRole("heading", { name: "One word. That's enough." })).toBeVisible();
@@ -26,7 +26,7 @@ test("a word can move from Add words into the shared build-and-ride world", asyn
   await page.getByRole("link", { name: "Build the ride" }).click();
   await expect(page).toHaveURL(/\/practice\/coaster$/);
 
-  await page.getByText("Add track").click();
+  await page.locator("summary").filter({ hasText: "Add track" }).click();
   await page.getByRole("button", { name: "Loop" }).click();
   await page.getByRole("button", { name: /because/i }).click();
 
@@ -44,7 +44,7 @@ test("every word-piece can use the adventurous end of the track kit", async ({ p
   await page.getByRole("button", { name: "Done with this one" }).click();
   await page.getByRole("link", { name: "Build the ride" }).click();
 
-  await page.getByText("Add track").click();
+  await page.locator("summary").filter({ hasText: "Add track" }).click();
   await expect(page.getByRole("button", { name: "Mega jump" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Wall ride" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Double loop" })).toBeVisible();
