@@ -15,6 +15,7 @@ export function CoasterModeSwitch({
     <div className="coaster-mode-switch" aria-label="Coaster mode">
       <button
         type="button"
+        aria-label="Build mode"
         aria-pressed={mode === "build"}
         className={mode === "build" ? "active" : ""}
         onClick={() => onChange("build")}
@@ -25,6 +26,7 @@ export function CoasterModeSwitch({
       </button>
       <button
         type="button"
+        aria-label="Ride mode"
         aria-pressed={mode === "ride"}
         className={mode === "ride" ? "active" : ""}
         onClick={() => onChange("ride")}
