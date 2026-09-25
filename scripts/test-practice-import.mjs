@@ -81,57 +81,46 @@ const cases = [
     },
   ],
   [
-    "a short familiar-shaped word still earns real track choices",
+    "every explored word gets the same complete construction toybox",
     () => {
-      const options = coaster.coasterPieceOptionsForWord({ word: "cat", chunks: 1, syllables: 1 });
-      assert.equal(options.length >= 3, true);
-      assert.equal(options.includes("straight"), true);
-    },
-  ],
-  [
-    "a word with lots to notice can unlock loops without any correctness input",
-    () => {
-      const options = coaster.coasterPieceOptionsForWord({
-        word: "extraordinary",
-        chunks: 4,
-        syllables: 5,
-        signals: { together: true },
-      });
-      assert.equal(options.includes("loop"), true);
-      assert.equal(options.includes("double-loop"), true);
-    },
-  ],
-  [
-    "exploring a word opens more construction choices without correctness",
-    () => {
-      const quiet = coaster.coasterPieceOptionsForWord({ word: "cat", chunks: 1, syllables: 1 });
-      const explored = coaster.coasterPieceOptionsForWord({
-        word: "because",
-        chunks: 3,
-        syllables: 2,
-        signals: { clue: true, meaning: true },
-      });
-      assert.equal(quiet.includes("straight"), true);
-      assert.equal(explored.includes("launch"), true);
-      assert.equal(explored.includes("bank-left"), true);
-      assert.equal(explored.includes("bank-right"), true);
-      assert.equal(explored.length > quiet.length, true);
-    },
-  ],
-  [
-    "crazy track kit widens the toybox for richly explored words",
-    () => {
-      const options = coaster.coasterPieceOptionsForWord({
+      const cat = coaster.coasterPieceOptionsForWord({ word: "cat", chunks: 1, syllables: 1 });
+      const extraordinary = coaster.coasterPieceOptionsForWord({
         word: "extraordinary",
         chunks: 4,
         syllables: 5,
         signals: { together: true, meaning: true },
       });
-      for (const kind of ["sweep-left", "sweep-right", "half-pipe", "wall-ride"]) {
-        assert.equal(options.includes(kind), true);
+      assert.deepEqual(cat, extraordinary);
+      for (const kind of ["straight", "loop", "mega-jump", "half-pipe", "wall-ride", "launch"]) {
+        assert.equal(cat.includes(kind), true);
       }
-      assert.equal(options.includes("loop"), true);
-      assert.equal(options.includes("mega-jump"), true);
+    },
+  ],
+  [
+    "word structure can suggest a starting shape without gating later choices",
+    () => {
+      const quiet = coaster.suggestedCoasterPieceOptionsForWord({ word: "cat", chunks: 1, syllables: 1 });
+      const rich = coaster.suggestedCoasterPieceOptionsForWord({
+        word: "extraordinary",
+        chunks: 4,
+        syllables: 5,
+        signals: { together: true, meaning: true },
+      });
+      assert.equal(quiet.includes("straight"), true);
+      assert.equal(rich.includes("mega-jump"), true);
+      assert.equal(coaster.coasterPieceOptionsForWord({ word: "cat" }).includes("mega-jump"), true);
+    },
+  ],
+  [
+    "default track shape remains a suggestion rather than a reward",
+    () => {
+      const kind = coaster.coasterPieceKindForWord({
+        word: "because",
+        chunks: 3,
+        syllables: 2,
+        signals: { clue: true, meaning: true },
+      });
+      assert.equal(coaster.coasterPieceOptionsForWord({ word: "because" }).includes(kind), true);
     },
   ],
   [
