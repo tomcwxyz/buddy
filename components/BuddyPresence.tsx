@@ -128,6 +128,7 @@ export function BuddyPresence({ state = "idle", label = "I'm here when you need 
       aria-label="Say hello to Buddy"
       data-state={state}
       data-reacting={reacting ? "true" : "false"}
+      data-reaction={reaction ?? "none"}
       data-reaction-count={reactionKey}
       onClick={react}
     >
@@ -140,7 +141,14 @@ export function BuddyPresence({ state = "idle", label = "I'm here when you need 
           if (reaction) setReaction(null);
         }}
       >
-        <span className="buddy-soft-spot" aria-hidden="true" />
+        <span className="buddy-squish" aria-hidden="true">
+          <span className="buddy-soft-spot" />
+          <span className="buddy-face">
+            <span className="buddy-eye buddy-eye-left" />
+            <span className="buddy-eye buddy-eye-right" />
+            <span className="buddy-mouth" />
+          </span>
+        </span>
       </motion.span>
 
       {reaction && !reduceMotion && (
