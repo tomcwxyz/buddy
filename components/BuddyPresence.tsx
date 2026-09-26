@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 
 type BuddyPresenceState = "idle" | "listening" | "thinking" | "speaking";
@@ -114,6 +114,12 @@ export function BuddyPresence({ state = "idle", label = "I'm here when you need 
 
   const activeMotion = reduceMotion ? undefined : reaction ?? state;
   const reacting = reaction !== null;
+
+  useEffect(() => {
+    if (!reaction || !reduceMotion) return;
+    const timeout = window.setTimeout(() => setReaction(null), 420);
+    return () => window.clearTimeout(timeout);
+  }, [reaction, reduceMotion]);
 
   return (
     <button
