@@ -145,7 +145,7 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
       kind: "discover_changed",
       source: "discover",
       activityId: "pattern-lab",
-      detail: \`\${tool}:r\${row}c\${col}:\${colour}\`,
+      detail: `${tool}:r${row}c${col}:${colour}`,
     });
   }
 
@@ -164,7 +164,7 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
       kind: "discover_changed",
       source: "discover",
       activityId: "pattern-lab",
-      detail: \`starter:\${nextStarter}\`,
+      detail: `starter:${nextStarter}`,
     });
   }
 
@@ -192,7 +192,7 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
       kind: "discover_reflected",
       source: "discover",
       activityId: "pattern-lab",
-      detail: \`notice:blocks=\${analysis.totalBlocks};mirror=\${analysis.mirror};stairs=\${analysis.staircase};repeat=\${analysis.repeatedRows}\`,
+      detail: `notice:blocks=${analysis.totalBlocks};mirror=${analysis.mirror};stairs=${analysis.staircase};repeat=${analysis.repeatedRows}`,
     });
   }
 
@@ -227,7 +227,7 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
         ))}
       </div>
 
-      <div className={\`block-workbench\${flipped ? " flipped" : ""}\`}>
+      <div className={`block-workbench${flipped ? " flipped" : ""}`}>
         <div className="block-stage" aria-label="3D block building table">
           <div className="block-ground" aria-hidden="true" />
 
@@ -236,7 +236,7 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
             const col = index % COLS;
             return stack.map((blockColour, level) => (
               <IsoBlock
-                key={\`\${row}-\${col}-\${level}-\${blockColour}\`}
+                key={`${row}-${col}-${level}-${blockColour}`}
                 row={row}
                 col={col}
                 level={level}
@@ -250,11 +250,11 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
             Array.from({ length: COLS }, (_, col) => (
               <button
                 type="button"
-                key={\`hit-\${row}-\${col}\`}
+                key={`hit-${row}-${col}`}
                 className="block-cell-hit"
                 style={cellPosition(row, col, grid[indexOfCell(row, col)].length, flipped)}
                 onClick={() => editCell(row, col)}
-                aria-label={\`\${tool === "add" ? "Add" : "Remove"} block at row \${row + 1}, column \${col + 1}\`}
+                aria-label={`${tool === "add" ? "Add" : "Remove"} block at row ${row + 1}, column ${col + 1}`}
               />
             )),
           )}
@@ -319,7 +319,7 @@ function cellPosition(row: number, col: number, level: number, flipped: boolean)
   const x = (viewCol - row) * 42;
   const y = 72 + (viewCol + row) * 22 - level * 26;
   return {
-    left: \`calc(50% + \${x}px)\`,
+    left: `calc(50% + ${x}px)`,
     top: y,
   };
 }
