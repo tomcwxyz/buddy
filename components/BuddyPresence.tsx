@@ -128,6 +128,7 @@ export function BuddyPresence({ state = "idle", label = "I'm here when you need 
       aria-label="Say hello to Buddy"
       data-state={state}
       data-reacting={reacting ? "true" : "false"}
+      data-reaction-count={reactionKey}
       onClick={react}
     >
       <span className="buddy-aura" aria-hidden="true" />
