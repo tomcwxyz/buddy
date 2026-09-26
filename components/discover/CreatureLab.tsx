@@ -100,28 +100,28 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
     const chosen = traits.length
       ? traits.map((trait) => traitCopy[trait]).join(traits.length > 1 ? ", " : "")
       : "no special feature yet";
-    return \`A \${bodyLabels[body].toLowerCase()} living around \${habitatCopy[habitat]}. It has \${chosen}.\`;
+    return `A ${bodyLabels[body].toLowerCase()} living around ${habitatCopy[habitat]}. It has ${chosen}.`;
   }, [body, habitat, traits]);
 
   function chooseHabitat(next: Habitat) {
     setHabitat(next);
-    onBuddyLine(\`New place, new problems. What would help a creature live around \${habitatCopy[next]}?\`);
+    onBuddyLine(`New place, new problems. What would help a creature live around ${habitatCopy[next]}?`);
     recordLearningEvent({
       kind: "discover_changed",
       source: "discover",
       activityId: "creature-lab",
-      detail: \`habitat:\${next}\`,
+      detail: `habitat:${next}`,
     });
   }
 
   function chooseBody(next: BodyPlan) {
     setBody(next);
-    onBuddyLine(\`\${bodyLabels[next]}. Now make that body shape useful — or explain why it is gloriously impractical.\`);
+    onBuddyLine(`${bodyLabels[next]}. Now make that body shape useful — or explain why it is gloriously impractical.`);
     recordLearningEvent({
       kind: "discover_changed",
       source: "discover",
       activityId: "creature-lab",
-      detail: \`body:\${next}\`,
+      detail: `body:${next}`,
     });
   }
 
@@ -131,23 +131,23 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
       if (current.length >= 4) return [...current.slice(1), trait];
       return [...current, trait];
     });
-    onBuddyLine(\`\${traitCopy[trait]} — what might that help with, and what new problem might it create?\`);
+    onBuddyLine(`${traitCopy[trait]} — what might that help with, and what new problem might it create?`);
     recordLearningEvent({
       kind: "discover_changed",
       source: "discover",
       activityId: "creature-lab",
-      detail: \`trait:\${trait}\`,
+      detail: `trait:${trait}`,
     });
   }
 
   function chooseChallenge(next: Challenge) {
     setChallenge(next);
-    onBuddyLine(\`\${challengeCopy[next]} Use the creature you already made — don't fix it unless you want to.\`);
+    onBuddyLine(`${challengeCopy[next]} Use the creature you already made — don't fix it unless you want to.`);
     recordLearningEvent({
       kind: "discover_reflected",
       source: "discover",
       activityId: "creature-lab",
-      detail: \`challenge:\${next}\`,
+      detail: `challenge:${next}`,
     });
   }
 
@@ -162,7 +162,7 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
       kind: "discover_reflected",
       source: "discover",
       activityId: "creature-lab",
-      detail: \`mutation:\${next.habitat}:\${next.body}:\${next.traits.join("+")}\`,
+      detail: `mutation:${next.habitat}:${next.body}:${next.traits.join("+")}`,
     });
   }
 
@@ -187,8 +187,8 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
           <span className="creature-world-object two" aria-hidden="true" />
 
           <motion.div
-            className={\`invented-creature body-\${body}\`}
-            key={\`\${habitat}-\${body}-\${traits.join("-")}\`}
+            className={`invented-creature body-${body}`}
+            key={`${habitat}-${body}-${traits.join("-")}`}
             initial={{ scale: 0.88, rotate: -4, y: 8 }}
             animate={{ scale: 1, rotate: 0, y: 0 }}
             transition={{ type: "spring", stiffness: 170, damping: 14 }}
@@ -199,17 +199,17 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
             {traits.includes("tail") && <span className="creature-tail" />}
             {traits.includes("tentacles") && <div className="creature-tentacles"><i /><i /><i /></div>}
 
-            <span className={\`creature-body\${traits.includes("warm") ? " furry" : ""}\${traits.includes("shell") ? " shelled" : ""}\`}>
+            <span className={`creature-body${traits.includes("warm") ? " furry" : ""}${traits.includes("shell") ? " shelled" : ""}`}>
               {traits.includes("horn") && <span className="creature-horn" />}
-              <span className={\`creature-eye left\${traits.includes("night") ? " big" : ""}\`} />
-              <span className={\`creature-eye right\${traits.includes("night") ? " big" : ""}\`} />
+              <span className={`creature-eye left${traits.includes("night") ? " big" : ""}`} />
+              <span className={`creature-eye right${traits.includes("night") ? " big" : ""}`} />
               {traits.includes("manyEyes") && <><span className="creature-extra-eye e1" /><span className="creature-extra-eye e2" /><span className="creature-extra-eye e3" /></>}
               {traits.includes("glow") && <><span className="creature-glow g1" /><span className="creature-glow g2" /><span className="creature-glow g3" /></>}
               <span className="creature-mouth" />
             </span>
 
-            <span className={\`creature-foot left\${traits.includes("grip") ? " grippy" : ""}\${traits.includes("suction") ? " suction" : ""}\${traits.includes("wheels") ? " wheel" : ""}\`} />
-            <span className={\`creature-foot right\${traits.includes("grip") ? " grippy" : ""}\${traits.includes("suction") ? " suction" : ""}\${traits.includes("wheels") ? " wheel" : ""}\`} />
+            <span className={`creature-foot left${traits.includes("grip") ? " grippy" : ""}${traits.includes("suction") ? " suction" : ""}${traits.includes("wheels") ? " wheel" : ""}`} />
+            <span className={`creature-foot right${traits.includes("grip") ? " grippy" : ""}${traits.includes("suction") ? " suction" : ""}${traits.includes("wheels") ? " wheel" : ""}`} />
             {body === "many" && <><span className="creature-foot extra-left" /><span className="creature-foot extra-right" /></>}
           </motion.div>
 
