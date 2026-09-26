@@ -102,3 +102,14 @@ test("a word-piece can be dragged from the dock onto the coaster world", async (
   await expect(page.locator(".coaster-build-endpoint")).toBeVisible();
   await expect(piece).toHaveCount(0);
 });
+
+
+test("Buddy responds to a touch without disturbing the phone layout", async ({ page }) => {
+  await page.goto("/");
+  const buddy = page.getByRole("button", { name: "Say hello to Buddy" }).first();
+  await expect(buddy).toBeVisible();
+  await expect(buddy).toHaveAttribute("data-reacting", "false");
+  await buddy.click();
+  await expect(buddy).toHaveAttribute("data-reacting", "true");
+  await expectNoHorizontalOverflow(page);
+});
