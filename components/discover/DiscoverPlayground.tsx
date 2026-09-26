@@ -35,9 +35,9 @@ const activities: Array<{
   },
   {
     id: "pattern-lab",
-    title: "Pattern maker",
-    kicker: "Try to fool Buddy",
-    body: "Make a visual rule and see whether Buddy can work out what should come next.",
+    title: "Block lab",
+    kicker: "Build a rule in space",
+    body: "Stack little bricks into mirrors, stairs, repeats, skylines or something Buddy cannot name yet.",
     icon: Shapes,
   },
 ];
