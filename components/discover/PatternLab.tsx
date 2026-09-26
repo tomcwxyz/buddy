@@ -252,7 +252,7 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
                 type="button"
                 key={\`hit-\${row}-\${col}\`}
                 className="block-cell-hit"
-                style={cellPosition(row, col, 0, flipped)}
+                style={cellPosition(row, col, grid[indexOfCell(row, col)].length, flipped)}
                 onClick={() => editCell(row, col)}
                 aria-label={\`\${tool === "add" ? "Add" : "Remove"} block at row \${row + 1}, column \${col + 1}\`}
               />
