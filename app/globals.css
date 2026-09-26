@@ -731,8 +731,12 @@ button {
   .buddy-blob {
     position: relative;
     z-index: 1;
-    width: 104px;
-    height: 112px;
+    width: 108px;
+    height: 94px;
+  }
+
+  .buddy-face {
+    transform: translate(-50%, -50%) scale(0.86);
   }
 
   .buddy-shadow {
