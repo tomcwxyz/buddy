@@ -3194,6 +3194,11 @@
     transform: none;
   }
 
+  .practice-side .buddy-aura {
+    width: 78px;
+    height: 78px;
+  }
+
   .practice-side .buddy-blob {
     width: 66px;
     height: 72px;
