@@ -9,6 +9,10 @@
   --buddy-clay: #b97c63;
   --buddy-sun: #d9b86c;
   --buddy-plum: #78677e;
+  --buddy-character: #f07f67;
+  --buddy-character-light: #ff9a83;
+  --buddy-character-dark: #d95f4d;
+  --buddy-face: #493831;
   --buddy-shadow: 0 18px 50px rgba(62, 54, 43, 0.08);
 }
 
@@ -292,12 +296,12 @@ button {
 .buddy-aura {
   position: absolute;
   width: 154px;
-  height: 154px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle, rgba(217, 184, 108, 0.2), rgba(185, 124, 99, 0.08) 43%, transparent 70%);
-  filter: blur(4px);
-  opacity: 0.78;
+  height: 136px;
+  border-radius: 48%;
+  background: rgba(240, 127, 103, 0.12);
+  filter: blur(13px);
+  opacity: 0.7;
+  transform: translateY(5px) scale(0.94);
   transition: transform 220ms ease, opacity 220ms ease;
   pointer-events: none;
 }
@@ -305,65 +309,174 @@ button {
 .buddy-presence:hover .buddy-aura,
 .buddy-presence:focus-visible .buddy-aura,
 .buddy-presence[data-reacting="true"] .buddy-aura {
-  transform: scale(1.08);
-  opacity: 1;
+  transform: translateY(4px) scale(1.06);
+  opacity: 0.95;
 }
 
 .buddy-presence:focus-visible .buddy-aura {
-  box-shadow: 0 0 0 3px rgba(185, 124, 99, 0.2);
+  box-shadow: 0 0 0 3px rgba(240, 127, 103, 0.18);
 }
 
 .buddy-blob {
   position: relative;
   z-index: 2;
-  width: 136px;
-  height: 148px;
-  overflow: hidden;
-  border: 1px solid rgba(122, 92, 70, 0.12);
-  border-radius: 54% 46% 57% 43% / 45% 58% 42% 55%;
-  background:
-    radial-gradient(circle at 33% 25%, rgba(255, 248, 229, 0.9) 0 8%, rgba(255, 244, 219, 0.42) 13%, transparent 27%),
-    radial-gradient(circle at 72% 76%, rgba(120, 103, 126, 0.16), transparent 37%),
-    radial-gradient(circle at 28% 78%, rgba(217, 184, 108, 0.2), transparent 34%),
-    linear-gradient(145deg, #d4ad7b 0%, #bd8d73 44%, #8d8e70 100%);
-  box-shadow:
-    inset -12px -16px 28px rgba(88, 69, 52, 0.09),
-    inset 10px 8px 22px rgba(255, 249, 232, 0.16),
-    0 20px 38px rgba(92, 73, 57, 0.18);
-  transform-origin: 50% 78%;
-  transition: filter 180ms ease, box-shadow 180ms ease;
+  width: 144px;
+  height: 126px;
+  display: grid;
+  place-items: stretch;
+  transform-origin: 50% 82%;
+  overflow: visible;
 }
 
-.buddy-presence:hover .buddy-blob,
-.buddy-presence:focus-visible .buddy-blob {
-  filter: saturate(1.04) brightness(1.025);
+.buddy-squish {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: hidden;
+  border: 1px solid rgba(130, 62, 49, 0.12);
+  border-radius: 48% 52% 45% 55% / 57% 54% 46% 43%;
+  background: var(--buddy-character);
   box-shadow:
-    inset -12px -16px 28px rgba(88, 69, 52, 0.08),
-    inset 10px 8px 22px rgba(255, 249, 232, 0.2),
-    0 22px 42px rgba(92, 73, 57, 0.2);
+    inset 12px 12px 22px rgba(255, 255, 255, 0.16),
+    inset -13px -16px 25px rgba(142, 61, 48, 0.13),
+    0 18px 32px rgba(146, 69, 54, 0.18);
+  transform-origin: 50% 82%;
+  transition:
+    transform 150ms cubic-bezier(.2, .9, .24, 1.2),
+    border-radius 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+  will-change: transform;
+}
+
+.buddy-presence:hover .buddy-squish,
+.buddy-presence:focus-visible .buddy-squish {
+  background: #f4866e;
+  box-shadow:
+    inset 12px 12px 22px rgba(255, 255, 255, 0.18),
+    inset -13px -16px 25px rgba(142, 61, 48, 0.12),
+    0 20px 36px rgba(146, 69, 54, 0.2);
+}
+
+/* The immediate press is the tactile bit: the character compresses before the
+   follow-on hello/squish/tilt animation runs. */
+.buddy-presence:active .buddy-squish {
+  transform: translateY(6px) scaleX(1.08) scaleY(0.88);
+  border-radius: 51% 49% 47% 53% / 61% 58% 42% 39%;
+  box-shadow:
+    inset 10px 8px 18px rgba(255, 255, 255, 0.12),
+    inset -12px -11px 20px rgba(142, 61, 48, 0.15),
+    0 9px 18px rgba(146, 69, 54, 0.14);
 }
 
 .buddy-soft-spot {
   position: absolute;
-  left: 29%;
-  top: 23%;
+  left: 23%;
+  top: 17%;
   width: 38%;
-  height: 32%;
+  height: 24%;
   border-radius: 50%;
-  background: rgba(255, 247, 226, 0.16);
-  filter: blur(10px);
+  background: rgba(255, 255, 255, 0.14);
+  filter: blur(8px);
   transform: rotate(-14deg);
   pointer-events: none;
+}
+
+.buddy-face {
+  position: absolute;
+  left: 50%;
+  top: 49%;
+  width: 56px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.buddy-eye {
+  position: absolute;
+  top: 4px;
+  width: 6px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--buddy-face);
+  transform-origin: center;
+  transition: transform 140ms ease, height 140ms ease;
+}
+
+.buddy-eye-left {
+  left: 10px;
+}
+
+.buddy-eye-right {
+  right: 10px;
+}
+
+.buddy-mouth {
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 15px;
+  height: 8px;
+  border-bottom: 2px solid var(--buddy-face);
+  border-radius: 0 0 12px 12px;
+  transform: translateX(-50%);
+  opacity: 0.9;
+  transition: transform 150ms ease, width 150ms ease, height 150ms ease;
+}
+
+.buddy-presence:active .buddy-eye {
+  height: 5px;
+  transform: translateY(2px);
+}
+
+.buddy-presence:active .buddy-mouth {
+  width: 12px;
+  height: 6px;
+  transform: translateX(-50%) translateY(2px);
+}
+
+.buddy-presence[data-reaction="hello"] .buddy-eye-left {
+  height: 3px;
+  transform: translateY(3px) rotate(-8deg);
+}
+
+.buddy-presence[data-reaction="squish"] .buddy-eye {
+  height: 4px;
+  transform: translateY(2px);
+}
+
+.buddy-presence[data-reaction="tilt"] .buddy-mouth {
+  transform: translateX(-50%) rotate(-5deg);
+}
+
+.buddy-presence[data-state="listening"] .buddy-face {
+  transform: translate(-50%, -51%) scale(1.02);
+}
+
+.buddy-presence[data-state="thinking"] .buddy-mouth {
+  width: 11px;
+  border-radius: 50%;
+  transform: translateX(-50%) rotate(-8deg);
+}
+
+.buddy-presence[data-state="speaking"] .buddy-mouth {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--buddy-face);
+  border-top-width: 1px;
+  border-radius: 50%;
+  animation: buddy-mouth-talk 720ms ease-in-out infinite;
 }
 
 .buddy-shadow {
   position: absolute;
   z-index: 1;
-  bottom: 2px;
-  width: 106px;
-  height: 18px;
+  bottom: 3px;
+  width: 104px;
+  height: 17px;
   border-radius: 50%;
-  background: rgba(77, 61, 48, 0.12);
+  background: rgba(94, 55, 44, 0.13);
   filter: blur(8px);
   pointer-events: none;
 }
@@ -379,17 +492,17 @@ button {
   position: absolute;
   left: 50%;
   top: 42%;
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--buddy-sun);
-  box-shadow: 0 0 0 4px rgba(217, 184, 108, 0.08);
+  background: #ffd3a8;
+  box-shadow: 0 0 0 4px rgba(255, 211, 168, 0.1);
 }
 
 .buddy-mote-two {
   width: 6px;
   height: 6px;
-  background: #d8a08a;
+  background: #fff1d9;
 }
 
 .buddy-label {
@@ -400,6 +513,11 @@ button {
   color: var(--buddy-ink-soft);
   font-size: 0.95rem;
   pointer-events: none;
+}
+
+@keyframes buddy-mouth-talk {
+  0%, 100% { transform: translateX(-50%) scaleY(0.72); }
+  50% { transform: translateX(-50%) scaleY(1.05); }
 }
 
 .page-header {
@@ -669,28 +787,32 @@ button {
 }
 
 
-.buddy-presence[data-state="listening"] .buddy-blob {
-  filter: saturate(1.06) brightness(1.025);
+.buddy-presence[data-state="listening"] .buddy-squish {
+  background: #f4866e;
 }
 
-.buddy-presence[data-state="thinking"] .buddy-blob {
-  background:
-    radial-gradient(circle at 33% 25%, rgba(255, 248, 229, 0.88) 0 8%, rgba(255, 244, 219, 0.38) 13%, transparent 27%),
-    radial-gradient(circle at 70% 72%, rgba(120, 103, 126, 0.23), transparent 39%),
-    linear-gradient(145deg, #c9a77b 0%, #ad8d79 48%, #858373 100%);
+.buddy-presence[data-state="thinking"] .buddy-squish {
+  background: #ee7862;
 }
 
-.buddy-presence[data-state="speaking"] .buddy-blob {
-  filter: saturate(1.08) brightness(1.03);
+.buddy-presence[data-state="speaking"] .buddy-squish {
+  background: #f58a70;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .buddy-aura,
-  .buddy-blob {
+  .buddy-blob,
+  .buddy-squish,
+  .buddy-eye,
+  .buddy-mouth {
     transition: none;
   }
 
-  .buddy-presence[data-reacting="true"] .buddy-blob {
-    filter: saturate(1.08) brightness(1.045);
+  .buddy-presence[data-reacting="true"] .buddy-squish {
+    background: #f58a70;
+  }
+
+  .buddy-presence[data-state="speaking"] .buddy-mouth {
+    animation: none;
   }
 }
