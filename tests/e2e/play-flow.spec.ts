@@ -108,6 +108,7 @@ test("Buddy responds to a touch without disturbing the phone layout", async ({ p
   await page.goto("/");
   const buddy = page.getByRole("button", { name: "Say hello to Buddy" }).first();
   await expect(buddy).toBeVisible();
+  await expect(buddy.locator(".buddy-face")).toBeVisible();
   await expect(buddy).toHaveAttribute("data-reaction-count", "0");
   await buddy.click();
   await expect(buddy).toHaveAttribute("data-reaction-count", "1");
