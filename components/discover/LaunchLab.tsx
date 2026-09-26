@@ -88,7 +88,7 @@ export function LaunchLab({ onBuddyLine }: LaunchLabProps) {
         : 0;
 
     return {
-      left: \`\${realDistance}%\`,
+      left: `${realDistance}%`,
       y: hops,
       rotate: surface === "bumpy" ? [0, 120, 230, 330, 420] : 360,
       scale: 1,
@@ -98,12 +98,12 @@ export function LaunchLab({ onBuddyLine }: LaunchLabProps) {
   function change<T extends string>(kind: string, value: T, apply: (value: T) => void) {
     apply(value);
     setHasRun(false);
-    onBuddyLine(\`You changed the \${kind}. What do you think that will do?\`);
+    onBuddyLine(`You changed the ${kind}. What do you think that will do?`);
     recordLearningEvent({
       kind: "discover_changed",
       source: "discover",
       activityId: "launch-lab",
-      detail: \`\${kind}:\${value}\`,
+      detail: `${kind}:${value}`,
     });
   }
 
@@ -113,12 +113,12 @@ export function LaunchLab({ onBuddyLine }: LaunchLabProps) {
     const option = physicsOptions.find((item) => item.id === next);
     onBuddyLine(next === "real"
       ? "Physics is behaving again. Change one thing and see if your prediction holds."
-      : \`\${option?.label}. The rules have changed. Which bit looks impossible now?\`);
+      : `${option?.label}. The rules have changed. Which bit looks impossible now?`);
     recordLearningEvent({
       kind: "discover_changed",
       source: "discover",
       activityId: "launch-lab",
-      detail: \`physics:\${next}\`,
+      detail: `physics:${next}`,
     });
   }
 
@@ -151,7 +151,7 @@ export function LaunchLab({ onBuddyLine }: LaunchLabProps) {
       kind: "discover_reflected",
       source: "discover",
       activityId: "launch-lab",
-      detail: \`run:physics=\${physics};slope=\${slope};surface=\${surface};push=\${push};prediction=\${prediction ?? "none"}\`,
+      detail: `run:physics=${physics};slope=${slope};surface=${surface};push=${push};prediction=${prediction ?? "none"}`,
     });
   }
 
