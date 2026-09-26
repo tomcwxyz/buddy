@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, HandPointing, Scan, SpeakerHigh, TextAlignLeft, X } from "@phosphor-icons/react";
 import { BuddyPresence } from "@/components/BuddyPresence";
+import { VoicePicker } from "@/components/VoicePicker";
 import { PressToTalk } from "@/components/PressToTalk";
 import { getWordSupport, helpText, type HelpDepth } from "@/lib/literacy/engine";
 import { recordLearningEvent } from "@/lib/learning/local-store";
 import { recognisePage, recogniseWordRegion } from "@/lib/ocr/browser-tesseract";
 import type { OcrWord } from "@/lib/ocr/types";
+import { useBuddySpeech } from "@/lib/speech/useBuddySpeech";
 
 type CameraState = "idle" | "starting" | "ready" | "error";
 type OcrState = "idle" | "reading" | "ready" | "error";
@@ -104,6 +106,7 @@ export function ReadingCompanion() {
   const [lookup, setLookup] = useState<WordLookup | null>(null);
   const [lookupState, setLookupState] = useState<LookupState>("idle");
   const [tapLookupMessage, setTapLookupMessage] = useState<string | null>(null);
+  const speech = useBuddySpeech();
 
   const support = useMemo(() => (selectedWord ? getWordSupport(selectedWord) : null), [selectedWord]);
   const checkedMeaning = support?.meaning ?? lookup?.meaning ?? null;
@@ -355,14 +358,10 @@ export function ReadingCompanion() {
   }
 
   function speak(text: string) {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "en-GB";
-    utterance.rate = 0.78;
-    utterance.onstart = () => setBuddyState("speaking");
-    utterance.onend = () => setBuddyState("idle");
-    window.speechSynthesis.speak(utterance);
+    speech.speak(text, {
+      onStart: () => setBuddyState("speaking"),
+      onEnd: () => setBuddyState("idle"),
+    });
   }
 
   function speakWord() {
@@ -626,6 +625,15 @@ export function ReadingCompanion() {
             label={selectedWord ? "This one?" : capturedPage ? "Tap the bit you want." : "Point me at the page."}
           />
         </div>
+
+        <VoicePicker
+          voices={speech.voices}
+          selectedVoiceURI={speech.selectedVoiceURI}
+          rate={speech.rate}
+          onVoiceChange={speech.setVoiceURI}
+          onRateChange={speech.setRate}
+          onPreview={speech.preview}
+        />
 
         <section className="help-depth" aria-labelledby="help-depth-title">
           <div className="section-heading">
