@@ -28,6 +28,15 @@ Buddy's roadmap is deliberately organised around useful child-facing capability 
 - Internal `/lab/ocr` surface for real photographed pages, precision/recall comparison, recovery inspection and local JSON fixture export.
 - OCR candidate fixtures now record page type, safe-to-recover misses, must-not-trust false positives, interaction recoverability and review notes while keeping source page images local.
 
+### Explore and voice — first playful slice
+
+- Browser speech now goes through one Buddy speech layer rather than separate calls in Read and Play.
+- Buddy prefers useful English voices, remembers the chosen device voice and pace, and copes with browsers that load their voice list late.
+- Voice choices are intentionally presented as neutral options rather than gender/personality labels.
+- Native voices still differ by operating system and browser. A provider-backed or bundled Buddy voice is the route to identical cross-device sound if testing shows that consistency matters enough to justify it.
+- **Explore something** is no longer a prompt placeholder. Its first three playable worlds are Launch lab (motion, slope and friction), Creature lab (adaptation, trade-offs and description) and Pattern maker (rules, prediction and logic).
+- Explore records activity/change/reflection signals locally without scores or right/wrong outcomes. These signals are not yet turned into claims in **Me**.
+
 ### Quality infrastructure — active
 
 - Real reading failures are promoted into permanent lexical regressions.

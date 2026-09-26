@@ -10,7 +10,10 @@ export type LearningEventKind =
   | "moved_on"
   | "practice_seen"
   | "practice_known"
-  | "practice_explored";
+  | "practice_explored"
+  | "discover_started"
+  | "discover_changed"
+  | "discover_reflected";
 
 export type LearningEvent = {
   id: string;
@@ -19,7 +22,9 @@ export type LearningEvent = {
   word?: string;
   helpDepth?: HelpDepth;
   transcript?: string;
-  source?: "ocr" | "demo" | "practice";
+  source?: "ocr" | "demo" | "practice" | "discover";
+  activityId?: string;
+  detail?: string;
   practiceSetId?: string;
 };
 
