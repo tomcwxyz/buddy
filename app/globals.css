@@ -605,6 +605,11 @@ button {
     aspect-ratio: auto;
   }
 
+  .buddy-aura {
+    width: 122px;
+    height: 122px;
+  }
+
   .buddy-blob {
     position: relative;
     z-index: 1;
