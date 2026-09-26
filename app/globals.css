@@ -450,6 +450,10 @@ button {
   transform: translateX(-50%) rotate(-5deg);
 }
 
+.buddy-presence[data-state="idle"] .buddy-eye {
+  animation: buddy-blink 6.2s ease-in-out infinite;
+}
+
 .buddy-presence[data-state="listening"] .buddy-face {
   transform: translate(-50%, -51%) scale(1.02);
 }
@@ -513,6 +517,11 @@ button {
   color: var(--buddy-ink-soft);
   font-size: 0.95rem;
   pointer-events: none;
+}
+
+@keyframes buddy-blink {
+  0%, 44%, 48%, 100% { transform: scaleY(1); }
+  45%, 47% { transform: scaleY(0.18); }
 }
 
 @keyframes buddy-mouth-talk {
@@ -816,7 +825,8 @@ button {
     background: #f58a70;
   }
 
-  .buddy-presence[data-state="speaking"] .buddy-mouth {
+  .buddy-presence[data-state="speaking"] .buddy-mouth,
+  .buddy-presence[data-state="idle"] .buddy-eye {
     animation: none;
   }
 }
