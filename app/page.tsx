@@ -63,7 +63,7 @@ export default function HomePage() {
         <section className="secondary-row" aria-label="More things to explore">
           <Link href="/discover" className="small-card">
             <h3>Explore something <ArrowUpRight size={18} aria-hidden="true" /></h3>
-            <p>Stories, puzzles, ideas and little brain quests.</p>
+            <p>Little worlds to mess with: motion, creatures, patterns and whatever gets interesting.</p>
           </Link>
           <Link href="/me" className="small-card">
             <h3>Things that help me <ArrowUpRight size={18} aria-hidden="true" /></h3>
