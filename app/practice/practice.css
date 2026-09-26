@@ -3200,8 +3200,12 @@
   }
 
   .practice-side .buddy-blob {
-    width: 66px;
-    height: 72px;
+    width: 70px;
+    height: 61px;
+  }
+
+  .practice-side .buddy-face {
+    transform: translate(-50%, -50%) scale(0.58);
   }
 
   .practice-side .buddy-shadow {
