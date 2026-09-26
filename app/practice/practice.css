@@ -3005,3 +3005,599 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+/* Play experience consolidation: keep the world primary and tools secondary. */
+.coaster-layout.build-mode {
+  grid-template-columns: 1fr;
+}
+
+.coaster-layout.build-mode .coaster-world-card {
+  padding: clamp(12px, 2vw, 22px);
+}
+
+.coaster-board.build-stage .coaster-world {
+  min-height: min(64vh, 640px);
+}
+
+.coaster-tools {
+  position: static;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.coaster-tool-drawer {
+  min-width: 0;
+  border: 1px solid rgba(98, 94, 85, 0.14);
+  border-radius: 22px;
+  background: rgba(251, 248, 242, 0.88);
+  box-shadow: var(--buddy-shadow);
+  overflow: clip;
+}
+
+.coaster-tool-drawer > summary {
+  min-height: 74px;
+  padding: 15px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.coaster-tool-drawer > summary::-webkit-details-marker {
+  display: none;
+}
+
+.coaster-tool-drawer > summary > span:first-child strong,
+.coaster-tool-drawer > summary > span:first-child small {
+  display: block;
+}
+
+.coaster-tool-drawer > summary > span:first-child strong {
+  font-size: 1rem;
+}
+
+.coaster-tool-drawer > summary > span:first-child small {
+  margin-top: 3px;
+  color: var(--buddy-ink-soft);
+  font-size: 0.74rem;
+}
+
+.coaster-tool-drawer > summary > span:last-child {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--buddy-line);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1.15rem;
+  transition: transform 160ms ease;
+}
+
+.coaster-tool-drawer[open] > summary > span:last-child {
+  transform: rotate(45deg);
+}
+
+.coaster-tool-drawer[open] > summary {
+  border-bottom: 1px solid var(--buddy-line);
+}
+
+.coaster-tool-drawer .coaster-track-kit,
+.coaster-tool-drawer .coaster-park-builder {
+  margin: 0;
+  padding: 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.coaster-tool-drawer .coaster-track-kit-group button small,
+.coaster-tool-drawer .coaster-track-kit-none {
+  display: none;
+}
+
+.coaster-tool-drawer .coaster-track-kit-heading {
+  align-items: start;
+}
+
+.coaster-tool-drawer .coaster-track-kit-heading small {
+  max-width: 320px;
+}
+
+.coaster-world-toolbar {
+  min-height: 64px;
+}
+
+.coaster-layout.build-mode .coaster-world-toolbar {
+  grid-template-columns: 1fr auto;
+}
+
+.coaster-layout.build-mode .coaster-status-copy {
+  align-self: center;
+}
+
+.coaster-layout.build-mode .coaster-track-order {
+  margin-top: 12px;
+}
+
+@media (max-width: 860px) {
+  .coaster-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .coaster-board.build-stage .coaster-world {
+    min-height: 470px;
+  }
+}
+
+@media (max-width: 520px) {
+  .coaster-board.build-stage .coaster-world {
+    min-height: 410px;
+  }
+
+  .coaster-tool-drawer > summary {
+    min-height: 66px;
+    padding: 13px 15px;
+  }
+
+  .coaster-tool-drawer .coaster-track-kit,
+  .coaster-tool-drawer .coaster-park-builder {
+    padding: 14px;
+  }
+
+  .coaster-track-kit-group > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coaster-tool-drawer > summary > span:last-child {
+    transition: none;
+  }
+}
+
+
+/* Phone Play layout: keep every panel inside the viewport. */
+@media (max-width: 800px) {
+  .practice-shell {
+    gap: 12px;
+  }
+
+  .practice-side {
+    min-width: 0;
+    min-height: 0;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    grid-template-areas:
+      "buddy world"
+      "progress progress"
+      "count actions";
+    align-items: center;
+    gap: 10px 14px;
+    overflow: hidden;
+  }
+
+  .practice-side .buddy-presence {
+    grid-area: buddy;
+    width: 84px;
+    height: 84px;
+    margin: 0;
+    transform: none;
+  }
+
+  .practice-side .buddy-aura {
+    width: 78px;
+    height: 78px;
+  }
+
+  .practice-side .buddy-blob {
+    width: 70px;
+    height: 61px;
+  }
+
+  .practice-side .buddy-face {
+    transform: translate(-50%, -50%) scale(0.58);
+  }
+
+  .practice-side .buddy-shadow {
+    width: 56px;
+    height: 11px;
+  }
+
+  .practice-side .coaster-practice-callout {
+    grid-area: world;
+    min-width: 0;
+    width: auto;
+    margin: 0;
+    padding: 12px 14px;
+  }
+
+  .practice-side .coaster-practice-callout p {
+    display: none;
+  }
+
+  .practice-side .coaster-practice-callout strong {
+    overflow-wrap: anywhere;
+  }
+
+  .practice-side .practice-progress {
+    grid-area: progress;
+    min-width: 0;
+  }
+
+  .practice-side .practice-count {
+    grid-area: count;
+    margin: 0;
+  }
+
+  .practice-side .practice-set-actions {
+    grid-area: actions;
+    min-width: 0;
+    margin: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  .practice-side .practice-set-actions a,
+  .practice-side .practice-set-actions button {
+    min-width: 0;
+    font-size: 0.78rem;
+  }
+
+  .practice-card {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .practice-empty,
+  .practice-finished {
+    min-width: 0;
+    gap: 22px;
+  }
+
+  .practice-empty > .buddy-presence,
+  .practice-finish-visual .buddy-presence {
+    margin-inline: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .play-nav {
+    margin-bottom: 12px;
+    padding: 8px;
+    border-radius: 18px;
+  }
+
+  .play-nav-title {
+    padding: 3px 5px;
+  }
+
+  .play-nav-title strong {
+    font-size: 0.84rem;
+  }
+
+  .play-nav-items {
+    gap: 4px;
+  }
+
+  .play-nav-items a {
+    min-height: 46px;
+    padding: 8px 6px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+  }
+
+  .practice-card {
+    padding: 24px 18px;
+  }
+
+  .practice-card h1 {
+    font-size: clamp(3.2rem, 18vw, 5rem);
+  }
+
+  .practice-prompt {
+    font-size: 1.05rem;
+  }
+
+  .practice-help-actions {
+    margin-top: 24px;
+    gap: 8px;
+  }
+
+  .practice-help-actions button {
+    min-width: 0;
+    font-size: 0.9rem;
+  }
+
+  .practice-empty,
+  .practice-finished {
+    padding: 26px 20px;
+    border-radius: 24px;
+  }
+
+  .practice-empty h1,
+  .practice-finished h1 {
+    font-size: clamp(2.8rem, 14vw, 4.2rem);
+  }
+}
+
+
+/* Touch-first coaster piece dock */
+.coaster-piece-dock {
+  margin: 0 0 10px;
+  padding: 12px;
+  border: 1px solid rgba(98, 94, 85, 0.14);
+  border-radius: 18px;
+  background: rgba(251, 248, 242, 0.78);
+}
+
+.coaster-piece-dock-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.coaster-piece-dock-heading span,
+.coaster-piece-dock-heading strong,
+.coaster-piece-dock-heading small {
+  display: block;
+}
+
+.coaster-piece-dock-heading span,
+.coaster-piece-dock-heading small {
+  color: var(--buddy-ink-soft);
+  font-size: 0.7rem;
+}
+
+.coaster-piece-dock-heading strong {
+  margin-top: 2px;
+  font-size: 0.95rem;
+}
+
+.coaster-piece-dock-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 4px;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.coaster-piece-dock-row button {
+  flex: 0 0 126px;
+  min-height: 104px;
+  border: 1px solid var(--buddy-line);
+  border-radius: 16px;
+  padding: 8px;
+  background: var(--buddy-paper-raised);
+  color: var(--buddy-ink);
+  display: grid;
+  grid-template-rows: 48px auto auto;
+  justify-items: center;
+  align-items: center;
+  gap: 1px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.coaster-piece-dock-row button:active,
+.coaster-piece-dock-row button.dragging {
+  cursor: grabbing;
+  border-color: var(--buddy-clay);
+  background: color-mix(in srgb, var(--buddy-clay) 10%, var(--buddy-paper-raised));
+  opacity: 0.55;
+}
+
+.coaster-piece-dock-row button svg {
+  width: 78px;
+  height: 48px;
+  color: var(--buddy-clay);
+}
+
+.coaster-piece-dock-row button span {
+  color: var(--buddy-ink-soft);
+  font-size: 0.66rem;
+}
+
+.coaster-piece-dock-row button strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coaster-piece-drag-ghost {
+  position: fixed;
+  z-index: 100;
+  width: 118px;
+  min-height: 94px;
+  padding: 8px;
+  border: 2px solid var(--buddy-clay);
+  border-radius: 16px;
+  background: rgba(251, 248, 242, 0.97);
+  box-shadow: 0 18px 45px rgba(37, 35, 31, 0.2);
+  display: grid;
+  justify-items: center;
+  transform: translate(-50%, -50%) rotate(-2deg) scale(1.03);
+  pointer-events: none;
+}
+
+.coaster-piece-drag-ghost.over-board {
+  background: color-mix(in srgb, var(--buddy-sun) 16%, var(--buddy-paper-raised));
+  transform: translate(-50%, -50%) rotate(1deg) scale(1.08);
+}
+
+.coaster-piece-drag-ghost svg {
+  width: 72px;
+  height: 45px;
+  color: var(--buddy-clay);
+}
+
+.coaster-piece-drag-ghost span {
+  color: var(--buddy-ink-soft);
+  font-size: 0.64rem;
+}
+
+.coaster-piece-drag-ghost strong {
+  font-size: 0.86rem;
+}
+
+.coaster-board.piece-drop-ready {
+  border-color: color-mix(in srgb, var(--buddy-clay) 70%, var(--buddy-line));
+  box-shadow:
+    inset 0 0 0 3px rgba(185, 124, 99, 0.12),
+    0 16px 34px rgba(62, 54, 43, 0.12);
+}
+
+.coaster-board.piece-drop-ready::after {
+  content: "Drop it — it will snap to BUILD HERE";
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  z-index: 5;
+  transform: translateX(-50%);
+  max-width: calc(100% - 24px);
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(37, 35, 31, 0.88);
+  color: white;
+  font-size: 0.72rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+@media (max-width: 720px) {
+  .coaster-header {
+    padding-top: 4px;
+    gap: 10px;
+  }
+
+  .coaster-back {
+    margin-bottom: 10px;
+  }
+
+  .coaster-name,
+  .coaster-ride-name {
+    font-size: clamp(2.7rem, 13vw, 4.2rem);
+  }
+
+  .coaster-intro {
+    margin-top: 10px;
+    font-size: 0.98rem;
+  }
+
+  .coaster-mode-switch {
+    gap: 6px;
+  }
+
+  .coaster-mode-switch button {
+    min-height: 62px;
+    padding: 10px 12px;
+  }
+
+  .coaster-world-toolbar {
+    align-items: center;
+    gap: 8px;
+  }
+
+  .coaster-status-copy strong {
+    font-size: 0.95rem;
+  }
+
+  .coaster-ride-button {
+    min-width: 96px;
+    min-height: 46px;
+    padding-inline: 12px;
+  }
+
+  .coaster-board.build-stage .coaster-world {
+    min-height: 350px;
+  }
+
+  .coaster-piece-dock {
+    margin: 0 0 8px;
+    padding: 10px;
+  }
+
+  .coaster-piece-dock-heading {
+    align-items: start;
+    margin-bottom: 8px;
+  }
+
+  .coaster-piece-dock-row button {
+    flex-basis: 108px;
+    min-height: 94px;
+  }
+
+  .coaster-piece-dock-row button svg {
+    width: 66px;
+    height: 42px;
+  }
+
+  .coaster-track-order {
+    margin-top: 10px;
+  }
+
+  .coaster-placed-chip {
+    flex-basis: 168px;
+  }
+}
+
+@media (max-width: 460px) {
+  .coaster-main {
+    width: calc(100% - 16px);
+  }
+
+  .coaster-builder {
+    gap: 14px;
+  }
+
+  .coaster-world-card {
+    padding: 8px;
+  }
+
+  .coaster-board.build-stage .coaster-world {
+    min-height: 315px;
+  }
+
+  .coaster-piece-dock-heading small {
+    display: none;
+  }
+
+  .coaster-piece-dock-row {
+    margin-inline: -2px;
+  }
+
+  .coaster-piece-dock-row button {
+    flex-basis: 100px;
+    min-height: 90px;
+    border-radius: 14px;
+  }
+
+  .coaster-piece-drag-ghost {
+    width: 104px;
+    min-height: 86px;
+  }
+
+  .coaster-board.piece-drop-ready::after {
+    bottom: 10px;
+    width: calc(100% - 28px);
+    border-radius: 14px;
+  }
+}

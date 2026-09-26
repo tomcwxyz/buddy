@@ -11,7 +11,8 @@
     "test:ocr": "node scripts/test-ocr-confidence.mjs && node scripts/test-ocr-geometry.mjs && node scripts/test-ocr-fixtures.mjs",
     "test:sounds": "node scripts/test-sound-guidance.mjs",
     "lexicon:britfone": "node scripts/lexicon/import-britfone.mjs",
-    "test:practice": "node scripts/test-practice-import.mjs"
+    "test:practice": "node scripts/test-practice-import.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
@@ -29,6 +30,7 @@
     "@types/react-dom": "^19.1.7",
     "eslint": "^9.34.0",
     "eslint-config-next": "^15.5.2",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "@playwright/test": "^1.55.0"
   }
 }

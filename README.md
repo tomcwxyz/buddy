@@ -68,7 +68,7 @@ The first useful reading-and-learning loop now exists:
 13. revisit three useful words at a time in **Let's play with words**;
 14. photograph a word list or add words manually, check/edit what Buddy found, and use that as one source for Play;
 15. turn every word explored in Play — however it arrived — into material for one shared coaster world, then arrange pieces into a ride and watch it run;
-16. let structurally richer words create more adventurous pieces such as hills, camelbacks and loops without using correctness, points or streaks;
+16. let word structure influence the suggested starting piece while keeping every track shape available to every explored word;
 17. allow Buddy to surface tentative, rejectable observations in **Me** after repeated evidence.
 
 ### Word Library v2

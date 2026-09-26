@@ -115,11 +115,10 @@ export function SpellingImport() {
         <section className="spelling-photo-card">
           <label className="spelling-photo-button">
             <Camera size={24} />
-            <span>{page ? "Take or choose another photo" : "Take a photo of a word list"}</span>
+            <span>{page ? "Choose or take another photo" : "Choose or take a photo"}</span>
             <input
               type="file"
               accept="image/*"
-              capture="environment"
               onChange={(event) => void choosePhoto(event.target.files?.[0] ?? null)}
             />
           </label>
@@ -133,7 +132,7 @@ export function SpellingImport() {
           ) : (
             <div className="spelling-photo-empty">
               <Camera size={42} weight="light" />
-              <p>A clear photo of a short word list works best.</p>
+              <p>A clear photo of a list works best.</p>
             </div>
           )}
 

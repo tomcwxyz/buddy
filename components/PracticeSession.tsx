@@ -294,8 +294,8 @@ export function PracticeSession() {
         </div>
         <div>
           <p className="eyebrow">Done</p>
-          <h1>Three words. That's it.</h1>
-          <p>You explored three words. They are now part of the same world you build and play in — no score involved.</p>
+          <h1>{words.length === 1 ? "One word. That's enough." : `${words.length} words. That's enough.`}</h1>
+          <p>You explored {words.length === 1 ? "a word" : `${words.length} words`}. {words.length === 1 ? "It is" : "They are"} now part of the same world you build and play in — no score involved.</p>
           <div className="practice-finish-actions">
             <Link className="practice-primary" href="/practice/coaster">
               Build the ride <ArrowRight size={20} />
@@ -336,7 +336,7 @@ export function PracticeSession() {
         <div className="coaster-practice-callout">
           <span>Your Play world</span>
           <strong>{worldPieceCount} word{worldPieceCount === 1 ? "" : "s"} in the world</strong>
-          <p>Every word you explore here can become something to build and play with.</p>
+          <p>Every word you explore here gives you something to make with.</p>
           <Link href="/practice/coaster">Go to the coaster <ArrowRight size={16} /></Link>
         </div>
 
@@ -358,10 +358,10 @@ export function PracticeSession() {
       <article className="practice-card">
         <p className="eyebrow">{practiceSet ? practiceSet.label : "A word to play with"}</p>
         <h1>{current.word}</h1>
-        {lookup?.partOfSpeech && <span className="practice-word-kind">{lookup.partOfSpeech}</span>}
-        <p className="practice-prompt">{current.openingPrompt}</p>
+        {reveal === "meaning" && lookup?.partOfSpeech && <span className="practice-word-kind">{lookup.partOfSpeech}</span>}
+        <p className="practice-prompt">Have a look first. Ask for whatever helps.</p>
 
-        {lookup?.soundGuide && (
+        {(reveal === "clue" || reveal === "together") && lookup?.soundGuide && (
           <div className="practice-sound-guide">
             <div>
               <strong>Listen + notice</strong>

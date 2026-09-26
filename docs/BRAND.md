@@ -112,15 +112,22 @@ Read, Practice and Discover are actions from Home rather than permanent enterpri
 
 ## 7. Buddy's presence
 
-Buddy does not need a conventional cartoon mascot.
+Buddy is a **small personified squishy**, not a conventional cartoon mascot and not an abstract AI orb.
 
-Use an **abstract presence** that can move between devices and screen sizes: initially a soft pebble / seed-like form.
+The character has one clear signature colour: **Buddy coral** (`#F07F67`). Lighter and darker versions of that same hue can create soft physical depth, but Buddy should always read as one real colour rather than a multicolour gradient object.
 
-It can gently expand while listening, shift while thinking, form a subtle waveform while speaking, appear beside a difficult word, and shrink away when it should not interrupt.
+The body is plump, bean-like and tactile, with a deliberately simple face: two tiny eyes and a small mouth. The face should give Buddy presence without pushing into children's-TV mascot territory. No fixed gender, clothes, hair, human body or exaggerated emotional expressions.
 
-It should not have a fixed gender, constantly emote, show sadness when practice is skipped, or become an engagement mechanic.
+Buddy should feel gently alive:
+- idle: slow breathing/drift and an occasional blink;
+- listening: a small lean or inhale;
+- thinking: a curious wobble or tilt;
+- speaking: soft rhythmic squash and a tiny mouth movement;
+- touched: immediate physical compression under the finger, followed by a small rebound, hello hop, squish or curious tilt.
 
-This presence should translate to phone, tablet, a tiny R1-like screen, and future dedicated hardware.
+Touch interactions are acknowledgement, not rewards. They should be brief, discoverable and pleasant to repeat without becoming a compulsion or attention mechanic. No confetti, points, affection meters or sadness when Buddy is ignored.
+
+This presence should translate to phone, tablet, a tiny R1-like screen, and future dedicated hardware. On very small surfaces, preserve the coral body and minimal face before preserving decorative effects.
 
 ## 8. Motion
 
@@ -392,7 +399,7 @@ The first prototype should immediately implement:
 1. warm paper base palette;
 2. Atkinson Hyperlegible typography;
 3. oversized touch targets;
-4. abstract Buddy presence;
+4. coral squishy Buddy presence with a minimal face and tactile interaction;
 5. minimal three-route navigation;
 6. Home centred on “What are we doing?”;
 7. camera reading surface with large selected-word treatment;
