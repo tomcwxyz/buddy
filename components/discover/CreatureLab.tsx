@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowsClockwise } from "@phosphor-icons/react";
+import { ArrowsClockwise, Play } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import { recordLearningEvent } from "@/lib/learning/local-store";
 
@@ -95,6 +95,26 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
   const [traits, setTraits] = useState<Trait[]>(["grip"]);
   const [challenge, setChallenge] = useState<Challenge>("move");
   const [mixIndex, setMixIndex] = useState(0);
+  const [testKey, setTestKey] = useState(0);
+
+  const testMotion = useMemo(() => {
+    if (challenge === "move") {
+      if (traits.includes("glide")) return { x:[0,42,-18,0], y:[0,-58,-30,0], rotate:[0,8,-5,0] };
+      if (traits.includes("wheels")) return { x:[0,72,-32,0], y:[0,0,0,0], rotate:[0,3,-3,0] };
+      if (traits.includes("swim")) return { x:[0,38,-28,0], y:[0,18,-16,0], rotate:[0,-8,7,0] };
+      return { x:[0,18,-12,0], y:[0,-8,0,0], rotate:[0,2,-2,0] };
+    }
+    if (challenge === "hide") {
+      return { x:[0,-24,-24,0], y:[0,8,8,0], scale:[1,0.72,0.72,1], opacity:[1,0.55,0.55,1] };
+    }
+    if (challenge === "talk") {
+      return { y:[0,-8,0,-8,0], rotate:[0,-3,3,-3,0], scale:[1,1.04,0.98,1.04,1] };
+    }
+    if (challenge === "eat") {
+      return { x:[0,24,12,0], y:[0,-6,4,0], rotate:[0,4,-2,0], scale:[1,1.05,1.02,1] };
+    }
+    return { y:[0,-18,0,-10,0], rotate:[0,6,-5,4,0], scale:[1,0.96,1.04,0.98,1] };
+  }, [challenge, traits]);
 
   const description = useMemo(() => {
     const chosen = traits.length
@@ -151,6 +171,33 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
     });
   }
 
+  function testCreature() {
+    setTestKey((value) => value + 1);
+    const hasHelpfulMove = traits.some((trait) => ["glide","wheels","swim","grip","suction","tail"].includes(trait));
+    const line = challenge === "move"
+      ? hasHelpfulMove
+        ? "It has a way to move — but does that way actually suit this world? Try moving it somewhere stranger."
+        : "It can move, sort of. This is a good moment to invent a feature rather than fix a mistake."
+      : challenge === "hide"
+        ? traits.includes("glow")
+          ? "Glowing while hiding is a spectacular trade-off. Why might glowing still be worth it?"
+          : "It is trying to disappear. Which feature helps most, and which gives it away?"
+        : challenge === "talk"
+          ? traits.includes("antenna") || traits.includes("glow")
+            ? "Maybe it talks with signals rather than a voice. What could the signal mean?"
+            : "It needs a communication trick. It does not have to be a sound."
+          : challenge === "eat"
+            ? "How it gets food depends on both the body and the world. What does it eat that makes this shape useful?"
+            : "The world is pushing back. Which feature keeps helping, and which one suddenly becomes a problem?";
+    onBuddyLine(line);
+    recordLearningEvent({
+      kind:"discover_reflected",
+      source:"discover",
+      activityId:"creature-lab",
+      detail:`test:${challenge}:habitat=${habitat}:traits=${traits.join("+")}`,
+    });
+  }
+
   function mutate() {
     const next = mutations[mixIndex % mutations.length];
     setMixIndex((value) => value + 1);
@@ -188,10 +235,10 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
 
           <motion.div
             className={`invented-creature body-${body}`}
-            key={`${habitat}-${body}-${traits.join("-")}`}
+            key={`${habitat}-${body}-${traits.join("-")}-${testKey}`}
             initial={{ scale: 0.88, rotate: -4, y: 8 }}
-            animate={{ scale: 1, rotate: 0, y: 0 }}
-            transition={{ type: "spring", stiffness: 170, damping: 14 }}
+            animate={testKey ? testMotion : { scale:1, rotate:0, y:0 }}
+            transition={testKey ? { duration:1.7, ease:"easeInOut" } : { type:"spring", stiffness:170, damping:14 }}
           >
             {traits.includes("glide") && <><span className="creature-wing left" /><span className="creature-wing right" /></>}
             {traits.includes("swim") && <><span className="creature-fin left" /><span className="creature-fin right" /></>}
@@ -264,9 +311,14 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
             </div>
           </div>
 
-          <button type="button" className="discover-secondary creature-remix" onClick={mutate}>
-            <ArrowsClockwise size={18} /> Mutate it
-          </button>
+          <div className="creature-test-actions">
+            <button type="button" className="discover-primary" onClick={testCreature}>
+              <Play size={18} /> Test it
+            </button>
+            <button type="button" className="discover-secondary creature-remix" onClick={mutate}>
+              <ArrowsClockwise size={18} /> Mutate it
+            </button>
+          </div>
         </div>
       </div>
     </section>
