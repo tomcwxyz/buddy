@@ -2240,3 +2240,29 @@
     height: 48px;
   }
 }
+
+
+/* v3 polish */
+@media (min-width: 901px) {
+  .discover-world-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.word-power-preview {
+  display: block;
+  margin-top: 6px;
+  color: rgba(251, 248, 242, 0.58);
+  font-size: 0.7rem;
+}
+
+.word-power-preview strong {
+  color: var(--buddy-sun);
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .creature-stage {
+    position: relative;
+  }
+}
