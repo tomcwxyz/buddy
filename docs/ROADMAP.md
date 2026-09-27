@@ -34,7 +34,9 @@ Buddy's roadmap is deliberately organised around useful child-facing capability 
 - Buddy prefers useful English voices, remembers the chosen device voice and pace, and copes with browsers that load their voice list late.
 - Voice choices are intentionally presented as neutral options rather than gender/personality labels.
 - Native voices still differ by operating system and browser. A provider-backed or bundled Buddy voice is the route to identical cross-device sound if testing shows that consistency matters enough to justify it.
-- **Explore something** is no longer a prompt placeholder. Its first three playable worlds are Launch lab (motion, slope and friction), Creature lab (adaptation, trade-offs and description) and Pattern maker (rules, prediction and logic).
+- **Explore something** is no longer a prompt placeholder. Launch lab now mixes real comparisons with boosters, springs, loops, portals and deliberately broken physics; Creature lab combines strange habitats/body plans/features with testable challenges and adjacent science prompts; Block lab is a spatial construction toy where the child and Buddy can alter the same structure.
+- **Word invaders** adds an arcade word-building world: letters drift in a formation, the child catches/rearranges them into words, and words change the game through shields, slow fields, beams, pulses, magnets and starbursts rather than points or lives.
+- Keep pushing every Explore world towards a repeatable play loop — change/build → world responds → Buddy notices → child changes it again — rather than adding more worksheet-like prompts or completion states.
 - Explore records activity/change/reflection signals locally without scores or right/wrong outcomes. These signals are not yet turned into claims in **Me**.
 
 ### Quality infrastructure — active
