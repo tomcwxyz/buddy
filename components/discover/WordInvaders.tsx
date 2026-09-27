@@ -18,7 +18,7 @@ const waves = [
 
 const acceptedWords = new Set([
   "AN","AS","AT","BE","BY","DO","GO","HE","IN","IS","IT","ME","MY","NO","OF","ON","OR","SO","TO","UP","US","WE",
-  "AIR","AND","ARM","ART","BAT","BEAM","BIG","BIT","BOX","CAN","CAR","CAT","COMET","DAY","DOG","DOT","FAR","FAST",
+  "AIR","ALIEN","AND","ARM","ART","BAT","BEAM","BIG","BIT","BOX","CAN","CAR","CAT","COMET","DAY","DOG","DOT","FAR","FAST",
   "FLY","FUN","GLOW","HOT","JET","LASER","LIGHT","MAP","MOON","NEW","NOVA","ODD","ORBIT","PLAY","POWER","RED","ROCKET",
   "RUN","SHIP","SKY","SLOW","SPARK","STAR","SUN","TOP","WAVE","WORD","WOW","ZAP","ZOOM"
 ]);
@@ -76,6 +76,7 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
   }, [power, powerKey]);
 
   const currentWord = rack.join("");
+  const previewPower = acceptedWords.has(currentWord) && currentWord.length >= 2 ? choosePower(currentWord) : null;
   const depth = Math.floor(march / 4);
   const direction = Math.floor(march / 2) % 2 === 0 ? 1 : -1;
   const formationStyle = useMemo(() => ({
@@ -187,6 +188,9 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
                 <button type="button" key={`${letter}-${index}`} onClick={() => release(index)} aria-label={`Put ${letter} back`}>{letter}</button>
               )) : <span className="word-rack-empty">Tap letters above to catch them.</span>}
             </div>
+            {previewPower && (
+              <span className="word-power-preview">This word will make: <strong>{powerCopy[previewPower].label}</strong></span>
+            )}
           </div>
           <div className="word-rack-actions">
             <button type="button" className="discover-secondary" onClick={() => setRack((items) => [...items].reverse())} disabled={rack.length < 2}>
