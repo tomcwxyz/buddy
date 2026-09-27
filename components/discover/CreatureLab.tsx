@@ -174,7 +174,8 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
   function testCreature() {
     setTestKey((value) => value + 1);
     const hasHelpfulMove = traits.some((trait) => ["glide","wheels","swim","grip","suction","tail"].includes(trait));
-    const line = challenge === "move"
+
+    let line = challenge === "move"
       ? hasHelpfulMove
         ? "It has a way to move — but does that way actually suit this world? Try moving it somewhere stranger."
         : "It can move, sort of. This is a good moment to invent a feature rather than fix a mistake."
@@ -189,6 +190,19 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
           : challenge === "eat"
             ? "How it gets food depends on both the body and the world. What does it eat that makes this shape useful?"
             : "The world is pushing back. Which feature keeps helping, and which one suddenly becomes a problem?";
+
+    if (habitat === "moon" && traits.includes("glide")) {
+      line = "Those gliding wings have a problem: this tiny moon has almost no air to push against. Can the wings do a different job?";
+    } else if (habitat === "water" && traits.includes("wheels") && !traits.includes("swim")) {
+      line = "Wheels underwater are gloriously awkward. What would have to be unusual about the sea floor for them to help?";
+    } else if (habitat === "lava" && traits.includes("warm")) {
+      line = "A thick warm coat on lava world may solve the wrong problem. Could it insulate the creature from heat instead?";
+    } else if (habitat === "cave" && traits.includes("manyEyes") && !traits.includes("night") && !traits.includes("glow")) {
+      line = "Lots of eyes do not help much if there is almost no light. What else could those eyes detect?";
+    } else if (habitat === "cloud" && traits.includes("wheels")) {
+      line = "Wheels on cloud islands need something to roll on. Maybe your clouds are solid — what would that change about the world?";
+    }
+
     onBuddyLine(line);
     recordLearningEvent({
       kind:"discover_reflected",
