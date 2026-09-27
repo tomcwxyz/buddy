@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Leaf, RocketLaunch, Shapes, SpeakerHigh } from "@phosphor-icons/react";
+import { ArrowLeft, GameController, Leaf, RocketLaunch, Shapes, SpeakerHigh } from "@phosphor-icons/react";
 import { BuddyPresence } from "@/components/BuddyPresence";
 import { CreatureLab } from "@/components/discover/CreatureLab";
 import { LaunchLab } from "@/components/discover/LaunchLab";
 import { PatternLab } from "@/components/discover/PatternLab";
+import { WordInvaders } from "@/components/discover/WordInvaders";
 import { recordLearningEvent } from "@/lib/learning/local-store";
 import { useBuddySpeech } from "@/lib/speech/useBuddySpeech";
 
-type ActivityId = "launch-lab" | "creature-lab" | "pattern-lab";
+type ActivityId = "launch-lab" | "creature-lab" | "pattern-lab" | "word-invaders";
 type BuddyState = "idle" | "speaking";
 
 const activities: Array<{
@@ -39,6 +40,13 @@ const activities: Array<{
     kicker: "Build a rule in space",
     body: "Stack little bricks into mirrors, stairs, repeats, skylines or something Buddy cannot name yet.",
     icon: Shapes,
+  },
+  {
+    id: "word-invaders",
+    title: "Word invaders",
+    kicker: "Arcade words",
+    body: "Catch letters from a drifting swarm. Build words and fire them back as strange power-ups.",
+    icon: GameController,
   },
 ];
 
@@ -115,6 +123,7 @@ export function DiscoverPlayground() {
           {active === "launch-lab" && <LaunchLab onBuddyLine={setBuddyLine} />}
           {active === "creature-lab" && <CreatureLab onBuddyLine={setBuddyLine} />}
           {active === "pattern-lab" && <PatternLab onBuddyLine={setBuddyLine} />}
+          {active === "word-invaders" && <WordInvaders onBuddyLine={setBuddyLine} />}
         </div>
       )}
 
