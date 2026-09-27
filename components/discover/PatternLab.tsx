@@ -122,12 +122,14 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
   const [tool, setTool] = useState<Tool>("add");
   const [flipped, setFlipped] = useState(false);
   const [starter, setStarter] = useState<Starter>("mirror");
+  const [undoGrid, setUndoGrid] = useState<Stack[] | null>(null);
 
   const analysis = useMemo(() => analyseGrid(grid), [grid]);
 
   function editCell(row: number, col: number) {
     const index = indexOfCell(row, col);
     setGrid((current) => {
+      setUndoGrid(current.map((stack) => [...stack]));
       const next = current.map((stack) => [...stack]);
       if (tool === "remove") {
         next[index].pop();
@@ -151,6 +153,7 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
 
   function loadStarter(nextStarter: Starter) {
     setStarter(nextStarter);
+    setUndoGrid(grid.map((stack) => [...stack]));
     setGrid(starterGrid(nextStarter));
     const line = nextStarter === "mirror"
       ? "I started a mirror build. Break the symmetry or make it stronger."
@@ -196,7 +199,57 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
     });
   }
 
+  function buddyMove() {
+    setGrid((current) => {
+      setUndoGrid(current.map((stack) => [...stack]));
+      const next = current.map((stack) => [...stack]);
+      const currentAnalysis = analyseGrid(current);
+      let target = 0;
+      let buddyColour: BlockColour = "sun";
+
+      if (currentAnalysis.mirror && currentAnalysis.totalBlocks > 2) {
+        target = indexOfCell(0, 2);
+        buddyColour = "plum";
+        onBuddyLine("I added one on the centre line so I did not break your mirror. Your move: preserve the rule or wreck it.");
+      } else if (currentAnalysis.repeatedRows) {
+        target = indexOfCell(2, 2);
+        buddyColour = "coral";
+        onBuddyLine("I changed one repeated row. Can the build absorb my mutation, or does the rule need repairing?");
+      } else if (currentAnalysis.staircase) {
+        target = indexOfCell(2, 0);
+        buddyColour = "moss";
+        onBuddyLine("I started a second staircase in a different direction. You can continue mine, ignore it, or collide the two rules.");
+      } else {
+        const candidates = next
+          .map((stack, index) => ({ index, height:stack.length }))
+          .filter((item) => item.height < MAX_HEIGHT)
+          .sort((a, b) => a.height - b.height || a.index - b.index);
+        target = candidates[0]?.index ?? 0;
+        buddyColour = colours[(currentAnalysis.totalBlocks + currentAnalysis.colourCount) % colours.length].id;
+        onBuddyLine("I added one block where the build was quietest. Does it belong, or have I misunderstood your rule?");
+      }
+
+      if (next[target].length < MAX_HEIGHT) next[target].push(buddyColour);
+      return next;
+    });
+
+    recordLearningEvent({
+      kind:"discover_reflected",
+      source:"discover",
+      activityId:"pattern-lab",
+      detail:"buddy-move",
+    });
+  }
+
+  function undo() {
+    if (!undoGrid) return;
+    setGrid(undoGrid.map((stack) => [...stack]));
+    setUndoGrid(null);
+    onBuddyLine("Undone. The build is back where it was before the last move.");
+  }
+
   function clear() {
+    setUndoGrid(grid.map((stack) => [...stack]));
     setGrid(emptyGrid());
     onBuddyLine("Empty table. You can start with one block, one tower, one colour — anything.");
   }
@@ -305,6 +358,12 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
       <div className="discover-world-actions">
         <button type="button" className="discover-primary" onClick={askBuddy}>
           <MagicWand size={20} /> Buddy, what do you notice?
+        </button>
+        <button type="button" className="discover-secondary" onClick={buddyMove}>
+          Buddy, add one
+        </button>
+        <button type="button" className="discover-secondary" onClick={undo} disabled={!undoGrid}>
+          Undo last move
         </button>
         <button type="button" className="discover-secondary" onClick={clear}>
           Clear the table
