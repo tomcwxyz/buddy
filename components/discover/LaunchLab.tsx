@@ -61,6 +61,15 @@ export function LaunchLab({ onBuddyLine }: LaunchLabProps) {
       };
     }
 
+    if (toy === "loop" && physics === "real") {
+      return {
+        left:["8%","48%","57%","61%","66%","74%","88%"],
+        y:[0,0,-34,-82,-38,0,0],
+        rotate:[0,170,360,560,760,920,1080],
+        scale:[1,1,0.98,0.96,0.98,1,1],
+      };
+    }
+
     if (physics === "moon") {
       return {
         left:["8%","34%","61%","88%"],
