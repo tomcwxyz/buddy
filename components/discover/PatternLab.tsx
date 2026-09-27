@@ -128,8 +128,8 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
 
   function editCell(row: number, col: number) {
     const index = indexOfCell(row, col);
+    setUndoGrid(grid.map((stack) => [...stack]));
     setGrid((current) => {
-      setUndoGrid(current.map((stack) => [...stack]));
       const next = current.map((stack) => [...stack]);
       if (tool === "remove") {
         next[index].pop();
@@ -200,8 +200,8 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
   }
 
   function buddyMove() {
+    setUndoGrid(grid.map((stack) => [...stack]));
     setGrid((current) => {
-      setUndoGrid(current.map((stack) => [...stack]));
       const next = current.map((stack) => [...stack]);
       const currentAnalysis = analyseGrid(current);
       let target = 0;
@@ -380,6 +380,7 @@ function cellPosition(row: number, col: number, level: number, flipped: boolean)
   return {
     left: `calc(50% + ${x}px)`,
     top: y,
+    zIndex: 10 + (viewCol + row) * 10 + level,
   };
 }
 
