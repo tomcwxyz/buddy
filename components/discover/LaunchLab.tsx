@@ -38,6 +38,8 @@ export function LaunchLab({ onBuddyLine }: LaunchLabProps) {
   const [runKey, setRunKey] = useState(0);
   const [hasRun, setHasRun] = useState(false);
   const [runHistory, setRunHistory] = useState<string[]>([]);
+  const [lastRealDistance, setLastRealDistance] = useState<number | null>(null);
+  const [ghostDistance, setGhostDistance] = useState<number | null>(null);
 
   const realDistance = useMemo(() => {
     const value =
@@ -180,6 +182,11 @@ export function LaunchLab({ onBuddyLine }: LaunchLabProps) {
     if (toy === "loop") line = "The loop changes direction while the cart keeps moving. Where does it need the most speed?";
     if (toy === "portal") line = "The portal is pure nonsense physics. The interesting bit is noticing exactly what rule it breaks.";
 
+    if (physics === "real") {
+      setGhostDistance(lastRealDistance);
+      setLastRealDistance(realDistance);
+    }
+
     const physicsLabel = physics === "real" ? "Real" : physicsOptions.find((item) => item.id === physics)?.label ?? physics;
     const memory = `${physicsLabel} · ${slope} · ${surface} · ${push}${toy !== "none" ? ` · ${toy}` : ""}`;
     setRunHistory((items) => [memory, ...items].slice(0, 3));
@@ -257,6 +264,12 @@ export function LaunchLab({ onBuddyLine }: LaunchLabProps) {
         {toy === "spring" && <span className="launch-track-toy spring" aria-hidden="true" />}
         {toy === "loop" && <span className="launch-track-toy loop" aria-hidden="true" />}
         {toy === "portal" && <><span className="launch-track-toy portal one" aria-hidden="true" /><span className="launch-track-toy portal two" aria-hidden="true" /></>}
+        {physics === "real" && ghostDistance !== null && (
+          <span className="launch-ghost-marker" style={{ left:`${ghostDistance}%` }} aria-label="Where the previous real-world run finished">
+            <i />
+            <small>last run</small>
+          </span>
+        )}
 
         <motion.div
           key={runKey}
@@ -268,7 +281,17 @@ export function LaunchLab({ onBuddyLine }: LaunchLabProps) {
         ><span /></motion.div>
 
         <div className="launch-distance-note" aria-live="polite">
-          {hasRun ? "Run complete. Change one thing or remix everything." : physics === "real" ? "Earth rules are on." : "The rules are deliberately wrong."}
+          {hasRun
+            ? physics === "real" && ghostDistance !== null
+              ? realDistance > ghostDistance
+                ? "That travelled further than the last real-world run."
+                : realDistance < ghostDistance
+                  ? "That stopped sooner than the last real-world run."
+                  : "That landed in almost exactly the same place."
+              : "Run complete. Change one thing or remix everything."
+            : physics === "real"
+              ? "Earth rules are on."
+              : "The rules are deliberately wrong."}
         </div>
       </div>
 
