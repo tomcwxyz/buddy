@@ -265,6 +265,7 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
       return next;
     });
     onBuddyLine("I mirrored the whole build. Now break one side on purpose and see how quickly the symmetry disappears.");
+    recordLearningEvent({ kind:"discover_changed", source:"discover", activityId:"pattern-lab", detail:"transform:mirror" });
   }
 
   function growBuild() {
@@ -274,6 +275,7 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
       return [...stack, stack[stack.length - 1]];
     }));
     onBuddyLine("Every existing tower grew by one block. Did the rule stay the same when the scale changed?");
+    recordLearningEvent({ kind:"discover_changed", source:"discover", activityId:"pattern-lab", detail:"transform:grow" });
   }
 
   function shiftColours() {
@@ -284,6 +286,7 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
       return ids[(index + 1) % ids.length];
     })));
     onBuddyLine("Same shape, different colours. If the pattern still feels the same, colour may not have been the important rule.");
+    recordLearningEvent({ kind:"discover_changed", source:"discover", activityId:"pattern-lab", detail:"transform:colour-shift" });
   }
 
   function clear() {
