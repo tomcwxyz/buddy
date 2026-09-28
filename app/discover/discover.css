@@ -2647,3 +2647,31 @@
 .invader-personal-note {
   color: rgba(217, 184, 108, 0.8) !important;
 }
+
+
+.launch-ghost-cart {
+  position: absolute;
+  bottom: 76px;
+  width: 36px;
+  height: 36px;
+  margin-left: -18px;
+  border: 2px dashed rgba(120, 103, 126, 0.5);
+  border-radius: 13px;
+  background: rgba(120, 103, 126, 0.1);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.launch-ghost-cart::before,
+.launch-ghost-cart::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  width: 6px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(120, 103, 126, 0.58);
+}
+
+.launch-ghost-cart::before { left: 8px; }
+.launch-ghost-cart::after { right: 8px; }
