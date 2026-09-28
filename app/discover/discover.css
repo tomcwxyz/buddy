@@ -2696,3 +2696,9 @@
 .launch-lab .discover-world-actions {
   scroll-margin-block: 120px;
 }
+
+
+/* Four Creature actions read better as a 2x2 control cluster. */
+.creature-test-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
