@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { ArrowClockwise, MagicWand } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import { recordLearningEvent } from "@/lib/learning/local-store";
+import { readDiscoverState, writeDiscoverState } from "@/lib/discover/local-store";
 
 type PatternLabProps = {
   onBuddyLine: (line: string) => void;
@@ -123,6 +124,28 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
   const [flipped, setFlipped] = useState(false);
   const [starter, setStarter] = useState<Starter>("mirror");
   const [undoGrid, setUndoGrid] = useState<Stack[] | null>(null);
+  const [restored, setRestored] = useState(false);
+
+  useEffect(() => {
+    const saved = readDiscoverState<{
+      grid: Stack[];
+      colour: BlockColour;
+      flipped: boolean;
+    }>("block-lab");
+
+    if (saved?.grid?.length === ROWS * COLS) {
+      setGrid(saved.grid.map((stack) => Array.isArray(stack) ? stack.slice(0, MAX_HEIGHT) : []));
+      setColour(saved.colour ?? "coral");
+      setFlipped(Boolean(saved.flipped));
+      setStarter("city");
+    }
+    setRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!restored) return;
+    writeDiscoverState("block-lab", { grid, colour, flipped });
+  }, [colour, flipped, grid, restored]);
 
   const analysis = useMemo(() => analyseGrid(grid), [grid]);
 
