@@ -248,6 +248,44 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
     onBuddyLine("Undone. The build is back where it was before the last move.");
   }
 
+  function mirrorBuild() {
+    setUndoGrid(grid.map((stack) => [...stack]));
+    setGrid((current) => {
+      const next = current.map((stack) => [...stack]);
+      for (let row = 0; row < ROWS; row += 1) {
+        for (let col = 0; col < Math.floor(COLS / 2); col += 1) {
+          const opposite = COLS - 1 - col;
+          const left = current[indexOfCell(row, col)];
+          const right = current[indexOfCell(row, opposite)];
+          const source = left.length ? left : right;
+          next[indexOfCell(row, col)] = [...source];
+          next[indexOfCell(row, opposite)] = [...source];
+        }
+      }
+      return next;
+    });
+    onBuddyLine("I mirrored the whole build. Now break one side on purpose and see how quickly the symmetry disappears.");
+  }
+
+  function growBuild() {
+    setUndoGrid(grid.map((stack) => [...stack]));
+    setGrid((current) => current.map((stack) => {
+      if (!stack.length || stack.length >= MAX_HEIGHT) return [...stack];
+      return [...stack, stack[stack.length - 1]];
+    }));
+    onBuddyLine("Every existing tower grew by one block. Did the rule stay the same when the scale changed?");
+  }
+
+  function shiftColours() {
+    setUndoGrid(grid.map((stack) => [...stack]));
+    const ids = colours.map((item) => item.id);
+    setGrid((current) => current.map((stack) => stack.map((block) => {
+      const index = ids.indexOf(block);
+      return ids[(index + 1) % ids.length];
+    })));
+    onBuddyLine("Same shape, different colours. If the pattern still feels the same, colour may not have been the important rule.");
+  }
+
   function clear() {
     setUndoGrid(grid.map((stack) => [...stack]));
     setGrid(emptyGrid());
@@ -347,6 +385,13 @@ export function PatternLab({ onBuddyLine }: PatternLabProps) {
             <span>Your build</span>
             <strong>{analysis.totalBlocks} block{analysis.totalBlocks === 1 ? "" : "s"}</strong>
             <p>Tallest stack: {analysis.maxHeight}. Tap a square to {tool === "add" ? "stack another brick" : "take the top brick away"}.</p>
+          </div>
+
+          <div className="block-transform-group">
+            <span>Transform the whole build</span>
+            <button type="button" onClick={mirrorBuild}>Mirror it</button>
+            <button type="button" onClick={growBuild}>Grow every tower</button>
+            <button type="button" onClick={shiftColours}>Shift the colours</button>
           </div>
 
           <button type="button" className="discover-secondary" onClick={() => setFlipped((value) => !value)}>
