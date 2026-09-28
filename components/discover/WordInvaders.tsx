@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowUUpLeft, Lightbulb, Lightning, Pause, Play, Sparkle } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import { readLearningEvents, recordLearningEvent, summariseRememberedWords } from "@/lib/learning/local-store";
+import { readDiscoverState, writeDiscoverState } from "@/lib/discover/local-store";
 import { readActivePracticeSet } from "@/lib/practice/sets";
 
 type WordInvadersProps = { onBuddyLine: (line: string) => void };
@@ -141,6 +142,7 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
   const [nudgeIndex, setNudgeIndex] = useState(0);
   const [personalWords, setPersonalWords] = useState<string[]>([]);
   const [selectedRackIndex, setSelectedRackIndex] = useState<number | null>(null);
+  const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     const activeSet = readActivePracticeSet();
@@ -151,9 +153,21 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
         .map((word) => word.trim().toUpperCase())
         .filter((word) => /^[A-Z]+$/.test(word) && word.length >= 2 && word.length <= 7),
     )].slice(0, 12);
+
+    const saved = readDiscoverState<{
+      wordsMade: Array<{ word: string; power: Exclude<Power, null> }>;
+    }>("word-invaders");
+
     setPersonalWords(usable);
     if (usable.length) setInvaders(makeWave(0, usable));
+    if (saved?.wordsMade?.length) setWordsMade(saved.wordsMade.slice(0, 12));
+    setRestored(true);
   }, []);
+
+  useEffect(() => {
+    if (!restored) return;
+    writeDiscoverState("word-invaders", { wordsMade });
+  }, [restored, wordsMade]);
 
   useEffect(() => {
     if (!running || power === "freeze") return;
