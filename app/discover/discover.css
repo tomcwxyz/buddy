@@ -2629,3 +2629,21 @@
     transition: none;
   }
 }
+
+
+.word-rack button.selected {
+  outline: 3px solid var(--buddy-sun);
+  outline-offset: 2px;
+  transform: translateY(-3px);
+}
+
+.word-rack-hint {
+  display: block;
+  margin-top: 5px;
+  color: rgba(251, 248, 242, 0.48);
+  font-size: 0.66rem;
+}
+
+.invader-personal-note {
+  color: rgba(217, 184, 108, 0.8) !important;
+}
