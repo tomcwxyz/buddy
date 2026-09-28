@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, GameController, Leaf, RocketLaunch, Shapes, SpeakerHigh } from "@phosphor-icons/react";
 import { BuddyPresence } from "@/components/BuddyPresence";
 import { CreatureLab } from "@/components/discover/CreatureLab";
@@ -9,6 +9,7 @@ import { PatternLab } from "@/components/discover/PatternLab";
 import { WordInvaders } from "@/components/discover/WordInvaders";
 import { recordLearningEvent } from "@/lib/learning/local-store";
 import { useBuddySpeech } from "@/lib/speech/useBuddySpeech";
+import { readDiscoverState } from "@/lib/discover/local-store";
 
 type ActivityId = "launch-lab" | "creature-lab" | "pattern-lab" | "word-invaders";
 type BuddyState = "idle" | "speaking";
@@ -54,10 +55,22 @@ export function DiscoverPlayground() {
   const [active, setActive] = useState<ActivityId | null>(null);
   const [buddyLine, setBuddyLine] = useState("Pick something and start changing it.");
   const [buddyState, setBuddyState] = useState<BuddyState>("idle");
+  const [visited, setVisited] = useState<Set<ActivityId>>(new Set());
   const speech = useBuddySpeech();
+
+  useEffect(() => {
+    const keys: Array<[ActivityId, string]> = [
+      ["launch-lab", "launch-lab"],
+      ["creature-lab", "creature-lab"],
+      ["pattern-lab", "block-lab"],
+      ["word-invaders", "word-invaders"],
+    ];
+    setVisited(new Set(keys.filter(([, key]) => readDiscoverState<unknown>(key) !== null).map(([id]) => id)));
+  }, [active]);
 
   function choose(id: ActivityId) {
     setActive(id);
+    setVisited((current) => new Set([...current, id]));
     const next = activities.find((activity) => activity.id === id);
     const line = next
       ? `${next.title}. Start by changing one thing and see what it does.`
@@ -101,7 +114,7 @@ export function DiscoverPlayground() {
               <span className="discover-world-kicker">{kicker}</span>
               <strong>{title}</strong>
               <p>{body}</p>
-              <span className="discover-world-open">Open it →</span>
+              <span className="discover-world-open">{visited.has(id) ? "Continue →" : "Open it →"}</span>
             </button>
           ))}
         </section>
