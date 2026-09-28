@@ -27,16 +27,16 @@ type Power =
 const waves = [
   ["STAR", "MOON", "SHIP", "BEAM", "TURN"],
   ["GLOW", "ZOOM", "ZAP", "FAST", "SLOW"],
-  ["GROW", "TINY", "FREEZE", "SPLIT"],
+  ["GROW", "TINY", "FREEZE", "SPLIT", "JUMP"],
   ["BOUNCE", "COMET", "ORBIT", "NOVA"],
-  ["ROCKET", "ALIEN", "LIGHT", "WAVE"],
+  ["ROCKET", "ALIEN", "LIGHT", "WAVE", "STOP"],
 ];
 
 const acceptedWords = new Set([
   "AN","AS","AT","BE","BY","DO","GO","HE","IN","IS","IT","ME","MY","NO","OF","ON","OR","SO","TO","UP","US","WE",
-  "AIR","ALIEN","AND","ARM","ART","BAT","BEAM","BIG","BIT","BOUNCE","BOX","CAN","CAR","CAT","COMET","DAY","DOG","DOT",
-  "FAR","FAST","FLY","FREEZE","FUN","GLOW","GROW","HOT","JET","LASER","LIGHT","MAP","MOON","NEW","NOVA","ODD","ORBIT",
-  "PLAY","POWER","RED","ROCKET","RUN","SHIP","SKY","SLOW","SPARK","SPLIT","STAR","SUN","TINY","TOP","TURN","WAVE","WORD",
+  "AIR","ALIEN","AND","ARM","ART","BACK","BAT","BEAM","BIG","BIT","BOUNCE","BOX","CAN","CAR","CAT","COLD","COMET","DAY","DOG","DOT",
+  "FAR","FAST","FLY","FREEZE","FUN","GLOW","GROW","HOT","JET","JUMP","LASER","LIGHT","MAP","MOON","NEW","NOVA","ODD","ORBIT",
+  "PLAY","POWER","RED","ROCKET","RUN","SHIP","SKY","SLOW","SMALL","SPARK","SPLIT","STAR","STOP","SUN","TINY","TOP","TURN","WAVE","WORD",
   "WOW","ZAP","ZOOM"
 ]);
 
@@ -64,7 +64,14 @@ const specialPowers: Record<string, Exclude<Power, null>> = {
   ROCKET:"fast",
   ALIEN:"split",
   LIGHT:"shield",
-  WAVE:"bounce"
+  WAVE:"bounce",
+  BIG:"grow",
+  SMALL:"tiny",
+  STOP:"freeze",
+  COLD:"freeze",
+  RUN:"fast",
+  BACK:"turn",
+  JUMP:"bounce"
 };
 
 const powerCopy: Record<Exclude<Power, null>, { label: string; line: string }> = {
