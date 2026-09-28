@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowClockwise, RocketLaunch } from "@phosphor-icons/react";
 import { recordLearningEvent } from "@/lib/learning/local-store";
+import { readDiscoverState, writeDiscoverState } from "@/lib/discover/local-store";
 
 type LaunchLabProps = { onBuddyLine: (line: string) => void };
 type Slope = "low" | "high" | "drop";
@@ -40,6 +41,43 @@ export function LaunchLab({ onBuddyLine }: LaunchLabProps) {
   const [runHistory, setRunHistory] = useState<string[]>([]);
   const [lastRealDistance, setLastRealDistance] = useState<number | null>(null);
   const [ghostDistance, setGhostDistance] = useState<number | null>(null);
+  const [restored, setRestored] = useState(false);
+
+  useEffect(() => {
+    const saved = readDiscoverState<{
+      slope: Slope;
+      surface: Surface;
+      push: Push;
+      physics: PhysicsMode;
+      toy: TrackToy;
+      runHistory: string[];
+      lastRealDistance: number | null;
+    }>("launch-lab");
+
+    if (saved) {
+      setSlope(saved.slope);
+      setSurface(saved.surface);
+      setPush(saved.push);
+      setPhysics(saved.physics);
+      setToy(saved.toy);
+      setRunHistory(Array.isArray(saved.runHistory) ? saved.runHistory.slice(0, 3) : []);
+      setLastRealDistance(typeof saved.lastRealDistance === "number" ? saved.lastRealDistance : null);
+    }
+    setRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!restored) return;
+    writeDiscoverState("launch-lab", {
+      slope,
+      surface,
+      push,
+      physics,
+      toy,
+      runHistory,
+      lastRealDistance,
+    });
+  }, [lastRealDistance, physics, push, restored, runHistory, slope, surface, toy]);
 
   const realDistance = useMemo(() => {
     const value =
