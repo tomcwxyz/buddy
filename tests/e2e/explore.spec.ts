@@ -53,7 +53,7 @@ test.describe("Explore worlds", () => {
     await expect(page.locator(".invented-creature")).toBeVisible();
   });
 
-  test("Block Lab supports Buddy moves, transforms and undo", async ({ page }) => {
+  test("Block Lab supports Buddy moves, transforms, undo and returning to a build", async ({ page }) => {
     await page.goto("/discover");
     await page.getByRole("button", { name: /Block lab/i }).click();
 
@@ -65,8 +65,13 @@ test.describe("Explore worlds", () => {
 
     await page.getByRole("button", { name: "Mirror it" }).click();
     await expect(undo).toBeEnabled();
+    const savedCount = await page.locator(".iso-block").count();
 
-    await undo.click();
+    await page.getByRole("button", { name: /All worlds/i }).click();
+    await page.getByRole("button", { name: /Block lab/i }).click();
+    await expect(page.locator(".iso-block")).toHaveCount(savedCount);
+
+    await page.getByRole("button", { name: "Grow every tower" }).click();
     await expect(page.locator(".iso-block").first()).toBeVisible();
   });
 });
