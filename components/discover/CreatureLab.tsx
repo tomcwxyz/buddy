@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowsClockwise, Play } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import { recordLearningEvent } from "@/lib/learning/local-store";
+import { readDiscoverState, writeDiscoverState } from "@/lib/discover/local-store";
 
 type CreatureLabProps = {
   onBuddyLine: (line: string) => void;
@@ -107,6 +108,37 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
   const [testKey, setTestKey] = useState(0);
   const [worldEvent, setWorldEvent] = useState<WorldEvent>("none");
   const [eventIndex, setEventIndex] = useState(0);
+  const [restored, setRestored] = useState(false);
+
+  useEffect(() => {
+    const saved = readDiscoverState<{
+      habitat: Habitat;
+      body: BodyPlan;
+      traits: Trait[];
+      challenge: Challenge;
+      worldEvent: WorldEvent;
+    }>("creature-lab");
+
+    if (saved) {
+      setHabitat(saved.habitat);
+      setBody(saved.body);
+      setTraits(Array.isArray(saved.traits) ? saved.traits.slice(0, 4) : ["grip"]);
+      setChallenge(saved.challenge);
+      setWorldEvent(saved.worldEvent ?? "none");
+    }
+    setRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!restored) return;
+    writeDiscoverState("creature-lab", {
+      habitat,
+      body,
+      traits,
+      challenge,
+      worldEvent,
+    });
+  }, [body, challenge, habitat, restored, traits, worldEvent]);
 
   const testMotion = useMemo(() => {
     if (challenge === "move") {
