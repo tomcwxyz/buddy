@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowClockwise, Lightbulb, Lightning, Pause, Play, Sparkle } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
-import { recordLearningEvent } from "@/lib/learning/local-store";
+import { readLearningEvents, recordLearningEvent, summariseRememberedWords } from "@/lib/learning/local-store";
+import { readActivePracticeSet } from "@/lib/practice/sets";
 
 type WordInvadersProps = { onBuddyLine: (line: string) => void };
 type Invader = { id: number; letter: string; row: number; col: number };
@@ -84,10 +85,16 @@ const powerCopy: Record<Exclude<Power, null>, { label: string; line: string }> =
 
 let invaderId = 0;
 
-function makeWave(index: number): Invader[] {
-  const words = waves[index % waves.length];
+function makeWave(index: number, personalWords: string[] = []): Invader[] {
+  const specials = waves[index % waves.length].slice(0, 3);
+  const personalised = personalWords.length
+    ? [
+        personalWords[index % personalWords.length],
+        personalWords[(index + 1) % personalWords.length],
+      ].filter(Boolean)
+    : [];
   const filler = "EARTSNLIOD".split("");
-  const pool = [...words.join("").split(""), ...filler].slice(0, 24);
+  const pool = [...specials.join("").split(""), ...personalised.join("").split(""), ...filler].slice(0, 24);
   return pool.map((letter, i) => ({
     id: invaderId++,
     letter,
@@ -125,6 +132,20 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
   const [powerKey, setPowerKey] = useState(0);
   const [reversed, setReversed] = useState(false);
   const [nudgeIndex, setNudgeIndex] = useState(0);
+  const [personalWords, setPersonalWords] = useState<string[]>([]);
+
+  useEffect(() => {
+    const activeSet = readActivePracticeSet();
+    const remembered = summariseRememberedWords(readLearningEvents()).map((item) => item.word);
+    const source = activeSet?.words.length ? activeSet.words : remembered;
+    const usable = [...new Set(
+      source
+        .map((word) => word.trim().toUpperCase())
+        .filter((word) => /^[A-Z]+$/.test(word) && word.length >= 2 && word.length <= 7),
+    )].slice(0, 12);
+    setPersonalWords(usable);
+    if (usable.length) setInvaders(makeWave(0, usable));
+  }, []);
 
   useEffect(() => {
     if (!running || power === "freeze") return;
@@ -143,7 +164,8 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
   }, [power, powerKey]);
 
   const currentWord = rack.join("");
-  const previewPower = acceptedWords.has(currentWord) && currentWord.length >= 2 ? choosePower(currentWord) : null;
+  const recognisedCurrentWord = acceptedWords.has(currentWord) || personalWords.includes(currentWord);
+  const previewPower = recognisedCurrentWord && currentWord.length >= 2 ? choosePower(currentWord) : null;
   const depth = Math.floor(march / 4);
   const baseDirection = Math.floor(march / 2) % 2 === 0 ? 1 : -1;
   const direction = reversed ? baseDirection * -1 : baseDirection;
@@ -180,7 +202,7 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
   }
 
   function nudge() {
-    const possible = waves[waveIndex % waves.length].filter((word) => canMakeWord(word, allAvailableLetters));
+    const possible = [...waves[waveIndex % waves.length], ...personalWords].filter((word) => canMakeWord(word, allAvailableLetters));
     if (!possible.length) {
       onBuddyLine("I cannot see one of this swarm's special words any more. Try a new swarm, or make one of your own.");
       return;
@@ -217,7 +239,7 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
   function blastWord() {
     if (currentWord.length < 2) return;
 
-    if (!acceptedWords.has(currentWord)) {
+    if (!recognisedCurrentWord) {
       onBuddyLine(`${currentWord} is an interesting cluster. It is not one of the words this little board knows yet — rearrange it, drop a letter, or catch another.`);
       recordLearningEvent({ kind:"discover_reflected", source:"discover", activityId:"word-invaders", detail:`unknown:${currentWord}` });
       return;
@@ -242,7 +264,7 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
   function nextWave() {
     const next = waveIndex + 1;
     setWaveIndex(next);
-    setInvaders(makeWave(next));
+    setInvaders(makeWave(next, personalWords));
     setRack([]);
     setMarch(0);
     setPower(null);
@@ -269,6 +291,7 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
           <div>
             <strong>{power ? powerCopy[power].label : "Swarm drifting"}</strong>
             <span>{reversed ? " · direction reversed" : ""}</span>
+            {personalWords.length > 0 && <span className="invader-personal-note"> · your words are mixed in</span>}
           </div>
           <button type="button" onClick={() => setRunning((value) => !value)}>
             {running ? <Pause size={16} /> : <Play size={16} />} {running ? "Pause" : "Play"}
