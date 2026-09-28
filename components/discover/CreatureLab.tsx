@@ -12,6 +12,7 @@ type CreatureLabProps = {
 type Habitat = "woods" | "water" | "wind" | "cave" | "lava" | "cloud" | "moon";
 type BodyPlan = "blob" | "long" | "stack" | "many";
 type Challenge = "move" | "eat" | "hide" | "talk" | "survive";
+type WorldEvent = "none" | "storm" | "dark" | "flood" | "cold" | "quake";
 type Trait =
   | "grip"
   | "glide"
@@ -72,6 +73,14 @@ const traitCopy: Record<Trait, string> = {
   manyEyes: "far too many eyes",
 };
 
+const eventCopy: Record<Exclude<WorldEvent, "none">, string> = {
+  storm: "A sudden storm arrives",
+  dark: "Everything goes dark",
+  flood: "The ground starts flooding",
+  cold: "The temperature suddenly drops",
+  quake: "The ground starts shaking",
+};
+
 const challengeCopy: Record<Challenge, string> = {
   move: "How does it get around?",
   eat: "How does it find and get food?",
@@ -96,6 +105,8 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
   const [challenge, setChallenge] = useState<Challenge>("move");
   const [mixIndex, setMixIndex] = useState(0);
   const [testKey, setTestKey] = useState(0);
+  const [worldEvent, setWorldEvent] = useState<WorldEvent>("none");
+  const [eventIndex, setEventIndex] = useState(0);
 
   const testMotion = useMemo(() => {
     if (challenge === "move") {
@@ -191,7 +202,27 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
             ? "How it gets food depends on both the body and the world. What does it eat that makes this shape useful?"
             : "The world is pushing back. Which feature keeps helping, and which one suddenly becomes a problem?";
 
-    if (habitat === "moon" && traits.includes("glide")) {
+    if (worldEvent === "storm") {
+      line = traits.includes("grip") || traits.includes("suction")
+        ? "The storm is trying to move it, but those gripping features suddenly matter a lot. What happens to anything wide, light or wing-shaped?"
+        : "The storm is pushing everything sideways. Which feature would help it stay put — and which feature might make the wind catch it more?";
+    } else if (worldEvent === "dark") {
+      line = traits.includes("night") || traits.includes("glow")
+        ? "Darkness changed the problem. Its eyes or glow suddenly became much more useful than they were a moment ago."
+        : "The lights went out. Which senses could still work if vision stopped being useful?";
+    } else if (worldEvent === "flood") {
+      line = traits.includes("swim") || traits.includes("glide")
+        ? "The flood changed the ground into a different kind of world. A feature that looked unnecessary may suddenly be useful."
+        : "The floor is becoming water. Does the creature adapt with what it already has, or does it need a completely different trick?";
+    } else if (worldEvent === "cold") {
+      line = traits.includes("warm")
+        ? "The sudden cold makes that thick coat look clever. Would the same coat still help when the world heats back up?"
+        : "The temperature dropped. Staying warm is now a problem the creature did not have a moment ago.";
+    } else if (worldEvent === "quake") {
+      line = traits.includes("grip") || traits.includes("suction") || body === "many"
+        ? "The ground is shaking. More contact with the ground may help — but could it also make movement harder?"
+        : "The ground will not stay still. A body that worked fine a moment ago now has a balance problem.";
+    } else if (habitat === "moon" && traits.includes("glide")) {
       line = "Those gliding wings have a problem: this tiny moon has almost no air to push against. Can the wings do a different job?";
     } else if (habitat === "water" && traits.includes("wheels") && !traits.includes("swim")) {
       line = "Wheels underwater are gloriously awkward. What would have to be unusual about the sea floor for them to help?";
@@ -209,6 +240,20 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
       source:"discover",
       activityId:"creature-lab",
       detail:`test:${challenge}:habitat=${habitat}:traits=${traits.join("+")}`,
+    });
+  }
+
+  function surpriseWorld() {
+    const events: Array<Exclude<WorldEvent, "none">> = ["storm","dark","flood","cold","quake"];
+    const next = events[eventIndex % events.length];
+    setEventIndex((value) => value + 1);
+    setWorldEvent(next);
+    onBuddyLine(`${eventCopy[next]}. Do not redesign yet — first see what your current creature does with it.`);
+    recordLearningEvent({
+      kind:"discover_changed",
+      source:"discover",
+      activityId:"creature-lab",
+      detail:`event:${next}`,
     });
   }
 
@@ -241,11 +286,16 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
       </div>
 
       <div className="creature-layout">
-        <div className="creature-stage" data-habitat={habitat}>
+        <div className="creature-stage" data-habitat={habitat} data-event={worldEvent}>
           <div className="creature-sky" />
           <div className="creature-ground" />
           <span className="creature-world-object one" aria-hidden="true" />
           <span className="creature-world-object two" aria-hidden="true" />
+          {worldEvent !== "none" && (
+            <div className="creature-event-badge" aria-live="polite">
+              {eventCopy[worldEvent]}
+            </div>
+          )}
 
           <motion.div
             className={`invented-creature body-${body}`}
@@ -328,6 +378,9 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
           <div className="creature-test-actions">
             <button type="button" className="discover-primary" onClick={testCreature}>
               <Play size={18} /> Test it
+            </button>
+            <button type="button" className="discover-secondary" onClick={surpriseWorld}>
+              Surprise the world
             </button>
             <button type="button" className="discover-secondary creature-remix" onClick={mutate}>
               <ArrowsClockwise size={18} /> Mutate it
