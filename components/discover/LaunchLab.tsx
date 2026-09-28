@@ -265,10 +265,22 @@ export function LaunchLab({ onBuddyLine }: LaunchLabProps) {
         {toy === "loop" && <span className="launch-track-toy loop" aria-hidden="true" />}
         {toy === "portal" && <><span className="launch-track-toy portal one" aria-hidden="true" /><span className="launch-track-toy portal two" aria-hidden="true" /></>}
         {physics === "real" && ghostDistance !== null && (
-          <span className="launch-ghost-marker" style={{ left:`${ghostDistance}%` }} aria-label="Where the previous real-world run finished">
-            <i />
-            <small>last run</small>
-          </span>
+          <>
+            <span className="launch-ghost-marker" style={{ left:`${ghostDistance}%` }} aria-label="Where the previous real-world run finished">
+              <i />
+              <small>last run</small>
+            </span>
+            {hasRun && (
+              <motion.span
+                key={`ghost-${runKey}`}
+                className="launch-ghost-cart"
+                initial={{ left:"8%" }}
+                animate={{ left:`${ghostDistance}%` }}
+                transition={{ duration:1.55, ease:"easeInOut" }}
+                aria-hidden="true"
+              />
+            )}
+          </>
         )}
 
         <motion.div
