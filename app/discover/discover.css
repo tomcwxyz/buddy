@@ -2675,3 +2675,24 @@
 
 .launch-ghost-cart::before { left: 8px; }
 .launch-ghost-cart::after { right: 8px; }
+
+
+/* Keep non-interactive Launch visuals from stealing taps on compact mobile layouts. */
+.launch-lab .discover-world-heading,
+.launch-lab .launch-stage {
+  pointer-events: none;
+}
+
+.launch-lab .launch-physics-switch,
+.launch-lab .launch-toys,
+.launch-lab .launch-controls,
+.launch-lab .launch-prediction,
+.launch-lab .launch-history,
+.launch-lab .discover-world-actions {
+  position: relative;
+  z-index: 6;
+}
+
+.launch-lab .discover-world-actions {
+  scroll-margin-block: 120px;
+}
