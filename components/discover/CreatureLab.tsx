@@ -289,6 +289,22 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
     });
   }
 
+  function resetCreature() {
+    setHabitat("woods");
+    setBody("blob");
+    setTraits(["grip"]);
+    setChallenge("move");
+    setWorldEvent("none");
+    setTestKey((value) => value + 1);
+    onBuddyLine("New creature. One grippy foot in the woodland is enough to start from.");
+    recordLearningEvent({
+      kind:"discover_changed",
+      source:"discover",
+      activityId:"creature-lab",
+      detail:"reset:new-creature",
+    });
+  }
+
   function mutate() {
     const next = mutations[mixIndex % mutations.length];
     setMixIndex((value) => value + 1);
@@ -416,6 +432,9 @@ export function CreatureLab({ onBuddyLine }: CreatureLabProps) {
             </button>
             <button type="button" className="discover-secondary creature-remix" onClick={mutate}>
               <ArrowsClockwise size={18} /> Mutate it
+            </button>
+            <button type="button" className="discover-secondary" onClick={resetCreature}>
+              New creature
             </button>
           </div>
         </div>
