@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowClockwise, Lightbulb, Lightning, Pause, Play, Sparkle } from "@phosphor-icons/react";
+import { ArrowUUpLeft, Lightbulb, Lightning, Pause, Play, Sparkle } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import { readLearningEvents, recordLearningEvent, summariseRememberedWords } from "@/lib/learning/local-store";
 import { readActivePracticeSet } from "@/lib/practice/sets";
@@ -133,6 +133,7 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
   const [reversed, setReversed] = useState(false);
   const [nudgeIndex, setNudgeIndex] = useState(0);
   const [personalWords, setPersonalWords] = useState<string[]>([]);
+  const [selectedRackIndex, setSelectedRackIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const activeSet = readActivePracticeSet();
@@ -191,9 +192,31 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
     recordLearningEvent({ kind:"discover_changed", source:"discover", activityId:"word-invaders", detail:`collect:${invader.letter}` });
   }
 
+  function chooseRackLetter(index: number) {
+    if (selectedRackIndex === null) {
+      setSelectedRackIndex(index);
+      onBuddyLine("That letter is selected. Tap another rack letter to swap their places.");
+      return;
+    }
+
+    if (selectedRackIndex === index) {
+      setSelectedRackIndex(null);
+      return;
+    }
+
+    setRack((items) => {
+      const next = [...items];
+      [next[selectedRackIndex], next[index]] = [next[index], next[selectedRackIndex]];
+      return next;
+    });
+    setSelectedRackIndex(null);
+    onBuddyLine("Same letters, different order. See whether a word appears now.");
+  }
+
   function release(index: number) {
     const letter = rack[index];
     setRack((items) => items.filter((_, i) => i !== index));
+    setSelectedRackIndex(null);
     setInvaders((items) => [
       ...items,
       { id:invaderId++, letter, row:(index + waveIndex) % 4, col:(items.length + index) % 6 },
@@ -250,6 +273,7 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
     setPowerKey((n) => n + 1);
     setWordsMade((items) => [{ word:currentWord, power:nextPower }, ...items.filter((item) => item.word !== currentWord)].slice(0, 8));
     setRack([]);
+    setSelectedRackIndex(null);
     applyPower(nextPower);
 
     onBuddyLine(`${currentWord}! ${powerCopy[nextPower].line} Some words change the rules because of what they mean.`);
@@ -266,6 +290,7 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
     setWaveIndex(next);
     setInvaders(makeWave(next, personalWords));
     setRack([]);
+    setSelectedRackIndex(null);
     setMarch(0);
     setPower(null);
     setReversed(false);
@@ -342,13 +367,16 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
                 <button
                   type="button"
                   key={`${letter}-${index}`}
-                  onClick={() => release(index)}
-                  aria-label={`Put ${letter} back`}
+                  className={selectedRackIndex === index ? "selected" : ""}
+                  onClick={() => chooseRackLetter(index)}
+                  aria-pressed={selectedRackIndex === index}
+                  aria-label={selectedRackIndex === index ? `${letter} selected. Tap another letter to swap.` : `Select ${letter} to rearrange the word`}
                 >
                   {letter}
                 </button>
               )) : <span className="word-rack-empty">Tap letters above to catch them.</span>}
             </div>
+            {rack.length > 1 && <span className="word-rack-hint">Tap two rack letters to swap them.</span>}
             {previewPower && (
               <span className="word-power-preview">
                 This word will make: <strong>{powerCopy[previewPower].label}</strong>
@@ -357,8 +385,13 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
           </div>
 
           <div className="word-rack-actions">
-            <button type="button" className="discover-secondary" onClick={() => setRack((items) => [...items].reverse())} disabled={rack.length < 2}>
-              <ArrowClockwise size={18} /> Flip
+            <button
+              type="button"
+              className="discover-secondary"
+              onClick={() => selectedRackIndex !== null && release(selectedRackIndex)}
+              disabled={selectedRackIndex === null}
+            >
+              <ArrowUUpLeft size={18} /> Put back
             </button>
             <button type="button" className="discover-secondary" onClick={nudge}>
               <Lightbulb size={18} /> Nudge
