@@ -1,48 +1,99 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowClockwise, Lightning, Pause, Play, Sparkle } from "@phosphor-icons/react";
+import { ArrowClockwise, Lightbulb, Lightning, Pause, Play, Sparkle } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import { recordLearningEvent } from "@/lib/learning/local-store";
 
 type WordInvadersProps = { onBuddyLine: (line: string) => void };
 type Invader = { id: number; letter: string; row: number; col: number };
-type Power = "pulse" | "shield" | "slow" | "beam" | "starburst" | "magnet" | null;
+type Power =
+  | "pulse"
+  | "shield"
+  | "slow"
+  | "beam"
+  | "starburst"
+  | "magnet"
+  | "turn"
+  | "fast"
+  | "grow"
+  | "tiny"
+  | "freeze"
+  | "split"
+  | "bounce"
+  | null;
 
 const waves = [
-  ["STAR", "MOON", "SHIP", "BEAM"],
-  ["GLOW", "ZOOM", "ZAP", "SPARK"],
-  ["COMET", "ORBIT", "NOVA", "LASER"],
+  ["STAR", "MOON", "SHIP", "BEAM", "TURN"],
+  ["GLOW", "ZOOM", "ZAP", "FAST", "SLOW"],
+  ["GROW", "TINY", "FREEZE", "SPLIT"],
+  ["BOUNCE", "COMET", "ORBIT", "NOVA"],
   ["ROCKET", "ALIEN", "LIGHT", "WAVE"],
 ];
 
 const acceptedWords = new Set([
   "AN","AS","AT","BE","BY","DO","GO","HE","IN","IS","IT","ME","MY","NO","OF","ON","OR","SO","TO","UP","US","WE",
-  "AIR","ALIEN","AND","ARM","ART","BAT","BEAM","BIG","BIT","BOX","CAN","CAR","CAT","COMET","DAY","DOG","DOT","FAR","FAST",
-  "FLY","FUN","GLOW","HOT","JET","LASER","LIGHT","MAP","MOON","NEW","NOVA","ODD","ORBIT","PLAY","POWER","RED","ROCKET",
-  "RUN","SHIP","SKY","SLOW","SPARK","STAR","SUN","TOP","WAVE","WORD","WOW","ZAP","ZOOM"
+  "AIR","ALIEN","AND","ARM","ART","BAT","BEAM","BIG","BIT","BOUNCE","BOX","CAN","CAR","CAT","COMET","DAY","DOG","DOT",
+  "FAR","FAST","FLY","FREEZE","FUN","GLOW","GROW","HOT","JET","LASER","LIGHT","MAP","MOON","NEW","NOVA","ODD","ORBIT",
+  "PLAY","POWER","RED","ROCKET","RUN","SHIP","SKY","SLOW","SPARK","SPLIT","STAR","SUN","TINY","TOP","TURN","WAVE","WORD",
+  "WOW","ZAP","ZOOM"
 ]);
 
 const specialPowers: Record<string, Exclude<Power, null>> = {
-  STAR:"starburst", MOON:"slow", SHIP:"shield", BEAM:"beam", GLOW:"shield", ZOOM:"magnet",
-  ZAP:"pulse", SPARK:"starburst", COMET:"beam", ORBIT:"slow", NOVA:"starburst", LASER:"beam",
-  ROCKET:"magnet", ALIEN:"pulse", LIGHT:"shield", WAVE:"pulse"
+  STAR:"starburst",
+  MOON:"slow",
+  SHIP:"shield",
+  BEAM:"beam",
+  TURN:"turn",
+  GLOW:"shield",
+  ZOOM:"magnet",
+  ZAP:"pulse",
+  SPARK:"starburst",
+  FAST:"fast",
+  SLOW:"slow",
+  GROW:"grow",
+  TINY:"tiny",
+  FREEZE:"freeze",
+  SPLIT:"split",
+  BOUNCE:"bounce",
+  COMET:"beam",
+  ORBIT:"turn",
+  NOVA:"starburst",
+  LASER:"beam",
+  ROCKET:"fast",
+  ALIEN:"split",
+  LIGHT:"shield",
+  WAVE:"bounce"
 };
 
 const powerCopy: Record<Exclude<Power, null>, { label: string; line: string }> = {
   pulse:{ label:"Pulse", line:"A word pulse ripples through a whole row." },
-  shield:{ label:"Shield", line:"Your word becomes a soft shield. Nothing is in a hurry for a moment." },
+  shield:{ label:"Shield", line:"Your word becomes a soft shield around Buddy's ship." },
   slow:{ label:"Slow field", line:"The letters drift into slow motion. More time to spot possibilities." },
-  beam:{ label:"Word beam", line:"A long word beam sweeps across the formation." },
-  starburst:{ label:"Starburst", line:"The word bursts into little stars and scatters the formation." },
-  magnet:{ label:"Letter magnet", line:"Nearby letters lean towards your rack for a moment." }
+  beam:{ label:"Word beam", line:"A long word beam sweeps through the formation." },
+  starburst:{ label:"Starburst", line:"The word bursts into stars and scatters part of the formation." },
+  magnet:{ label:"Letter magnet", line:"Nearby letters jump down into your rack." },
+  turn:{ label:"Turn", line:"The entire swarm reverses direction." },
+  fast:{ label:"Fast field", line:"The swarm suddenly speeds up." },
+  grow:{ label:"Grow", line:"Every letter-invader gets enormous for a moment." },
+  tiny:{ label:"Tiny", line:"The whole swarm shrinks down to pocket size." },
+  freeze:{ label:"Freeze", line:"The swarm freezes completely. Nothing moves." },
+  split:{ label:"Split", line:"A few invaders split into copies and the pattern gets stranger." },
+  bounce:{ label:"Bounce", line:"The formation starts bouncing instead of marching politely." }
 };
 
 let invaderId = 0;
 
 function makeWave(index: number): Invader[] {
-  const pool = [...waves[index % waves.length].join("").split(""), ..."EARTSNLI".split("")].slice(0, 24);
-  return pool.map((letter, i) => ({ id: invaderId++, letter, row: Math.floor(i / 6), col: i % 6 }));
+  const words = waves[index % waves.length];
+  const filler = "EARTSNLIOD".split("");
+  const pool = [...words.join("").split(""), ...filler].slice(0, 24);
+  return pool.map((letter, i) => ({
+    id: invaderId++,
+    letter,
+    row: Math.floor(i / 6),
+    col: i % 6,
+  }));
 }
 
 function choosePower(word: string): Exclude<Power, null> {
@@ -53,6 +104,16 @@ function choosePower(word: string): Exclude<Power, null> {
   return "pulse";
 }
 
+function canMakeWord(word: string, letters: string[]) {
+  const available = [...letters];
+  return word.split("").every((letter) => {
+    const index = available.indexOf(letter);
+    if (index < 0) return false;
+    available.splice(index, 1);
+    return true;
+  });
+}
+
 export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
   const [waveIndex, setWaveIndex] = useState(0);
   const [invaders, setInvaders] = useState<Invader[]>(() => makeWave(0));
@@ -60,28 +121,42 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
   const [march, setMarch] = useState(0);
   const [running, setRunning] = useState(true);
   const [power, setPower] = useState<Power>(null);
-  const [wordsMade, setWordsMade] = useState<string[]>([]);
+  const [wordsMade, setWordsMade] = useState<Array<{ word: string; power: Exclude<Power, null> }>>([]);
   const [powerKey, setPowerKey] = useState(0);
+  const [reversed, setReversed] = useState(false);
+  const [nudgeIndex, setNudgeIndex] = useState(0);
 
   useEffect(() => {
-    if (!running) return;
-    const timer = window.setInterval(() => setMarch((n) => (n + 1) % 16), power === "slow" ? 1250 : 760);
+    if (!running || power === "freeze") return;
+    const delay = power === "slow" ? 1320 : power === "fast" ? 360 : 760;
+    const timer = window.setInterval(() => setMarch((n) => (n + 1) % 16), delay);
     return () => window.clearInterval(timer);
   }, [power, running]);
 
   useEffect(() => {
     if (!power) return;
-    const timer = window.setTimeout(() => setPower(null), power === "slow" ? 6000 : 2800);
+    const duration = power === "slow" || power === "fast" || power === "freeze" || power === "grow" || power === "tiny" || power === "bounce"
+      ? 6000
+      : 2800;
+    const timer = window.setTimeout(() => setPower(null), duration);
     return () => window.clearTimeout(timer);
   }, [power, powerKey]);
 
   const currentWord = rack.join("");
   const previewPower = acceptedWords.has(currentWord) && currentWord.length >= 2 ? choosePower(currentWord) : null;
   const depth = Math.floor(march / 4);
-  const direction = Math.floor(march / 2) % 2 === 0 ? 1 : -1;
-  const formationStyle = useMemo(() => ({
-    transform: `translate(${direction * (march % 2) * 16}px, ${depth * 15}px)`
-  }), [depth, direction, march]);
+  const baseDirection = Math.floor(march / 2) % 2 === 0 ? 1 : -1;
+  const direction = reversed ? baseDirection * -1 : baseDirection;
+  const formationStyle = useMemo(() => {
+    const x = direction * (march % 2) * (power === "bounce" ? 26 : 16);
+    const y = depth * 15 + (power === "bounce" ? (march % 2 === 0 ? -15 : 11) : 0);
+    return { transform:`translate(${x}px, ${y}px)` };
+  }, [depth, direction, march, power]);
+
+  const allAvailableLetters = useMemo(
+    () => [...rack, ...invaders.map((item) => item.letter)],
+    [invaders, rack],
+  );
 
   function collect(invader: Invader) {
     if (rack.length >= 7) {
@@ -97,12 +172,51 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
   function release(index: number) {
     const letter = rack[index];
     setRack((items) => items.filter((_, i) => i !== index));
-    setInvaders((items) => [...items, { id: invaderId++, letter, row:(index + waveIndex) % 4, col:(items.length + index) % 6 }]);
+    setInvaders((items) => [
+      ...items,
+      { id:invaderId++, letter, row:(index + waveIndex) % 4, col:(items.length + index) % 6 },
+    ]);
     onBuddyLine(`${letter} is back in the swarm. Try a different route into the word.`);
+  }
+
+  function nudge() {
+    const possible = waves[waveIndex % waves.length].filter((word) => canMakeWord(word, allAvailableLetters));
+    if (!possible.length) {
+      onBuddyLine("I cannot see one of this swarm's special words any more. Try a new swarm, or make one of your own.");
+      return;
+    }
+    const word = possible[nudgeIndex % possible.length];
+    setNudgeIndex((value) => value + 1);
+    onBuddyLine(`Tiny clue: I can still see the letters for ${word}. You decide whether you want to chase it.`);
+  }
+
+  function applyPower(nextPower: Exclude<Power, null>) {
+    if (nextPower === "pulse") {
+      setInvaders((items) => items.filter((item) => item.row !== depth % 4));
+    } else if (nextPower === "beam" || nextPower === "starburst") {
+      setInvaders((items) => items.filter((_, i) => i % 3 !== 0));
+    } else if (nextPower === "magnet") {
+      const nearby = invaders.slice(0, 2);
+      setRack(nearby.map((item) => item.letter));
+      setInvaders((items) => items.filter((item) => !nearby.some((taken) => taken.id === item.id)));
+    } else if (nextPower === "turn") {
+      setReversed((value) => !value);
+    } else if (nextPower === "split") {
+      setInvaders((items) => {
+        const copies = items.slice(0, Math.min(4, items.length)).map((item, index) => ({
+          ...item,
+          id:invaderId++,
+          row:(item.row + 1) % 4,
+          col:(item.col + index + 2) % 6,
+        }));
+        return [...items, ...copies].slice(0, 28);
+      });
+    }
   }
 
   function blastWord() {
     if (currentWord.length < 2) return;
+
     if (!acceptedWords.has(currentWord)) {
       onBuddyLine(`${currentWord} is an interesting cluster. It is not one of the words this little board knows yet — rearrange it, drop a letter, or catch another.`);
       recordLearningEvent({ kind:"discover_reflected", source:"discover", activityId:"word-invaders", detail:`unknown:${currentWord}` });
@@ -112,21 +226,17 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
     const nextPower = choosePower(currentWord);
     setPower(nextPower);
     setPowerKey((n) => n + 1);
-    setWordsMade((items) => [currentWord, ...items.filter((word) => word !== currentWord)].slice(0, 5));
+    setWordsMade((items) => [{ word:currentWord, power:nextPower }, ...items.filter((item) => item.word !== currentWord)].slice(0, 8));
     setRack([]);
+    applyPower(nextPower);
 
-    if (nextPower === "pulse") {
-      setInvaders((items) => items.filter((item) => item.row !== depth % 4));
-    } else if (nextPower === "beam" || nextPower === "starburst") {
-      setInvaders((items) => items.filter((_, i) => i % 3 !== 0));
-    } else if (nextPower === "magnet") {
-      const nearby = invaders.slice(0, 2);
-      setRack(nearby.map((item) => item.letter));
-      setInvaders((items) => items.filter((item) => !nearby.some((taken) => taken.id === item.id)));
-    }
-
-    onBuddyLine(`${currentWord}! ${powerCopy[nextPower].line} Longer or special words change the world in different ways.`);
-    recordLearningEvent({ kind:"discover_reflected", source:"discover", activityId:"word-invaders", detail:`word:${currentWord};power:${nextPower}` });
+    onBuddyLine(`${currentWord}! ${powerCopy[nextPower].line} Some words change the rules because of what they mean.`);
+    recordLearningEvent({
+      kind:"discover_reflected",
+      source:"discover",
+      activityId:"word-invaders",
+      detail:`word:${currentWord};power:${nextPower}`,
+    });
   }
 
   function nextWave() {
@@ -136,6 +246,8 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
     setRack([]);
     setMarch(0);
     setPower(null);
+    setReversed(false);
+    setNudgeIndex(0);
     onBuddyLine("New swarm. Different letters are hiding different possibilities.");
   }
 
@@ -145,16 +257,19 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
         <div>
           <p className="eyebrow">Arcade words</p>
           <h2 id="invaders-title">Word invaders</h2>
-          <p>Catch letters from the swarm, build a word, then fire the whole word back into the game. Words do things here.</p>
+          <p>Catch letters from the swarm, build a word, then fire the whole word back into the game. Some words actually rewrite the rules.</p>
         </div>
         <div className="discover-topic-chips">
-          <span>spelling</span><span>word building</span><span>rearranging</span><span>cause & effect</span>
+          <span>spelling</span><span>meaning</span><span>word building</span><span>rearranging</span><span>cause & effect</span>
         </div>
       </div>
 
       <div className="invader-shell" data-power={power ?? "none"}>
         <div className="invader-status">
-          <span>{power ? powerCopy[power].label : "Swarm drifting"}</span>
+          <div>
+            <strong>{power ? powerCopy[power].label : "Swarm drifting"}</strong>
+            <span>{reversed ? " · direction reversed" : ""}</span>
+          </div>
           <button type="button" onClick={() => setRunning((value) => !value)}>
             {running ? <Pause size={16} /> : <Play size={16} />} {running ? "Pause" : "Play"}
           </button>
@@ -165,18 +280,34 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
             key={powerKey}
             className="invader-power-flash"
             initial={{ opacity:0, scale:0.7 }}
-            animate={power ? { opacity:[0,0.8,0], scale:[0.7,1.2,1.5] } : { opacity:0 }}
+            animate={power ? { opacity:[0,0.82,0], scale:[0.7,1.2,1.55] } : { opacity:0 }}
             transition={{ duration:1.25 }}
             aria-hidden="true"
           />
+
           <div className="invader-formation" style={formationStyle}>
             {invaders.map((invader) => (
-              <button type="button" key={invader.id} className="letter-invader" data-row={invader.row} onClick={() => collect(invader)} aria-label={`Catch letter ${invader.letter}`}>
+              <button
+                type="button"
+                key={invader.id}
+                className="letter-invader"
+                data-row={invader.row}
+                onClick={() => collect(invader)}
+                aria-label={`Catch letter ${invader.letter}`}
+              >
                 <span className="invader-eyes" aria-hidden="true" />
                 <strong>{invader.letter}</strong>
               </button>
             ))}
           </div>
+
+          {invaders.length === 0 && (
+            <div className="invader-empty-wave">
+              <strong>You changed the whole sky.</strong>
+              <span>Start another swarm whenever you want.</span>
+            </div>
+          )}
+
           <div className="invader-buddy-ship" aria-hidden="true"><span /></div>
         </div>
 
@@ -185,16 +316,29 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
             <span className="word-rack-label">Your letters</span>
             <div className="word-rack" aria-live="polite">
               {rack.length ? rack.map((letter, index) => (
-                <button type="button" key={`${letter}-${index}`} onClick={() => release(index)} aria-label={`Put ${letter} back`}>{letter}</button>
+                <button
+                  type="button"
+                  key={`${letter}-${index}`}
+                  onClick={() => release(index)}
+                  aria-label={`Put ${letter} back`}
+                >
+                  {letter}
+                </button>
               )) : <span className="word-rack-empty">Tap letters above to catch them.</span>}
             </div>
             {previewPower && (
-              <span className="word-power-preview">This word will make: <strong>{powerCopy[previewPower].label}</strong></span>
+              <span className="word-power-preview">
+                This word will make: <strong>{powerCopy[previewPower].label}</strong>
+              </span>
             )}
           </div>
+
           <div className="word-rack-actions">
             <button type="button" className="discover-secondary" onClick={() => setRack((items) => [...items].reverse())} disabled={rack.length < 2}>
-              <ArrowClockwise size={18} /> Flip letters
+              <ArrowClockwise size={18} /> Flip
+            </button>
+            <button type="button" className="discover-secondary" onClick={nudge}>
+              <Lightbulb size={18} /> Nudge
             </button>
             <button type="button" className="discover-primary" onClick={blastWord} disabled={rack.length < 2}>
               <Lightning size={19} /> Fire {currentWord || "word"}
@@ -202,14 +346,32 @@ export function WordInvaders({ onBuddyLine }: WordInvadersProps) {
           </div>
         </div>
 
+        <div className="invader-spellbook">
+          <span>Words that have changed the game</span>
+          <div>
+            {wordsMade.length ? wordsMade.map(({ word, power:wordPower }) => (
+              <button
+                type="button"
+                key={word}
+                onClick={() => onBuddyLine(`${word} made ${powerCopy[wordPower].label.toLowerCase()}. What does the word itself have to do with that effect?`)}
+              >
+                <strong>{word}</strong>
+                <small>{powerCopy[wordPower].label}</small>
+              </button>
+            )) : <em>Nothing discovered yet. Some words do exactly what they sound like they should.</em>}
+          </div>
+        </div>
+
         <div className="invader-bottom-strip">
           <div>
-            <span>Words you have fired</span>
+            <span>There is no last wave</span>
             <div className="invader-word-history">
-              {wordsMade.length ? wordsMade.map((word) => <strong key={word}>{word}</strong>) : <em>None yet — the first one changes everything.</em>}
+              <em>Keep this swarm, or swap the whole letter-space whenever it gets less interesting.</em>
             </div>
           </div>
-          <button type="button" className="discover-secondary" onClick={nextWave}><Sparkle size={18} /> New swarm</button>
+          <button type="button" className="discover-secondary" onClick={nextWave}>
+            <Sparkle size={18} /> New swarm
+          </button>
         </div>
       </div>
     </section>
