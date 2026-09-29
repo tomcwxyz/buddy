@@ -2397,16 +2397,13 @@
 .launch-ghost-cart::after { right: 8px; }
 
 
-/* Keep the Launch shell out of hit testing so its large painted surface can never
-   sit above controls on compact mobile layouts. Interactive descendants opt back in. */
+/* Keep Launch controls inside the viewport. A later desktop rule used to put the
+   three control cards back into columns on phones, widening the whole lab and making
+   the action row unreliable to tap after scrolling. */
 .launch-lab {
   position: relative;
   isolation: isolate;
-  pointer-events: none;
-}
-
-.launch-lab button {
-  pointer-events: auto;
+  min-width: 0;
 }
 
 .launch-lab .discover-world-heading,
@@ -2431,6 +2428,29 @@
 .launch-lab .discover-world-actions button {
   position: relative;
   z-index: 1;
+}
+
+@media (max-width: 720px) {
+  .discover-active-world,
+  .launch-lab,
+  .launch-controls,
+  .launch-control,
+  .launch-control > div {
+    min-width: 0;
+  }
+
+  .launch-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .launch-control button {
+    min-width: 0;
+  }
+
+  .launch-physics-switch,
+  .launch-toys {
+    max-width: 100%;
+  }
 }
 
 

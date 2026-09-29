@@ -36,6 +36,12 @@ test.describe("Explore worlds", () => {
 
     const sendIt = page.getByRole("button", { name: "Send it" });
     await expect(sendIt).toBeVisible();
+    await sendIt.scrollIntoViewIfNeeded();
+
+    await expect.poll(() => page.evaluate(() => (
+      document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1
+    ))).toBe(true);
+
     await expect.poll(() => sendIt.evaluate((button) => {
       const rect = button.getBoundingClientRect();
       const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
