@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, HandPointing, Scan, SpeakerHigh, TextAlignLeft, X } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, Camera, HandPointing, Pause, Play, Scan, SpeakerHigh, TextAlignLeft, X } from "@phosphor-icons/react";
 import { BuddyPresence } from "@/components/BuddyPresence";
 import { VoicePicker } from "@/components/VoicePicker";
 import { PressToTalk } from "@/components/PressToTalk";
 import { getWordSupport, helpText, type HelpDepth } from "@/lib/literacy/engine";
 import { recordLearningEvent } from "@/lib/learning/local-store";
 import { recognisePage, recogniseWordRegion } from "@/lib/ocr/browser-tesseract";
-import type { OcrWord } from "@/lib/ocr/types";
+import type { OcrSentence, OcrWord } from "@/lib/ocr/types";
+import { chunkSentenceText } from "@/lib/reading/guided-reading";
 import { useBuddySpeech } from "@/lib/speech/useBuddySpeech";
 
 type CameraState = "idle" | "starting" | "ready" | "error";
@@ -92,10 +93,15 @@ export function ReadingCompanion() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recordedSelectionRef = useRef<string | null>(null);
+  const autoReadingRef = useRef(false);
   const [cameraState, setCameraState] = useState<CameraState>("idle");
   const [ocrState, setOcrState] = useState<OcrState>("idle");
   const [capturedPage, setCapturedPage] = useState<CapturedPage | null>(null);
   const [ocrWords, setOcrWords] = useState<OcrWord[]>([]);
+  const [sentences, setSentences] = useState<OcrSentence[]>([]);
+  const [activeSentenceIndex, setActiveSentenceIndex] = useState(0);
+  const [showSentenceChunks, setShowSentenceChunks] = useState(false);
+  const [autoReading, setAutoReading] = useState(false);
   const [helpDepth, setHelpDepth] = useState<HelpDepth>("clue");
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [selectedContext, setSelectedContext] = useState<string | null>(null);
@@ -107,6 +113,11 @@ export function ReadingCompanion() {
   const [lookupState, setLookupState] = useState<LookupState>("idle");
   const [tapLookupMessage, setTapLookupMessage] = useState<string | null>(null);
   const speech = useBuddySpeech();
+  const activeSentence = sentences[activeSentenceIndex] ?? null;
+  const activeSentenceChunks = useMemo(
+    () => activeSentence ? chunkSentenceText(activeSentence.text) : [],
+    [activeSentence],
+  );
 
   const support = useMemo(() => (selectedWord ? getWordSupport(selectedWord) : null), [selectedWord]);
   const checkedMeaning = support?.meaning ?? lookup?.meaning ?? null;
@@ -123,6 +134,7 @@ export function ReadingCompanion() {
   useEffect(() => {
     return () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      autoReadingRef.current = false;
       window.speechSynthesis?.cancel();
     };
   }, []);
@@ -175,6 +187,12 @@ export function ReadingCompanion() {
     setCameraState("starting");
     setCapturedPage(null);
     setOcrWords([]);
+    setSentences([]);
+    setActiveSentenceIndex(0);
+    setShowSentenceChunks(false);
+    autoReadingRef.current = false;
+    setAutoReading(false);
+    speech.stop();
     setOcrState("idle");
     setSelectedWord(null);
     setSelectedContext(null);
@@ -210,6 +228,12 @@ export function ReadingCompanion() {
     stopCamera();
     setCapturedPage(null);
     setOcrWords([]);
+    setSentences([]);
+    setActiveSentenceIndex(0);
+    setShowSentenceChunks(false);
+    autoReadingRef.current = false;
+    setAutoReading(false);
+    speech.stop();
     setOcrState("idle");
     setSelectedWord(null);
     setSelectedContext(null);
@@ -246,6 +270,9 @@ export function ReadingCompanion() {
     try {
       const result = await recognisePage(ocrImage, width, height);
       setOcrWords(result.words.filter((word) => word.confidence >= 18 && /[a-z]/i.test(word.text)));
+      setSentences(result.sentences);
+      setActiveSentenceIndex(0);
+      setShowSentenceChunks(false);
       setOcrState("ready");
     } catch {
       setOcrState("error");
@@ -255,6 +282,9 @@ export function ReadingCompanion() {
   }
 
   function chooseWord(word: string, source: WordSource, context?: string) {
+    autoReadingRef.current = false;
+    setAutoReading(false);
+    speech.stop();
     const cleanWord = getWordSupport(word).word;
     if (!cleanWord) return;
     setSelectedWord(cleanWord);
@@ -383,6 +413,70 @@ export function ReadingCompanion() {
     speak(checkedExample);
   }
 
+  function stopContinuousReading() {
+    autoReadingRef.current = false;
+    setAutoReading(false);
+    speech.stop();
+    setBuddyState("idle");
+  }
+
+  function readSentenceAt(index: number, keepGoing = false) {
+    const sentence = sentences[index];
+    if (!sentence) return;
+
+    setActiveSentenceIndex(index);
+    setShowSentenceChunks(false);
+    if (keepGoing) {
+      autoReadingRef.current = true;
+      setAutoReading(true);
+    }
+
+    speech.speak(sentence.text, {
+      onStart: () => setBuddyState("speaking"),
+      onEnd: () => {
+        if (autoReadingRef.current && index < sentences.length - 1) {
+          window.setTimeout(() => readSentenceAt(index + 1, true), 180);
+          return;
+        }
+        autoReadingRef.current = false;
+        setAutoReading(false);
+        setBuddyState("idle");
+      },
+    });
+  }
+
+  function readCurrentSentence() {
+    if (!activeSentence) return;
+    autoReadingRef.current = false;
+    setAutoReading(false);
+    readSentenceAt(activeSentenceIndex, false);
+  }
+
+  function startContinuousReading() {
+    if (!activeSentence) return;
+    moveOn();
+    readSentenceAt(activeSentenceIndex, true);
+  }
+
+  function moveSentence(direction: -1 | 1) {
+    if (!sentences.length) return;
+    stopContinuousReading();
+    moveOn();
+    setShowSentenceChunks(false);
+    setActiveSentenceIndex((current) => clamp(current + direction, 0, sentences.length - 1));
+  }
+
+  function breakUpSentence() {
+    if (!activeSentence) return;
+    stopContinuousReading();
+    setShowSentenceChunks(true);
+  }
+
+  function readSentenceChunk(chunk: string) {
+    stopContinuousReading();
+    speak(chunk);
+  }
+
   async function explainMeaning() {
     if (!support) return;
 
@@ -450,10 +544,42 @@ export function ReadingCompanion() {
 
   function handleTranscript(transcript: string) {
     setLastTranscript(transcript);
+    const request = transcript.toLocaleLowerCase("en-GB");
+
+    if (activeSentence) {
+      if (/\b(stop|pause|my turn|i'll read|i will read)\b/.test(request)) {
+        stopContinuousReading();
+        return;
+      }
+      if (/keep reading|read to me|take over|carry on reading/.test(request)) {
+        startContinuousReading();
+        return;
+      }
+      if (/break.*up|split.*sentence|little bits|chunks/.test(request)) {
+        breakUpSentence();
+        return;
+      }
+      if (/read.*sentence|read this bit|whole sentence/.test(request)) {
+        readCurrentSentence();
+        return;
+      }
+      if (!support && /\b(next|next sentence|keep going)\b/.test(request)) {
+        moveSentence(1);
+        return;
+      }
+      if (!support && /\b(previous|back|last sentence)\b/.test(request)) {
+        moveSentence(-1);
+        return;
+      }
+      if (!support && /\b(again|repeat)\b/.test(request)) {
+        readCurrentSentence();
+        return;
+      }
+    }
+
     if (!support) return;
 
     if (lookupUnknown) {
-      const request = transcript.toLocaleLowerCase("en-GB");
       if (/mean|definition|tell me|check/.test(request)) {
         void explainMeaning();
       } else if (/again|retry|wrong/.test(request)) {
@@ -470,7 +596,6 @@ export function ReadingCompanion() {
       source: selectedSource,
     });
 
-    const request = transcript.toLocaleLowerCase("en-GB");
     if (/mean|definition|tell me/.test(request)) {
       changeHelpDepth("tell");
       return;
@@ -514,7 +639,9 @@ export function ReadingCompanion() {
                 ? "Finding the words…"
                 : capturedPage
                   ? ocrWords.length > 0
-                    ? `I found ${ocrWords.length} words.`
+                    ? sentences.length > 0
+                      ? `I found ${sentences.length} ${sentences.length === 1 ? "sentence" : "sentences"} and ${ocrWords.length} words.`
+                      : `I found ${ocrWords.length} words.`
                     : "I'm looking at the page."
                   : cameraState === "ready"
                     ? "Fill the frame and hold the page still."
@@ -540,11 +667,24 @@ export function ReadingCompanion() {
               {/* Page images remain in the browser for this local OCR alpha. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={capturedPage.image} alt="Captured reading page" />
+              {ocrState === "ready" && activeSentence && activeSentence.bounds.map((box, index) => (
+                <span
+                  key={`${activeSentence.id}-highlight-${index}`}
+                  className="ocr-sentence-highlight"
+                  aria-hidden="true"
+                  style={{
+                    left: `${(box.x0 / capturedPage.width) * 100}%`,
+                    top: `${(box.y0 / capturedPage.height) * 100}%`,
+                    width: `${((box.x1 - box.x0) / capturedPage.width) * 100}%`,
+                    height: `${((box.y1 - box.y0) / capturedPage.height) * 100}%`,
+                  }}
+                />
+              ))}
               {ocrState === "ready" && ocrWords.map((word) => (
                 <button
                   key={word.id}
                   type="button"
-                  className="ocr-word"
+                  className={`ocr-word${activeSentence?.wordIds.includes(word.id) ? " in-active-sentence" : ""}`}
                   style={{
                     left: `${(word.bbox.x0 / capturedPage.width) * 100}%`,
                     top: `${(word.bbox.y0 / capturedPage.height) * 100}%`,
@@ -553,7 +693,16 @@ export function ReadingCompanion() {
                   }}
                   onClick={(event) => {
                     event.stopPropagation();
-                    chooseWord(word.text, "ocr", word.lineText);
+                    const sentenceIndex = sentences.findIndex((sentence) => sentence.wordIds.includes(word.id));
+                    if (sentenceIndex >= 0) {
+                      setActiveSentenceIndex(sentenceIndex);
+                      setShowSentenceChunks(false);
+                    }
+                    chooseWord(
+                      word.text,
+                      "ocr",
+                      sentenceIndex >= 0 ? sentences[sentenceIndex].text : word.lineText,
+                    );
                   }}
                   aria-label={`Choose ${word.text}`}
                   title={word.text}
@@ -609,7 +758,9 @@ export function ReadingCompanion() {
         <div className="camera-demo-row">
           <span>
             {capturedPage
-              ? "Tap a highlighted word — or tap an unboxed word and Buddy will take a closer look."
+              ? sentences.length > 0
+                ? "Follow the highlighted sentence. Tap any word when you want Buddy to help."
+                : "Tap a highlighted word — or tap an unboxed word and Buddy will take a closer look."
               : "The page stays on this device while Buddy finds the words."}
           </span>
           <button type="button" className="text-button" onClick={chooseDemoWord}>
@@ -622,9 +773,90 @@ export function ReadingCompanion() {
         <div className="presence-card">
           <BuddyPresence
             state={buddyState}
-            label={selectedWord ? "This one?" : capturedPage ? "Tap the bit you want." : "Point me at the page."}
+            label={
+              selectedWord
+                ? "This one?"
+                : autoReading
+                  ? "I'll keep going. Stop me whenever you want."
+                  : activeSentence
+                    ? "You read. I'm following."
+                    : capturedPage
+                      ? "Tap the bit you want."
+                      : "Point me at the page."
+            }
           />
         </div>
+
+        {capturedPage && activeSentence && (
+          <section className="guided-reading-card" aria-labelledby="guided-reading-title">
+            <div className="guided-reading-heading">
+              <div>
+                <span>Reading together</span>
+                <strong id="guided-reading-title">Sentence {activeSentenceIndex + 1} of {sentences.length}</strong>
+              </div>
+              {autoReading && <span className="reading-live">Buddy is reading</span>}
+            </div>
+
+            <p className="guided-sentence">{activeSentence.text}</p>
+
+            {showSentenceChunks && activeSentenceChunks.length > 1 && (
+              <div className="sentence-chunks" aria-label="Sentence broken into smaller parts">
+                {activeSentenceChunks.map((chunk, index) => (
+                  <button type="button" key={`${chunk}-${index}`} onClick={() => readSentenceChunk(chunk)}>
+                    <span>{index + 1}</span>
+                    {chunk}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="guided-reading-actions">
+              <button
+                type="button"
+                className="round-control compact"
+                onClick={() => moveSentence(-1)}
+                disabled={activeSentenceIndex === 0}
+                aria-label="Previous sentence"
+              >
+                <ArrowLeft size={19} />
+              </button>
+              <button type="button" className="tactile-button dark" onClick={readCurrentSentence}>
+                <SpeakerHigh size={20} /> Read this
+              </button>
+              <button type="button" className="tactile-button" onClick={breakUpSentence}>
+                Break it up
+              </button>
+              <button
+                type="button"
+                className="round-control compact"
+                onClick={() => moveSentence(1)}
+                disabled={activeSentenceIndex === sentences.length - 1}
+                aria-label="Next sentence"
+              >
+                <ArrowRight size={19} />
+              </button>
+            </div>
+
+            <div className="talking-book-row">
+              <button
+                type="button"
+                className={`tactile-button${autoReading ? "" : " dark"}`}
+                onClick={autoReading ? stopContinuousReading : startContinuousReading}
+              >
+                {autoReading ? <Pause size={20} /> : <Play size={20} />}
+                {autoReading ? "I'll read now" : "Keep reading to me"}
+              </button>
+              <PressToTalk
+                onListeningChange={(listening) => setBuddyState(listening ? "listening" : "idle")}
+                onTranscript={handleTranscript}
+              />
+            </div>
+
+            {lastTranscript && !selectedWord && (
+              <p className="heard-you"><span>You said</span> “{lastTranscript}”</p>
+            )}
+          </section>
+        )}
 
         <VoicePicker
           voices={speech.voices}
@@ -710,10 +942,10 @@ export function ReadingCompanion() {
 
             {selectedContext && (
               <div className="context-example">
-                <span>In this line</span>
+                <span>In this sentence</span>
                 <p>“{selectedContext}”</p>
                 <button type="button" className="text-button" onClick={readLine}>
-                  <SpeakerHigh size={17} /> Read this line
+                  <SpeakerHigh size={17} /> Read this sentence
                 </button>
               </div>
             )}
@@ -739,7 +971,7 @@ export function ReadingCompanion() {
                 </button>
                 {selectedContext && (
                   <button type="button" className="tactile-button" onClick={readLine}>
-                    <TextAlignLeft size={21} /> Read the line
+                    <TextAlignLeft size={21} /> Read the sentence
                   </button>
                 )}
                 <button type="button" className="tactile-button" onClick={() => void explainMeaning()}>
