@@ -9,6 +9,10 @@
   --buddy-clay: #b97c63;
   --buddy-sun: #d9b86c;
   --buddy-plum: #78677e;
+  --buddy-character: #f07f67;
+  --buddy-character-light: #ff9a83;
+  --buddy-character-dark: #d95f4d;
+  --buddy-face: #493831;
   --buddy-shadow: 0 18px 50px rgba(62, 54, 43, 0.08);
 }
 
@@ -277,28 +281,232 @@ button {
   position: relative;
   display: grid;
   place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.buddy-presence:focus-visible {
+  outline: none;
+}
+
+.buddy-aura {
+  position: absolute;
+  width: 154px;
+  height: 136px;
+  border-radius: 48%;
+  background: rgba(240, 127, 103, 0.12);
+  filter: blur(13px);
+  opacity: 0.7;
+  transform: translateY(5px) scale(0.94);
+  transition: transform 220ms ease, opacity 220ms ease;
+  pointer-events: none;
+}
+
+.buddy-presence:hover .buddy-aura,
+.buddy-presence:focus-visible .buddy-aura,
+.buddy-presence[data-reacting="true"] .buddy-aura {
+  transform: translateY(4px) scale(1.06);
+  opacity: 0.95;
+}
+
+.buddy-presence:focus-visible .buddy-aura {
+  box-shadow: 0 0 0 3px rgba(240, 127, 103, 0.18);
 }
 
 .buddy-blob {
-  width: 136px;
-  height: 148px;
-  border-radius: 48% 52% 44% 56% / 56% 48% 52% 44%;
-  background:
-    radial-gradient(circle at 36% 28%, rgba(255, 255, 255, 0.74), transparent 22%),
-    linear-gradient(145deg, #788873, #596654);
+  position: relative;
+  z-index: 2;
+  width: 144px;
+  height: 126px;
+  display: grid;
+  place-items: stretch;
+  transform-origin: 50% 82%;
+  overflow: visible;
+}
+
+.buddy-squish {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: hidden;
+  border: 1px solid rgba(130, 62, 49, 0.12);
+  border-radius: 48% 52% 45% 55% / 57% 54% 46% 43%;
+  background: var(--buddy-character);
   box-shadow:
-    inset -14px -18px 30px rgba(37, 35, 31, 0.12),
-    0 24px 44px rgba(65, 76, 60, 0.22);
+    inset 12px 12px 22px rgba(255, 255, 255, 0.16),
+    inset -13px -16px 25px rgba(142, 61, 48, 0.13),
+    0 18px 32px rgba(146, 69, 54, 0.18);
+  transform-origin: 50% 82%;
+  transition:
+    transform 150ms cubic-bezier(.2, .9, .24, 1.2),
+    border-radius 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+  will-change: transform;
+}
+
+.buddy-presence:hover .buddy-squish,
+.buddy-presence:focus-visible .buddy-squish {
+  background: #f4866e;
+  box-shadow:
+    inset 12px 12px 22px rgba(255, 255, 255, 0.18),
+    inset -13px -16px 25px rgba(142, 61, 48, 0.12),
+    0 20px 36px rgba(146, 69, 54, 0.2);
+}
+
+/* The immediate press is the tactile bit: the character compresses before the
+   follow-on hello/squish/tilt animation runs. */
+.buddy-presence:active .buddy-squish {
+  transform: translateY(6px) scaleX(1.08) scaleY(0.88);
+  border-radius: 51% 49% 47% 53% / 61% 58% 42% 39%;
+  box-shadow:
+    inset 10px 8px 18px rgba(255, 255, 255, 0.12),
+    inset -12px -11px 20px rgba(142, 61, 48, 0.15),
+    0 9px 18px rgba(146, 69, 54, 0.14);
+}
+
+.buddy-soft-spot {
+  position: absolute;
+  left: 23%;
+  top: 17%;
+  width: 38%;
+  height: 24%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  filter: blur(8px);
+  transform: rotate(-14deg);
+  pointer-events: none;
+}
+
+.buddy-face {
+  position: absolute;
+  left: 50%;
+  top: 49%;
+  width: 56px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.buddy-eye {
+  position: absolute;
+  top: 4px;
+  width: 6px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--buddy-face);
+  transform-origin: center;
+  transition: transform 140ms ease, height 140ms ease;
+}
+
+.buddy-eye-left {
+  left: 10px;
+}
+
+.buddy-eye-right {
+  right: 10px;
+}
+
+.buddy-mouth {
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 15px;
+  height: 8px;
+  border-bottom: 2px solid var(--buddy-face);
+  border-radius: 0 0 12px 12px;
+  transform: translateX(-50%);
+  opacity: 0.9;
+  transition: transform 150ms ease, width 150ms ease, height 150ms ease;
+}
+
+.buddy-presence:active .buddy-eye {
+  height: 5px;
+  transform: translateY(2px);
+}
+
+.buddy-presence:active .buddy-mouth {
+  width: 12px;
+  height: 6px;
+  transform: translateX(-50%) translateY(2px);
+}
+
+.buddy-presence[data-reaction="hello"] .buddy-eye-left {
+  height: 3px;
+  transform: translateY(3px) rotate(-8deg);
+}
+
+.buddy-presence[data-reaction="squish"] .buddy-eye {
+  height: 4px;
+  transform: translateY(2px);
+}
+
+.buddy-presence[data-reaction="tilt"] .buddy-mouth {
+  transform: translateX(-50%) rotate(-5deg);
+}
+
+.buddy-presence[data-state="idle"] .buddy-eye {
+  animation: buddy-blink 6.2s ease-in-out infinite;
+}
+
+.buddy-presence[data-state="listening"] .buddy-face {
+  transform: translate(-50%, -51%) scale(1.02);
+}
+
+.buddy-presence[data-state="thinking"] .buddy-mouth {
+  width: 11px;
+  border-radius: 50%;
+  transform: translateX(-50%) rotate(-8deg);
+}
+
+.buddy-presence[data-state="speaking"] .buddy-mouth {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--buddy-face);
+  border-top-width: 1px;
+  border-radius: 50%;
+  animation: buddy-mouth-talk 720ms ease-in-out infinite;
 }
 
 .buddy-shadow {
   position: absolute;
-  bottom: 2px;
-  width: 110px;
-  height: 20px;
+  z-index: 1;
+  bottom: 3px;
+  width: 104px;
+  height: 17px;
   border-radius: 50%;
-  background: rgba(37, 35, 31, 0.12);
+  background: rgba(94, 55, 44, 0.13);
   filter: blur(8px);
+  pointer-events: none;
+}
+
+.buddy-motes {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  pointer-events: none;
+}
+
+.buddy-mote {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffd3a8;
+  box-shadow: 0 0 0 4px rgba(255, 211, 168, 0.1);
+}
+
+.buddy-mote-two {
+  width: 6px;
+  height: 6px;
+  background: #fff1d9;
 }
 
 .buddy-label {
@@ -308,6 +516,17 @@ button {
   white-space: nowrap;
   color: var(--buddy-ink-soft);
   font-size: 0.95rem;
+  pointer-events: none;
+}
+
+@keyframes buddy-blink {
+  0%, 44%, 48%, 100% { transform: scaleY(1); }
+  45%, 47% { transform: scaleY(0.18); }
+}
+
+@keyframes buddy-mouth-talk {
+  0%, 100% { transform: translateX(-50%) scaleY(0.72); }
+  50% { transform: translateX(-50%) scaleY(1.05); }
 }
 
 .page-header {
@@ -470,5 +689,144 @@ button {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* Phone layout: real dimensions rather than visually scaling desktop boxes. */
+@media (max-width: 620px) {
+  .topbar,
+  .main {
+    width: calc(100% - 20px);
+  }
+
+  .topbar {
+    padding-top: 18px;
+  }
+
+  .main {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom));
+  }
+
+  .hero-panel {
+    min-height: 430px;
+    padding: 24px 22px;
+  }
+
+  .hero-title {
+    font-size: clamp(3rem, 14vw, 4.35rem);
+  }
+
+  .hero-subtitle {
+    margin-top: 18px;
+    font-size: 1.05rem;
+  }
+
+  .buddy-stage {
+    min-height: 132px;
+  }
+
+  .buddy-presence {
+    width: 132px;
+    height: 132px;
+    aspect-ratio: auto;
+  }
+
+  .buddy-aura {
+    width: 122px;
+    height: 122px;
+  }
+
+  .buddy-blob {
+    position: relative;
+    z-index: 1;
+    width: 108px;
+    height: 94px;
+  }
+
+  .buddy-face {
+    transform: translate(-50%, -50%) scale(0.86);
+  }
+
+  .buddy-shadow {
+    width: 84px;
+    height: 15px;
+  }
+
+  .buddy-label {
+    display: none;
+  }
+
+  .action-card {
+    min-height: 132px;
+    padding: 20px;
+    gap: 14px;
+  }
+
+  .action-copy h2 {
+    font-size: 1.55rem;
+  }
+
+  .action-copy p {
+    font-size: 0.98rem;
+    line-height: 1.45;
+  }
+
+  .bottom-nav {
+    left: 10px;
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    width: auto;
+    transform: none;
+    padding: 6px;
+  }
+
+  .nav-item {
+    min-height: 48px;
+    padding: 0 8px;
+    gap: 5px;
+    font-size: 0.82rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .nav-item span {
+    font-size: 0.74rem;
+  }
+
+  .nav-item {
+    padding-inline: 5px;
+  }
+}
+
+
+.buddy-presence[data-state="listening"] .buddy-squish {
+  background: #f4866e;
+}
+
+.buddy-presence[data-state="thinking"] .buddy-squish {
+  background: #ee7862;
+}
+
+.buddy-presence[data-state="speaking"] .buddy-squish {
+  background: #f58a70;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy-aura,
+  .buddy-blob,
+  .buddy-squish,
+  .buddy-eye,
+  .buddy-mouth {
+    transition: none;
+  }
+
+  .buddy-presence[data-reacting="true"] .buddy-squish {
+    background: #f58a70;
+  }
+
+  .buddy-presence[data-state="speaking"] .buddy-mouth,
+  .buddy-presence[data-state="idle"] .buddy-eye {
+    animation: none;
   }
 }

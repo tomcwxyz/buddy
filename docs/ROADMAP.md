@@ -21,7 +21,7 @@ Buddy's roadmap is deliberately organised around useful child-facing capability 
 - Local Learning Map events, **Words we've met**, Practice and tentative observations in **Me**.
 - Word lists can be photographed, read with Buddy's local OCR, checked/edited by a person, and saved locally without retaining the source image; school spellings are one source rather than a separate mode.
 - Practice remains deliberately short: a larger spelling set is surfaced a few words at a time rather than becoming a test.
-- Play now feeds one shared interactive coaster world: every unique word explored in Play leaves a real piece in the child's construction yard, whether the word came from reading, a photographed list or manual entry. Tracks now include straights, lift hills, drops, steep drops, hills, dips, bunny hops, swoops, camelbacks, loops, double loops, corkscrews, tunnels, launch track and brakes. Lift and drop pieces genuinely change the track's elevation rather than snapping every piece back to a baseline. The cart has game-like momentum: climbs cost speed, descents add it, launch track boosts it, brakes slow it and inversions need enough speed to complete. The world represents exploration, making and experimentation — not correctness, points or mastery.
+- Play now feeds one shared interactive coaster world: every unique word explored in Play leaves a real piece the child can build with, whether the word came from reading, a photographed list or manual entry. Every word-piece has access to the same track toybox. Tracks now include straights, lift hills, drops, steep drops, hills, dips, bunny hops, swoops, camelbacks, loops, double loops, corkscrews, tunnels, launch track and brakes. Lift and drop pieces genuinely change the track's elevation rather than snapping every piece back to a baseline. The cart has game-like momentum: climbs cost speed, descents add it, launch track boosts it, brakes slow it and inversions need enough speed to complete. The world represents exploration, making and experimentation — not correctness, points or mastery.
 - A broad school-age lexical benchmark spanning everyday polysemes, curriculum vocabulary, function words, morphology and difficult pronunciation.
 - Reviewed curriculum semantic coverage for common maths, science and classroom words.
 - Internal `/lab/words` surfaces for lexical and sound-boundary evaluation.
@@ -113,12 +113,12 @@ Priorities:
 - make Ride mode feel alive without turning it noisy: scenery can sway/glow while the cart moves, tunnels can darken the stage, launches can flash and station visitors can react;
 - keep cart customisation as immediate preference rather than progression: Classic, Rocket and Buggy are all available from the start;
 - keep ride feedback descriptive rather than scored: Buddy can call a coaster floaty, twisty, drop-heavy, boosted or tunnel-y and report its drops, airtime and inversions without ranking the child or the ride;
-- let words with more structure to notice create more adventurous track shapes such as camelbacks and loops, without treating those shapes as prizes for correctness;
+- let word structure influence Buddy's suggested starting shape while keeping every track shape available to every explored word;
 - treat every track piece as evidence that a word was explored, not that it was correct;
 - continue world-building beyond track pieces now that the construction loop is compelling: the first park layer has persistent scenery placement, while stations, paths, additional ride objects and eventually other kinds of worlds can grow from the same exploration → making → play model;
 - allow school lists, child-chosen words and Buddy-suggested revisiting to coexist without implying that any list is a deficit record.
 
-Success is a child wanting to explore words because doing so gives them interesting material to make and play with, without needing points, streaks or reward inflation.
+Success is a child wanting to explore words because doing so gives them interesting material to make and play with, without needing points, streaks, hidden unlock tiers or reward inflation.
 
 ### 3. Expand reviewed sound guidance from evidence, not plausibility
 

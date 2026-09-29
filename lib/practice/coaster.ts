@@ -334,35 +334,50 @@ export function coasterAdventureForWord({
   return Math.min(4, adventure);
 }
 
+export const COASTER_TOOLBOX_KINDS: CoasterPieceKind[] = [
+  "straight", "lift", "drop", "steep-drop", "hill", "dip", "camelback", "bunny-hop", "swoop",
+  "bank-left", "bank-right", "sweep-left", "sweep-right",
+  "tunnel", "launch", "brake",
+  "jump", "mega-jump", "loop", "double-loop", "corkscrew", "half-pipe", "wall-ride",
+];
+
 /**
- * Exploration gives the child a choice of construction material.
- * Correctness is deliberately absent from the input.
+ * Word structure and exploration can suggest a starting shape, but they never
+ * decide which parts of the toybox the child is allowed to use.
  */
-export function coasterPieceOptionsForWord(shape: CoasterWordShape): CoasterPieceKind[] {
+export function suggestedCoasterPieceOptionsForWord(shape: CoasterWordShape): CoasterPieceKind[] {
   const adventure = coasterAdventureForWord(shape);
 
   if (adventure >= 4) {
-    return ["mega-jump", "half-pipe", "wall-ride", "double-loop", "corkscrew", "loop", "sweep-left", "sweep-right", "bank-left", "bank-right", "steep-drop", "jump", "launch"];
+    return ["mega-jump", "half-pipe", "wall-ride", "double-loop", "corkscrew", "loop", "sweep-left", "sweep-right", "steep-drop", "jump", "launch"];
   }
   if (adventure >= 3) {
-    return ["jump", "loop", "corkscrew", "sweep-left", "sweep-right", "bank-left", "bank-right", "steep-drop", "launch", "tunnel"];
+    return ["jump", "loop", "corkscrew", "sweep-left", "sweep-right", "steep-drop", "launch", "tunnel"];
   }
   if (adventure >= 2) {
-    return ["jump", "launch", "bank-left", "bank-right", "lift", "drop", "tunnel", "swoop"];
+    return ["jump", "launch", "lift", "drop", "tunnel", "swoop"];
   }
   if (adventure >= 1) {
-    return ["lift", "drop", "bank-left", "bank-right", "jump", "hill", "bunny-hop", "brake"];
+    return ["lift", "drop", "jump", "hill", "bunny-hop", "brake"];
   }
   return ["straight", "lift", "drop", "hill"];
 }
 
 /**
- * Default piece used when a word is first explored. The child can change it
- * later to any option that word unlocked.
+ * Every explored word is equally useful building material. The complete
+ * track kit is available for every word-piece.
+ */
+export function coasterPieceOptionsForWord(_shape: CoasterWordShape): CoasterPieceKind[] {
+  return [...COASTER_TOOLBOX_KINDS];
+}
+
+/**
+ * A word still gets a playful suggested starting shape, but that suggestion
+ * does not gate later choices.
  */
 export function coasterPieceKindForWord(shape: CoasterWordShape): CoasterPieceKind {
-  const options = coasterPieceOptionsForWord(shape);
-  return options[wordHash(shape.word) % options.length];
+  const suggestions = suggestedCoasterPieceOptionsForWord(shape);
+  return suggestions[wordHash(shape.word) % suggestions.length];
 }
 
 export function minimumSpeedForPiece(kind: CoasterPieceKind) {
