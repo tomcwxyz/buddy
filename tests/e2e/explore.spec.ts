@@ -34,9 +34,17 @@ test.describe("Explore worlds", () => {
     await page.goto("/discover");
     await page.getByRole("button", { name: /Launch lab/i }).click();
 
-    await page.getByRole("button", { name: "Send it" }).click();
+    const sendIt = page.getByRole("button", { name: "Send it" });
+    await expect(sendIt).toBeVisible();
+    await expect.poll(() => sendIt.evaluate((button) => {
+      const rect = button.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return hit !== null && button.contains(hit);
+    })).toBe(true);
+
+    await sendIt.click();
     await page.getByRole("button", { name: "Fast" }).click();
-    await page.getByRole("button", { name: "Send it" }).click();
+    await sendIt.click();
 
     await expect(page.locator(".launch-ghost-marker")).toBeVisible();
     await expect(page.getByText(/last real-world run|same place/i)).toBeVisible();
