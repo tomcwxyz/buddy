@@ -5,9 +5,10 @@ on:
   push:
     branches:
       - main
-      - "refactor/**"
-      - "feature/**"
-      - "fix/**"
+
+concurrency:
+  group: buddy-browser-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   play-flow:
