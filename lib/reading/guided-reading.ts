@@ -1,19 +1,22 @@
 import type { OcrBox, OcrSentence, OcrWord } from "@/lib/ocr/types";
 
 function unionBoxes(boxes: OcrBox[]): OcrBox {
-  return boxes.reduce<OcrBox>(
+  const first = boxes[0];
+  if (!first) return { x0: 0, y0: 0, x1: 0, y1: 0 };
+
+  return boxes.slice(1).reduce<OcrBox>(
     (union, box) => ({
       x0: Math.min(union.x0, box.x0),
       y0: Math.min(union.y0, box.y0),
       x1: Math.max(union.x1, box.x1),
       y1: Math.max(union.y1, box.y1),
     }),
-    { ...boxes[0] },
+    { ...first },
   );
 }
 
 function sentenceEndsHere(text: string) {
-  return /[.!?][”"'’)\]]*$/.test(text.trim());
+  return /[.!?][”"'’)]*$/.test(text.trim());
 }
 
 function joinTokens(words: OcrWord[]) {
@@ -22,8 +25,8 @@ function joinTokens(words: OcrWord[]) {
     .filter(Boolean)
     .reduce((text, token) => {
       if (!text) return token;
-      if (/^[,.;:!?%)\]}]/.test(token)) return \`\${text}\${token}\`;
-      return \`\${text} \${token}\`;
+      if (/^[,.;:!?%)]/.test(token)) return text + token;
+      return text + " " + token;
     }, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -47,7 +50,7 @@ function sentenceBounds(words: OcrWord[]) {
   const lines = new Map<string, OcrBox[]>();
 
   words.forEach((word) => {
-    const fallbackLine = \`y-\${Math.round(((word.bbox.y0 + word.bbox.y1) / 2) / 18)}\`;
+    const fallbackLine = "y-" + Math.round(((word.bbox.y0 + word.bbox.y1) / 2) / 18);
     const key = word.lineId ?? fallbackLine;
     lines.set(key, [...(lines.get(key) ?? []), word.bbox]);
   });
@@ -74,7 +77,7 @@ export function buildReadingSentences(words: OcrWord[]): OcrSentence[] {
     }
 
     sentences.push({
-      id: \`sentence-\${sentences.length}\`,
+      id: "sentence-" + sentences.length,
       text,
       wordIds: current.map((word) => word.id),
       bounds: sentenceBounds(current),
