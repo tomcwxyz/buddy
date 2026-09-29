@@ -2677,7 +2677,18 @@
 .launch-ghost-cart::after { right: 8px; }
 
 
-/* Keep non-interactive Launch visuals from stealing taps on compact mobile layouts. */
+/* Keep the Launch shell out of hit testing so its large painted surface can never
+   sit above controls on compact mobile layouts. Interactive descendants opt back in. */
+.launch-lab {
+  position: relative;
+  isolation: isolate;
+  pointer-events: none;
+}
+
+.launch-lab button {
+  pointer-events: auto;
+}
+
 .launch-lab .discover-world-heading,
 .launch-lab .launch-stage {
   pointer-events: none;
@@ -2695,6 +2706,11 @@
 
 .launch-lab .discover-world-actions {
   scroll-margin-block: 120px;
+}
+
+.launch-lab .discover-world-actions button {
+  position: relative;
+  z-index: 1;
 }
 
 
