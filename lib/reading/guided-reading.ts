@@ -1,3 +1,4 @@
+import { OCR_CONFIDENCE } from "@/lib/ocr/confidence";
 import type { OcrBox, OcrSentence, OcrWord } from "@/lib/ocr/types";
 
 function unionBoxes(boxes: OcrBox[]): OcrBox {
@@ -76,12 +77,18 @@ export function buildReadingSentences(words: OcrWord[]): OcrSentence[] {
       return;
     }
 
+    const confidence = current.reduce((sum, word) => sum + word.confidence, 0) / current.length;
+    const weakWordCount = current.filter((word) => word.confidence < OCR_CONFIDENCE.trustedPage).length;
+    const weakWordShare = weakWordCount / current.length;
+
     sentences.push({
       id: "sentence-" + sentences.length,
       text,
       wordIds: current.map((word) => word.id),
       bounds: sentenceBounds(current),
-      confidence: current.reduce((sum, word) => sum + word.confidence, 0) / current.length,
+      confidence,
+      weakWordShare,
+      uncertain: confidence < 68 || weakWordShare >= 0.2,
       paragraphId: current[0]?.paragraphId,
     });
     current = [];

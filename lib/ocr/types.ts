@@ -22,6 +22,8 @@ export type OcrSentence = {
   wordIds: string[];
   bounds: OcrBox[];
   confidence: number;
+  weakWordShare: number;
+  uncertain: boolean;
   paragraphId?: string;
 };
 

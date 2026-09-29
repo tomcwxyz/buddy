@@ -778,9 +778,11 @@ export function ReadingCompanion() {
                 ? "This one?"
                 : autoReading
                   ? "I'll keep going. Stop me whenever you want."
-                  : activeSentence
-                    ? "You read. I'm following."
-                    : capturedPage
+                  : activeSentence?.uncertain
+                    ? "This bit is a little fuzzy. Check me."
+                    : activeSentence
+                      ? "You read. I'm following."
+                      : capturedPage
                       ? "Tap the bit you want."
                       : "Point me at the page."
             }
@@ -794,10 +796,20 @@ export function ReadingCompanion() {
                 <span>Reading together</span>
                 <strong id="guided-reading-title">Sentence {activeSentenceIndex + 1} of {sentences.length}</strong>
               </div>
-              {autoReading && <span className="reading-live">Buddy is reading</span>}
+              {autoReading
+                ? <span className="reading-live">Buddy is reading</span>
+                : activeSentence.uncertain
+                  ? <span className="reading-quality-note">Fuzzy scan</span>
+                  : null}
             </div>
 
             <p className="guided-sentence">{activeSentence.text}</p>
+
+            {activeSentence.uncertain && (
+              <p className="guided-scan-note">
+                I found this sentence, but some words were hard to see. If anything looks odd, tap the word or try the page again in better light.
+              </p>
+            )}
 
             {showSentenceChunks && activeSentenceChunks.length > 1 && (
               <div className="sentence-chunks" aria-label="Sentence broken into smaller parts">
