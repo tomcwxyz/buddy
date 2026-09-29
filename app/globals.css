@@ -830,3 +830,192 @@ button {
     animation: none;
   }
 }
+
+
+/* Buddy voice choice */
+.voice-picker {
+  width: min(100%, 360px);
+  border: 1px solid rgba(98, 94, 85, 0.14);
+  border-radius: 18px;
+  background: rgba(251, 248, 242, 0.72);
+  overflow: hidden;
+}
+
+.voice-picker > summary {
+  min-height: 54px;
+  padding: 10px 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--buddy-ink);
+}
+
+.voice-picker > summary::-webkit-details-marker {
+  display: none;
+}
+
+.voice-picker > summary > span {
+  min-width: 0;
+}
+
+.voice-picker > summary strong,
+.voice-picker > summary small {
+  display: block;
+}
+
+.voice-picker > summary strong {
+  font-size: 0.84rem;
+}
+
+.voice-picker > summary small {
+  margin-top: 1px;
+  color: var(--buddy-ink-soft);
+  font-size: 0.7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voice-picker[open] > summary {
+  border-bottom: 1px solid var(--buddy-line);
+}
+
+.voice-picker-panel {
+  padding: 13px;
+}
+
+.voice-picker-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.voice-picker-heading strong,
+.voice-picker-heading span {
+  display: block;
+}
+
+.voice-picker-heading strong {
+  font-size: 0.82rem;
+}
+
+.voice-picker-heading span {
+  margin-top: 2px;
+  color: var(--buddy-ink-soft);
+  font-size: 0.7rem;
+}
+
+.voice-picker-heading > button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  border: 1px solid var(--buddy-line);
+  border-radius: 12px;
+  padding: 0 10px;
+  background: var(--buddy-paper-raised);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.voice-options {
+  margin-top: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.voice-options > button {
+  min-width: 0;
+  border: 1px solid var(--buddy-line);
+  border-radius: 13px;
+  padding: 9px 10px;
+  background: transparent;
+  color: var(--buddy-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.voice-options > button.active {
+  border-color: rgba(240, 127, 103, 0.52);
+  background: rgba(240, 127, 103, 0.08);
+}
+
+.voice-options span,
+.voice-options small {
+  display: block;
+}
+
+.voice-options span {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.voice-options small {
+  margin-top: 1px;
+  color: var(--buddy-ink-soft);
+  font-size: 0.67rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voice-picker-empty {
+  margin: 12px 0 0;
+  color: var(--buddy-ink-soft);
+  font-size: 0.76rem;
+}
+
+.voice-rate {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--buddy-line);
+}
+
+.voice-rate > span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--buddy-ink-soft);
+  font-size: 0.7rem;
+}
+
+.voice-rate > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.voice-rate button {
+  min-height: 36px;
+  border: 1px solid var(--buddy-line);
+  border-radius: 11px;
+  padding: 0 7px;
+  background: var(--buddy-paper-raised);
+  color: var(--buddy-ink-soft);
+  cursor: pointer;
+  font-size: 0.72rem;
+}
+
+.voice-rate button.active {
+  border-color: var(--buddy-ink);
+  background: var(--buddy-ink);
+  color: white;
+}
+
+@media (max-width: 720px) {
+  .voice-picker {
+    width: 100%;
+  }
+
+  .voice-picker-panel {
+    padding: 11px;
+  }
+
+  .voice-options {
+    max-height: 220px;
+    overflow-y: auto;
+  }
+}

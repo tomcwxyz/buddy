@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Camera, Ear, Lightbulb, SpeakerHigh } from "@phosphor-icons/react";
 import { BuddyPresence } from "@/components/BuddyPresence";
+import { VoicePicker } from "@/components/VoicePicker";
 import { getWordSupport, helpText } from "@/lib/literacy/engine";
 import {
   readLearningEvents,
@@ -18,6 +19,7 @@ import {
 import { coasterPieceKindForWord } from "@/lib/practice/coaster";
 import { earnCoasterPiece, readCoasterState } from "@/lib/practice/coaster-store";
 import { PLAY_WORLD_ID } from "@/lib/practice/play-world";
+import { useBuddySpeech } from "@/lib/speech/useBuddySpeech";
 import { explorationSignalsForWord, exploredWordsForPracticeSet } from "@/lib/practice/progress";
 import {
   readActivePracticeSet,
@@ -58,6 +60,7 @@ export function PracticeSession() {
   const [buddyState, setBuddyState] = useState<BuddyState>("idle");
   const [lookup, setLookup] = useState<WordLookup | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const speech = useBuddySpeech();
 
   const current = words[index] ?? null;
   const support = useMemo(() => (current ? getWordSupport(current.word) : null), [current]);
@@ -117,14 +120,10 @@ export function PracticeSession() {
   }, [current, practiceSet?.id]);
 
   function speak(text: string) {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "en-GB";
-    utterance.rate = 0.78;
-    utterance.onstart = () => setBuddyState("speaking");
-    utterance.onend = () => setBuddyState("idle");
-    window.speechSynthesis.speak(utterance);
+    speech.speak(text, {
+      onStart: () => setBuddyState("speaking"),
+      onEnd: () => setBuddyState("idle"),
+    });
   }
 
   function hearWord() {
@@ -233,7 +232,7 @@ export function PracticeSession() {
       });
     }
 
-    window.speechSynthesis?.cancel();
+    speech.stop();
     setBuddyState("idle");
     setIndex((value) => value + 1);
   }
@@ -331,6 +330,15 @@ export function PracticeSession() {
         <BuddyPresence
           state={buddyState}
           label={reveal === "none" ? "Have a look first." : "Use whatever helps."}
+        />
+
+        <VoicePicker
+          voices={speech.voices}
+          selectedVoiceURI={speech.selectedVoiceURI}
+          rate={speech.rate}
+          onVoiceChange={speech.setVoiceURI}
+          onRateChange={speech.setRate}
+          onPreview={speech.preview}
         />
 
         <div className="coaster-practice-callout">
