@@ -11,6 +11,18 @@ export type OcrWord = {
   confidence: number;
   bbox: OcrBox;
   lineText?: string;
+  paragraphId?: string;
+  lineId?: string;
+  readingOrder?: number;
+};
+
+export type OcrSentence = {
+  id: string;
+  text: string;
+  wordIds: string[];
+  bounds: OcrBox[];
+  confidence: number;
+  paragraphId?: string;
 };
 
 export type OcrDeskewMetadata = {
@@ -31,6 +43,7 @@ export type OcrRecoveryMetadata = {
 export type OcrResult = {
   text: string;
   words: OcrWord[];
+  sentences: OcrSentence[];
   width: number;
   height: number;
   recovery: OcrRecoveryMetadata;

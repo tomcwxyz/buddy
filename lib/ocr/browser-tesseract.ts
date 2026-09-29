@@ -8,6 +8,7 @@ import {
   nearestLineText,
 } from "@/lib/ocr/recovery";
 import type { OcrResult, OcrWord } from "@/lib/ocr/types";
+import { buildReadingSentences } from "@/lib/reading/guided-reading";
 
 type TesseractWord = {
   text?: string;
@@ -52,11 +53,14 @@ async function getWorker() {
 function extractWords(result: TesseractPageResult, idPrefix: string) {
   const blocks = (result.data.blocks ?? []) as TesseractBlock[];
   const words: OcrWord[] = [];
+  let readingOrder = 0;
 
   blocks.forEach((block, blockIndex) => {
     block.paragraphs?.forEach((paragraph, paragraphIndex) => {
+      const paragraphId = `${idPrefix}-paragraph-${blockIndex}-${paragraphIndex}`;
       paragraph.lines?.forEach((line, lineIndex) => {
         const lineText = line.text?.replace(/\s+/g, " ").trim();
+        const lineId = `${paragraphId}-line-${lineIndex}`;
         line.words?.forEach((word, wordIndex) => {
           const text = word.text?.trim();
           if (!text || !word.bbox || !/[a-z]/i.test(text)) return;
@@ -66,6 +70,9 @@ function extractWords(result: TesseractPageResult, idPrefix: string) {
             confidence: word.confidence ?? 0,
             bbox: word.bbox,
             lineText: lineText || undefined,
+            paragraphId,
+            lineId,
+            readingOrder: readingOrder++,
           });
         });
       });
@@ -145,10 +152,17 @@ export async function recognisePage(
     height,
     prepared.deskew.angle,
   );
+  const mappedPrimaryWords = mapWordsBackToPhoto(
+    primaryTrusted,
+    width,
+    height,
+    prepared.deskew.angle,
+  );
 
   return {
     text: primaryResult.data.text ?? "",
     words: mappedWords,
+    sentences: buildReadingSentences(mappedPrimaryWords),
     width,
     height,
     recovery: {
