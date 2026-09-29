@@ -1,0 +1,279 @@
+.discover-main {
+  width: min(1240px, calc(100% - 36px));
+}
+
+.discover-playground {
+  display: grid;
+  gap: 22px;
+}
+
+.discover-intro,
+.discover-world,
+.discover-principle {
+  border: 1px solid rgba(98, 94, 85, 0.14);
+  background: rgba(251, 248, 242, 0.82);
+  box-shadow: var(--buddy-shadow);
+}
+
+.discover-intro {
+  min-height: 360px;
+  border-radius: 34px;
+  padding: clamp(26px, 5vw, 58px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(230px, 0.7fr);
+  gap: 28px;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.discover-intro::after {
+  content: "";
+  position: absolute;
+  width: 390px;
+  height: 390px;
+  right: -170px;
+  top: -170px;
+  border-radius: 50%;
+  background: rgba(240, 127, 103, 0.07);
+  pointer-events: none;
+}
+
+.discover-intro h1 {
+  margin: 0;
+  max-width: 780px;
+  font-size: clamp(3rem, 7vw, 6.5rem);
+  line-height: 0.93;
+  letter-spacing: -0.055em;
+}
+
+.discover-intro > div:first-child > p:last-child {
+  max-width: 700px;
+  margin: 22px 0 0;
+  color: var(--buddy-ink-soft);
+  font-size: clamp(1rem, 1.7vw, 1.22rem);
+}
+
+.discover-buddy {
+  justify-self: center;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
+}
+
+.discover-buddy .buddy-presence {
+  width: 196px;
+}
+
+.discover-buddy .buddy-label {
+  max-width: 250px;
+}
+
+.discover-speak {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(98, 94, 85, 0.14);
+  border-radius: 999px;
+  background: rgba(251, 248, 242, 0.9);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.discover-world-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.discover-world-card {
+  min-height: 290px;
+  border: 1px solid rgba(98, 94, 85, 0.14);
+  border-radius: 28px;
+  padding: 24px;
+  background: rgba(251, 248, 242, 0.82);
+  color: var(--buddy-ink);
+  box-shadow: var(--buddy-shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 170ms ease, box-shadow 170ms ease, border-color 170ms ease;
+}
+
+.discover-world-card:hover,
+.discover-world-card:focus-visible {
+  transform: translateY(-4px);
+  border-color: rgba(240, 127, 103, 0.3);
+  box-shadow: 0 24px 54px rgba(62, 54, 43, 0.12);
+  outline: none;
+}
+
+.discover-world-card:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.discover-world-icon {
+  width: 62px;
+  height: 62px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  background: rgba(240, 127, 103, 0.1);
+  color: var(--buddy-character-dark);
+}
+
+.discover-world-card:nth-child(2) .discover-world-icon {
+  background: rgba(102, 116, 94, 0.11);
+  color: var(--buddy-moss);
+}
+
+.discover-world-card:nth-child(3) .discover-world-icon {
+  background: rgba(120, 103, 126, 0.1);
+  color: var(--buddy-plum);
+}
+
+.discover-world-kicker {
+  margin-top: 18px;
+  color: var(--buddy-ink-soft);
+  font-size: 0.76rem;
+}
+
+.discover-world-card strong {
+  margin-top: 2px;
+  font-size: 1.55rem;
+  letter-spacing: -0.03em;
+}
+
+.discover-world-card p {
+  margin: 9px 0 0;
+  color: var(--buddy-ink-soft);
+  line-height: 1.38;
+}
+
+.discover-world-open {
+  margin-top: auto;
+  padding-top: 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.discover-active-world {
+  display: grid;
+  gap: 12px;
+}
+
+.discover-back {
+  width: fit-content;
+  min-height: 42px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 14px;
+  background: rgba(37, 35, 31, 0.08);
+  color: var(--buddy-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.discover-world {
+  border-radius: 30px;
+  padding: clamp(22px, 4vw, 42px);
+}
+
+.discover-world-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.discover-world-heading h2 {
+  margin: 0;
+  font-size: clamp(2.4rem, 5vw, 4.8rem);
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+}
+
+.discover-world-heading > div:first-child > p:last-child {
+  max-width: 650px;
+  margin: 12px 0 0;
+  color: var(--buddy-ink-soft);
+}
+
+.discover-topic-chips {
+  max-width: 360px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.discover-topic-chips span {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(37, 35, 31, 0.055);
+  color: var(--buddy-ink-soft);
+  font-size: 0.72rem;
+}
+
+.discover-world-actions {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.discover-primary,
+.discover-secondary {
+  min-height: 48px;
+  border-radius: 15px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.discover-primary {
+  border: 0;
+  background: var(--buddy-ink);
+  color: white;
+}
+
+.discover-secondary {
+  border: 1px solid var(--buddy-line);
+  background: var(--buddy-paper-raised);
+  color: var(--buddy-ink);
+}
+
+.discover-primary:disabled,
+.discover-secondary:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.discover-principle {
+  border-radius: 22px;
+  padding: 18px 20px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 18px;
+  align-items: baseline;
+}
+
+.discover-principle strong {
+  font-size: 0.86rem;
+}
+
+.discover-principle p {
+  margin: 0;
+  color: var(--buddy-ink-soft);
+  font-size: 0.84rem;
+}

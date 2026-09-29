@@ -1,5 +1,6 @@
 import { BottomNav } from "@/components/BottomNav";
 import { DiscoverPlayground } from "@/components/discover/DiscoverPlayground";
+import "./discover.shell.css";
 import "./discover.css";
 
 export default function DiscoverPage() {
