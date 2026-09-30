@@ -67,6 +67,37 @@ const cases = [
     },
   ],
   [
+    "open-book text density isolates the dominant page",
+    () => {
+      const points = [];
+      for (let line = 0; line < 12; line += 1) {
+        const y = 42 + line * 20;
+        for (let x = 175; x <= 560; x += 7) points.push({ x, y });
+        for (let x = 10; x <= 68; x += 8) points.push({ x, y });
+      }
+      const estimate = geometry.estimatePageCrop(points, 600, 320);
+      assert.equal(estimate.applied, true);
+      assert.ok(estimate.box.x0 > 100);
+      assert.ok(estimate.box.x1 > 520);
+    },
+  ],
+  [
+    "consistent sloping text margins trigger conservative perspective correction",
+    () => {
+      const points = [];
+      for (let line = 0; line < 16; line += 1) {
+        const y = 30 + line * 16;
+        const left = 58 + y * 0.08;
+        const right = 552 - y * 0.035;
+        for (let x = left; x <= right; x += 7) points.push({ x, y });
+      }
+      const estimate = geometry.estimateHorizontalPerspective(points, 600, 320);
+      assert.equal(estimate.applied, true);
+      assert.ok(estimate.leftBottom > estimate.leftTop);
+      assert.ok(estimate.rightBottom < estimate.rightTop);
+    },
+  ],
+  [
     "zero-angle box mapping is an exact identity",
     () => {
       const box = { x0: 120, y0: 80, x1: 220, y1: 112 };
