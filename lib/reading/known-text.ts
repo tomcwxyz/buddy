@@ -1,4 +1,12 @@
-import { normaliseEvidenceText, type ReadingEvidence } from "@/lib/reading/evidence";
+import type { ReadingEvidence } from "@/lib/reading/evidence";
+
+function normaliseKnownText(value: string) {
+  return value
+    .toLocaleLowerCase("en-GB")
+    .replace(/[‘’]/g, "'")
+    .replace(/^[^a-z0-9'-]+|[^a-z0-9'-]+$/gi, "")
+    .trim();
+}
 
 export type KnownTextLicence =
   | "public-domain"
@@ -31,7 +39,7 @@ export type KnownTextMatch = {
 function tokens(value: string) {
   return value
     .split(/\s+/)
-    .map(normaliseEvidenceText)
+    .map(normaliseKnownText)
     .filter(Boolean);
 }
 
