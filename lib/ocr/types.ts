@@ -1,3 +1,5 @@
+import type { ReadingEvidence, ReadingEvidenceSource } from "@/lib/reading/evidence";
+
 export type OcrBox = {
   x0: number;
   y0: number;
@@ -14,6 +16,8 @@ export type OcrWord = {
   paragraphId?: string;
   lineId?: string;
   readingOrder?: number;
+  evidence?: ReadingEvidence[];
+  resolvedBy?: ReadingEvidenceSource;
 };
 
 export type OcrSentenceQuality = "good" | "check" | "blocked";
