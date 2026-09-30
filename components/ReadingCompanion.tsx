@@ -258,17 +258,6 @@ export function ReadingCompanion() {
         audio: false,
       });
       streamRef.current = stream;
-      const track = stream.getVideoTracks()[0];
-      try {
-        const capabilities = track?.getCapabilities?.() as MediaTrackCapabilities & { focusMode?: string[] };
-        if (capabilities?.focusMode?.includes("continuous")) {
-          await track.applyConstraints({
-            advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
-          });
-        }
-      } catch {
-        // Focus hints are optional; unsupported devices keep their normal autofocus.
-      }
       if (videoRef.current) videoRef.current.srcObject = stream;
       setCameraState("ready");
     } catch {
