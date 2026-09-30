@@ -268,7 +268,13 @@ export function ReadingCompanion() {
     setBuddyState("thinking");
 
     try {
-      const result = await recognisePage(ocrImage, width, height);
+      const result = await recognisePage(ocrImage, width, height, image);
+      setCapturedPage({
+        image: result.image,
+        ocrImage: result.ocrImage,
+        width: result.width,
+        height: result.height,
+      });
       setOcrWords(result.words.filter((word) => word.confidence >= 18 && /[a-z]/i.test(word.text)));
       setSentences(result.sentences);
       setActiveSentenceIndex(0);
@@ -426,6 +432,16 @@ export function ReadingCompanion() {
 
     setActiveSentenceIndex(index);
     setShowSentenceChunks(false);
+
+    if (sentence.quality === "blocked") {
+      autoReadingRef.current = false;
+      setAutoReading(false);
+      speech.stop();
+      setBuddyState("idle");
+      setTapLookupMessage("I can't read this bit reliably yet. Try the page again, or move to the next sentence.");
+      return;
+    }
+
     if (keepGoing) {
       autoReadingRef.current = true;
       setAutoReading(true);
@@ -446,14 +462,14 @@ export function ReadingCompanion() {
   }
 
   function readCurrentSentence() {
-    if (!activeSentence) return;
+    if (!activeSentence || activeSentence.quality === "blocked") return;
     autoReadingRef.current = false;
     setAutoReading(false);
     readSentenceAt(activeSentenceIndex, false);
   }
 
   function startContinuousReading() {
-    if (!activeSentence) return;
+    if (!activeSentence || activeSentence.quality === "blocked") return;
     moveOn();
     readSentenceAt(activeSentenceIndex, true);
   }
@@ -467,9 +483,13 @@ export function ReadingCompanion() {
   }
 
   function breakUpSentence() {
-    if (!activeSentence) return;
+    if (!activeSentence || activeSentence.quality === "blocked") return;
     stopContinuousReading();
     setShowSentenceChunks(true);
+  }
+
+  function retakePage() {
+    void startCamera();
   }
 
   function readSentenceChunk(chunk: string) {
@@ -629,7 +649,7 @@ export function ReadingCompanion() {
   }
 
   return (
-    <div className="reading-layout">
+    <div className={`reading-layout${capturedPage ? " session-active" : ""}${support ? " has-word-support" : ""}`}>
       <section className="camera-card" aria-label="Reading camera">
         <div className="camera-toolbar">
           <div>
@@ -763,9 +783,11 @@ export function ReadingCompanion() {
                 : "Tap a highlighted word — or tap an unboxed word and Buddy will take a closer look."
               : "The page stays on this device while Buddy finds the words."}
           </span>
-          <button type="button" className="text-button" onClick={chooseDemoWord}>
-            <HandPointing size={18} /> Try “extraordinary”
-          </button>
+          {!capturedPage && (
+            <button type="button" className="text-button" onClick={chooseDemoWord}>
+              <HandPointing size={18} /> Try “extraordinary”
+            </button>
+          )}
         </div>
       </section>
 
@@ -778,9 +800,11 @@ export function ReadingCompanion() {
                 ? "This one?"
                 : autoReading
                   ? "I'll keep going. Stop me whenever you want."
-                  : activeSentence?.uncertain
-                    ? "This bit is a little fuzzy. Check me."
-                    : activeSentence
+                  : activeSentence?.quality === "blocked"
+                    ? "I can't read this bit reliably yet."
+                    : activeSentence?.quality === "check"
+                      ? "This bit is a little fuzzy. Check me."
+                      : activeSentence
                       ? "You read. I'm following."
                       : capturedPage
                       ? "Tap the bit you want."
@@ -798,20 +822,32 @@ export function ReadingCompanion() {
               </div>
               {autoReading
                 ? <span className="reading-live">Buddy is reading</span>
-                : activeSentence.uncertain
-                  ? <span className="reading-quality-note">Fuzzy scan</span>
-                  : null}
+                : activeSentence.quality === "blocked"
+                  ? <span className="reading-quality-note blocked">Need another look</span>
+                  : activeSentence.quality === "check"
+                    ? <span className="reading-quality-note">Check scan</span>
+                    : null}
             </div>
 
-            <p className="guided-sentence">{activeSentence.text}</p>
+            {activeSentence.quality === "blocked" ? (
+              <div className="guided-blocked">
+                <strong>I can't quite read this bit yet.</strong>
+                <span>I won't guess or read muddled words aloud.</span>
+                <button type="button" className="text-button" onClick={retakePage}>
+                  <Camera size={18} /> Try the page again
+                </button>
+              </div>
+            ) : (
+              <p className="guided-sentence">{activeSentence.text}</p>
+            )}
 
-            {activeSentence.uncertain && (
+            {activeSentence.quality === "check" && (
               <p className="guided-scan-note">
-                I found this sentence, but some words were hard to see. If anything looks odd, tap the word or try the page again in better light.
+                I had to look more closely at this sentence. Check the highlighted line against the book before asking Buddy to read it.
               </p>
             )}
 
-            {showSentenceChunks && activeSentenceChunks.length > 1 && (
+            {showSentenceChunks && activeSentence.quality !== "blocked" && activeSentenceChunks.length > 1 && (
               <div className="sentence-chunks" aria-label="Sentence broken into smaller parts">
                 {activeSentenceChunks.map((chunk, index) => (
                   <button type="button" key={`${chunk}-${index}`} onClick={() => readSentenceChunk(chunk)}>
@@ -832,10 +868,20 @@ export function ReadingCompanion() {
               >
                 <ArrowLeft size={19} />
               </button>
-              <button type="button" className="tactile-button dark" onClick={readCurrentSentence}>
+              <button
+                type="button"
+                className="tactile-button dark"
+                onClick={readCurrentSentence}
+                disabled={activeSentence.quality === "blocked"}
+              >
                 <SpeakerHigh size={20} /> Read this
               </button>
-              <button type="button" className="tactile-button" onClick={breakUpSentence}>
+              <button
+                type="button"
+                className="tactile-button"
+                onClick={breakUpSentence}
+                disabled={activeSentence.quality === "blocked"}
+              >
                 Break it up
               </button>
               <button
@@ -854,6 +900,7 @@ export function ReadingCompanion() {
                 type="button"
                 className={`tactile-button${autoReading ? "" : " dark"}`}
                 onClick={autoReading ? stopContinuousReading : startContinuousReading}
+                disabled={!autoReading && activeSentence.quality === "blocked"}
               >
                 {autoReading ? <Pause size={20} /> : <Play size={20} />}
                 {autoReading ? "I'll read now" : "Keep reading to me"}
@@ -1003,13 +1050,13 @@ export function ReadingCompanion() {
               </div>
             )}
           </section>
-        ) : (
+        ) : !capturedPage ? (
           <section className="selected-word-card quiet">
             <span className="selected-kicker">Buddy stays quiet until you need it.</span>
             <h2>Keep reading.</h2>
             <p>No scores. No quiz. No interruption unless you ask.</p>
           </section>
-        )}
+        ) : null}
       </aside>
     </div>
   );
