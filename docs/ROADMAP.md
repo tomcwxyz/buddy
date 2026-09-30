@@ -80,7 +80,38 @@ npm run test:sounds
 
 ## Next
 
-### 1. Build the first reviewed real-page fixture set
+### 1. Evidence-aware reading and book memory
+
+Make Buddy's core reading model evidence-aware rather than treating OCR output as the text. Every resolved word should retain why Buddy believes it says what it says.
+
+The intended evidence ladder is:
+
+1. **visual** — one OCR reading from the photographed page;
+2. **visual-consensus** — independent image/OCR passes agree on the same token and region;
+3. **language-assisted** — a small language model or deterministic language prior helps rank already-plausible candidates, but never invents an unconstrained replacement;
+4. **known-text** — the photographed passage aligns strongly with an explicitly available canonical source such as public-domain, open, school-provided, publisher-licensed or user-provided text;
+5. **reader-corrected** — a person explicitly corrects Buddy's reading.
+
+Priorities:
+
+- add provenance/evidence types to the reading pipeline and preserve them through sentence construction;
+- build a deterministic evidence resolver before introducing any model dependency;
+- create local **book memory** that can remember repeated names, vocabulary and confirmed corrections without retaining page photographs;
+- fingerprint passages so later pages can be associated with a locally remembered book/session;
+- add sequence alignment for canonical text so known sources can fill visually missing words while retaining photographed geometry;
+- use an SLM/LLM only as a candidate scorer over constrained alternatives, never as an unconstrained transcription author;
+- make provenance visible in the internal OCR lab and use it in the good / check / blocked quality gate;
+- add direct reader correction of OCR text and store the correction as stronger local evidence;
+- define three explicit privacy levels before any contribution flow: **Private/session only**, **Help my Buddy learn on this device**, and a separate explicit **Help improve Buddy** contribution choice;
+- do not upload page images or reading history merely because local book memory is enabled;
+- design contribution records around de-identified cropped evidence/candidate/correction tuples, with separate consent and retention rules;
+- treat copyright/licensing as part of known-text architecture: do not create a central unlicensed corpus of modern books.
+
+Success means Buddy can get better at the particular book being read, can exploit genuinely known text where permitted, and can explain internally whether a word came from sight, agreement, memory, a canonical source or a human correction.
+
+See docs/READING_EVIDENCE.md for the architecture and privacy boundary.
+
+### 2. Build the first reviewed real-page fixture set
 
 The capture and review contract is now in place; the remaining work is to feed it the pages Buddy actually needs to read. Do not tune from intuition.
 
@@ -100,7 +131,7 @@ For each fixture review:
 
 Success is not 100% OCR. Success is high trusted-word precision plus a natural recovery route for misses.
 
-### 2. Test practice from real life
+### 3. Test practice from real life
 
 The first school-spelling import and playful progress loop now exists. The next job is to test whether it is genuinely useful rather than turning it into a feature-heavy spelling app.
 
@@ -131,7 +162,7 @@ Priorities:
 
 Success is a child wanting to explore words because doing so gives them interesting material to make and play with, without needing points, streaks, hidden unlock tiers or reward inflation.
 
-### 3. Expand reviewed sound guidance from evidence, not plausibility
+### 4. Expand reviewed sound guidance from evidence, not plausibility
 
 The first reviewed explanation whitelist is now in place and deliberately narrower than Buddy's internal grapheme–phoneme aligner. Continue the work without pretending Buddy has invented a universal phonics progression.
 
@@ -145,7 +176,7 @@ Priorities:
 
 See `docs/SOUND_GUIDANCE.md` for the evidence boundary and source notes.
 
-### 4. Improve remaining capture geometry only from fixture evidence
+### 5. Improve remaining capture geometry only from fixture evidence
 
 Small-angle deskew is now in the recognition path. Do not pile on more OCR passes. Use the page fixtures to decide which image-quality improvements earn their complexity next:
 
@@ -157,13 +188,13 @@ Small-angle deskew is now in the recognition path. Do not pile on more OCR passe
 
 Adaptive AUTO → SPARSE_TEXT → focused word retry is the intended recognition ladder. Additional recognition passes should only be added with fixture evidence.
 
-### 5. Turn real lexical failures into the continuing evaluation loop
+### 6. Turn real lexical failures into the continuing evaluation loop
 
 The broad benchmark remains useful, but actual reading remains the source of truth. Every poor explanation, bad sense choice, missed morphology pattern or unsafe pronunciation should become a small reproducible regression before it is fixed.
 
 Continue expanding reviewed heteronyms only when real/common reading cases justify them rather than attempting to enumerate every possible English heteronym.
 
-### 6. Companion agent boundary
+### 7. Companion agent boundary
 
 Add a provider-neutral companion-agent interface only after the reading loop is well characterised. The agent should receive the smallest useful context and should have explicit child-safe capabilities rather than unrestricted access to the Learning Map.
 
