@@ -5,6 +5,7 @@ import {
   decideSparseRecovery,
   mergeOcrWords,
   nearestLineAnchor,
+  overlapOfSmallerBox,
 } from "@/lib/ocr/recovery";
 import type { OcrBox, OcrResult, OcrSentence, OcrSentenceQuality, OcrWord } from "@/lib/ocr/types";
 import {
@@ -12,6 +13,11 @@ import {
   classifySentenceQuality,
   sentenceTextSuspiciousWordShare,
 } from "@/lib/reading/guided-reading";
+import {
+  consensusEvidence,
+  normaliseEvidenceText,
+  visualEvidence,
+} from "@/lib/reading/evidence";
 
 type TesseractWord = {
   text?: string;
@@ -77,6 +83,8 @@ function extractWords(result: TesseractPageResult, idPrefix: string) {
             paragraphId,
             lineId,
             readingOrder: readingOrder++,
+            evidence: [visualEvidence(text, word.confidence ?? 0, `ocr-${idPrefix}`)],
+            resolvedBy: "visual",
           });
         });
       });
@@ -88,6 +96,26 @@ function extractWords(result: TesseractPageResult, idPrefix: string) {
 
 function trustedPageWords(words: OcrWord[]) {
   return words.filter((word) => shouldBoxPageWord(word));
+}
+
+function addVisualConsensus(primary: OcrWord[], secondary: OcrWord[], method: string) {
+  return primary.map((word) => {
+    const match = secondary.find((candidate) =>
+      normaliseEvidenceText(candidate.text) === normaliseEvidenceText(word.text)
+      && overlapOfSmallerBox(candidate.bbox, word.bbox) >= 0.42,
+    );
+    if (!match) return word;
+
+    const consensusConfidence = Math.min(100, Math.round((word.confidence + match.confidence) / 2));
+    return {
+      ...word,
+      evidence: [
+        ...(word.evidence ?? [visualEvidence(word.text, word.confidence, "ocr-primary")]),
+        consensusEvidence(word.text, consensusConfidence, method),
+      ],
+      resolvedBy: "visual-consensus" as const,
+    };
+  });
 }
 
 function pagePassScore(words: OcrWord[]) {
@@ -409,8 +437,16 @@ export async function recognisePage(
         sparseWords.filter((word) => keepPageWord(word)),
         primaryWords,
       );
-      finalWords = mergeOcrWords(primaryTrusted, sparseTrusted);
-      sentenceWords = mergeOcrWords(sentenceWords, sparseSentenceWords);
+      finalWords = addVisualConsensus(
+        mergeOcrWords(primaryTrusted, sparseTrusted),
+        sparseTrusted,
+        "ocr-auto+sparse",
+      );
+      sentenceWords = addVisualConsensus(
+        mergeOcrWords(sentenceWords, sparseSentenceWords),
+        sparseSentenceWords,
+        "ocr-auto+sparse",
+      );
       sparsePass = true;
     } catch {
       finalWords = primaryTrusted;
