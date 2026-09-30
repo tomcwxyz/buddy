@@ -1,14 +1,17 @@
 import type { Worker } from "tesseract.js";
 import { prepareRecognitionImage } from "@/lib/ocr/browser-preprocess";
 import { focusedWordIsUsable, keepPageWord, shouldBoxPageWord } from "@/lib/ocr/confidence";
-import { mapBoxFromDeskewed } from "@/lib/ocr/geometry";
 import {
   decideSparseRecovery,
   mergeOcrWords,
-  nearestLineText,
+  nearestLineAnchor,
 } from "@/lib/ocr/recovery";
-import type { OcrResult, OcrWord } from "@/lib/ocr/types";
-import { buildReadingSentences } from "@/lib/reading/guided-reading";
+import type { OcrBox, OcrResult, OcrSentence, OcrSentenceQuality, OcrWord } from "@/lib/ocr/types";
+import {
+  buildReadingSentences,
+  classifySentenceQuality,
+  sentenceTextSuspiciousWordShare,
+} from "@/lib/reading/guided-reading";
 
 type TesseractWord = {
   text?: string;
@@ -22,6 +25,7 @@ type TesseractBlock = { paragraphs?: TesseractParagraph[] };
 type TesseractPageResult = {
   data: {
     text?: string;
+    confidence?: number;
     blocks?: TesseractBlock[] | null;
   };
 };
@@ -86,38 +90,131 @@ function trustedPageWords(words: OcrWord[]) {
   return words.filter((word) => shouldBoxPageWord(word));
 }
 
-function addPrimaryLineContext(words: OcrWord[], primaryWords: OcrWord[]) {
-  return words.map((word) => {
-    const inherited = nearestLineText(word, primaryWords);
-    if (!inherited) return word;
-    return {
+function attachToPrimaryLines(words: OcrWord[], primaryWords: OcrWord[]) {
+  return words.flatMap((word) => {
+    const anchor = nearestLineAnchor(word, primaryWords);
+    if (!anchor) return [];
+    return [{
       ...word,
-      lineText: inherited,
-    };
+      lineText: anchor.lineText,
+      lineId: anchor.lineId,
+      paragraphId: anchor.paragraphId,
+      readingOrder: anchor.readingOrder,
+    }];
   });
 }
 
-function mapWordsBackToPhoto(
-  words: OcrWord[],
+function expandBox(box: OcrBox, width: number, height: number): OcrRegion {
+  const marginX = Math.max(8, (box.x1 - box.x0) * 0.035);
+  const marginY = Math.max(6, (box.y1 - box.y0) * 0.4);
+  const left = Math.max(0, box.x0 - marginX);
+  const top = Math.max(0, box.y0 - marginY);
+  const right = Math.min(width, box.x1 + marginX);
+  const bottom = Math.min(height, box.y1 + marginY);
+  return {
+    left: Math.round(left),
+    top: Math.round(top),
+    width: Math.max(1, Math.round(right - left)),
+    height: Math.max(1, Math.round(bottom - top)),
+  };
+}
+
+function qualityRank(quality: OcrSentenceQuality) {
+  if (quality === "good") return 2;
+  if (quality === "check") return 1;
+  return 0;
+}
+
+function cleanedLine(text: string | undefined) {
+  return text
+    ?.replace(/\s+/g, " ")
+    .replace(/^\s+|\s+$/g, "")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    ?? "";
+}
+
+async function refineWeakSentences(
+  worker: Worker,
+  image: string,
+  sentences: OcrSentence[],
   width: number,
   height: number,
-  deskewAngle: number,
+  PSM: { SINGLE_LINE: string | number; AUTO: string | number },
 ) {
-  if (!deskewAngle) return words;
-  return words.map((word) => ({
-    ...word,
-    bbox: mapBoxFromDeskewed(word.bbox, width, height, deskewAngle),
-  }));
+  const targets = sentences
+    .map((sentence, index) => ({ sentence, index }))
+    .filter(({ sentence }) =>
+      sentence.quality === "blocked"
+      || (sentence.quality === "check" && sentence.confidence < 58),
+    )
+    .sort((a, b) => qualityRank(a.sentence.quality) - qualityRank(b.sentence.quality) || a.sentence.confidence - b.sentence.confidence)
+    .slice(0, 4);
+
+  if (!targets.length) return sentences;
+
+  const refined = sentences.map((sentence) => ({ ...sentence }));
+  await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE });
+
+  try {
+    for (const { sentence, index } of targets) {
+      const readings: Array<{ text: string; confidence: number }> = [];
+
+      for (const bound of sentence.bounds.slice(0, 4)) {
+        try {
+          const result = await worker.recognize(
+            image,
+            { rectangle: expandBox(bound, width, height) },
+            { text: true },
+          );
+          const text = cleanedLine(result.data.text);
+          if (!text || (text.match(/[a-z]/gi)?.length ?? 0) < 3) continue;
+          readings.push({ text, confidence: result.data.confidence ?? 0 });
+        } catch {
+          // Keep the original sentence if a focused pass fails.
+        }
+      }
+
+      if (!readings.length) continue;
+      const text = readings.map((reading) => reading.text).join(" ").replace(/\s+/g, " ").trim();
+      const confidence = readings.reduce((sum, reading) => sum + reading.confidence, 0) / readings.length;
+      const suspiciousWordShare = sentenceTextSuspiciousWordShare(text);
+      const weakWordShare = confidence >= 70 ? 0 : confidence >= 55 ? 0.12 : 0.36;
+      const wordCount = text.split(/\s+/).filter(Boolean).length;
+      const quality = classifySentenceQuality(confidence, weakWordShare, suspiciousWordShare, wordCount);
+      const lengthRatio = sentence.text.length > 0 ? text.length / sentence.text.length : 1;
+      const plausiblySameRegion = lengthRatio >= 0.45 && lengthRatio <= 1.75;
+      const clearlyBetter = qualityRank(quality) > qualityRank(sentence.quality)
+        || (quality === sentence.quality && confidence >= sentence.confidence + 8);
+
+      if (!plausiblySameRegion || !clearlyBetter) continue;
+
+      refined[index] = {
+        ...sentence,
+        text,
+        confidence,
+        weakWordShare,
+        suspiciousWordShare,
+        quality,
+        uncertain: quality !== "good",
+        refined: true,
+      };
+    }
+  } finally {
+    await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
+  }
+
+  return refined;
 }
 
 export async function recognisePage(
   image: string,
   width: number,
   height: number,
+  displayImage = image,
 ): Promise<OcrResult> {
   const worker = await getWorker();
   const { PSM } = await import("tesseract.js");
-  const prepared = await prepareRecognitionImage(image, width, height);
+  const prepared = await prepareRecognitionImage(image, width, height, displayImage);
   const recognitionImage = prepared.image;
 
   await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
@@ -135,49 +232,51 @@ export async function recognisePage(
       await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT });
       const sparseResult = await worker.recognize(recognitionImage, {}, { text: true, blocks: true });
       const sparseWords = extractWords(sparseResult as TesseractPageResult, "sparse");
-      const sparseTrusted = addPrimaryLineContext(trustedPageWords(sparseWords), primaryWords);
-      const sparseSentenceWords = addPrimaryLineContext(
+      const sparseTrusted = attachToPrimaryLines(trustedPageWords(sparseWords), primaryWords);
+      const sparseSentenceWords = attachToPrimaryLines(
         sparseWords.filter((word) => keepPageWord(word)),
         primaryWords,
       );
       finalWords = mergeOcrWords(primaryTrusted, sparseTrusted);
-      sentenceWords = mergeOcrWords(sentenceWords, sparseSentenceWords)
-        .map((word, index) => ({ ...word, readingOrder: index }));
+      sentenceWords = mergeOcrWords(sentenceWords, sparseSentenceWords);
       sparsePass = true;
     } catch {
-      // The AUTO result is already useful. A failed recovery pass should not
-      // turn a readable page into an OCR error for the child.
       finalWords = primaryTrusted;
     } finally {
       await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
     }
   }
 
-  const mappedWords = mapWordsBackToPhoto(
-    finalWords,
-    width,
-    height,
-    prepared.deskew.angle,
-  );
-  const mappedSentenceWords = mapWordsBackToPhoto(
-    sentenceWords,
-    width,
-    height,
-    prepared.deskew.angle,
+  const initialSentences = buildReadingSentences(sentenceWords);
+  const sentences = await refineWeakSentences(
+    worker,
+    recognitionImage,
+    initialSentences,
+    prepared.width,
+    prepared.height,
+    PSM,
   );
 
   return {
     text: primaryResult.data.text ?? "",
-    words: mappedWords,
-    sentences: buildReadingSentences(mappedSentenceWords),
-    width,
-    height,
+    words: finalWords,
+    sentences,
+    image: prepared.displayImage,
+    ocrImage: prepared.image,
+    width: prepared.width,
+    height: prepared.height,
     recovery: {
       sparsePass,
       reason: recoveryDecision.reason,
       primaryTrustedWords: primaryTrusted.length,
       finalTrustedWords: finalWords.length,
       deskew: prepared.deskew,
+      pageIsolation: {
+        applied: prepared.pageCrop.applied,
+        confidence: prepared.pageCrop.confidence,
+        crop: prepared.pageCrop.box,
+        perspectiveApplied: prepared.perspective.applied,
+      },
     },
   };
 }
