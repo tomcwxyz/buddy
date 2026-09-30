@@ -117,6 +117,36 @@ const cases = [
     },
   ],
   [
+    "sparse gutter words are not attached to a distant body line",
+    () => {
+      const target = {
+        ...word("sparse-1", "noise", 62, 12, 12, 42, 32),
+        lineId: "sparse-line",
+      };
+      const anchors = [
+        { ...word("auto-1", "the", 90, 180, 10, 215, 30, "The window was open."), lineId: "body-1", paragraphId: "p-1", readingOrder: 4 },
+        { ...word("auto-2", "window", 90, 225, 10, 285, 30, "The window was open."), lineId: "body-1", paragraphId: "p-1", readingOrder: 5 },
+      ];
+      assert.equal(recovery.nearestLineAnchor(target, anchors), null);
+    },
+  ],
+  [
+    "nearby sparse words inherit the primary line identity",
+    () => {
+      const target = word("sparse-1", "open", 62, 292, 11, 330, 31);
+      const anchors = [
+        { ...word("auto-1", "the", 90, 180, 10, 215, 30, "The window was open."), lineId: "body-1", paragraphId: "p-1", readingOrder: 4 },
+        { ...word("auto-2", "window", 90, 225, 10, 285, 30, "The window was open."), lineId: "body-1", paragraphId: "p-1", readingOrder: 5 },
+      ];
+      assert.deepEqual(recovery.nearestLineAnchor(target, anchors), {
+        lineText: "The window was open.",
+        lineId: "body-1",
+        paragraphId: "p-1",
+        readingOrder: 4,
+      });
+    },
+  ],
+  [
     "distant lines are not attached as false context",
     () => {
       const recovered = word("sparse-1", "window", 88, 50, 200, 100, 220);
