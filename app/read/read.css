@@ -452,3 +452,132 @@
     white-space: normal;
   }
 }
+
+
+.tactile-button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.reading-quality-note.blocked {
+  background: rgba(185, 124, 99, 0.14);
+  color: var(--buddy-clay) !important;
+}
+
+.guided-blocked {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(185, 124, 99, 0.08);
+  border: 1px solid rgba(185, 124, 99, 0.16);
+  display: grid;
+  gap: 4px;
+}
+
+.guided-blocked strong {
+  font-size: 1rem;
+}
+
+.guided-blocked span {
+  color: var(--buddy-ink-soft);
+  font-size: 0.86rem;
+}
+
+.guided-blocked .text-button {
+  width: fit-content;
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+@media (max-width: 640px) {
+  .reading-layout.session-active {
+    gap: 10px;
+  }
+
+  .reading-layout.session-active .camera-card {
+    padding: 10px;
+    border-radius: 20px;
+  }
+
+  .reading-layout.session-active .camera-toolbar {
+    padding: 2px 4px 10px;
+  }
+
+  .reading-layout.session-active .camera-toolbar strong {
+    font-size: 1rem;
+  }
+
+  .reading-layout.session-active .camera-demo-row {
+    padding: 10px 4px 2px;
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+
+  .reading-layout.session-active .reading-side {
+    gap: 10px;
+  }
+
+  .reading-layout.session-active:not(.has-word-support) .presence-card,
+  .reading-layout.session-active:not(.has-word-support) .voice-picker,
+  .reading-layout.session-active:not(.has-word-support) .help-depth {
+    display: none;
+  }
+
+  .reading-layout.session-active .guided-reading-card {
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .reading-layout.session-active .guided-reading-heading strong {
+    font-size: 0.98rem;
+  }
+
+  .reading-layout.session-active .guided-sentence {
+    margin-top: 10px;
+    font-size: 1rem;
+    line-height: 1.42;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .reading-layout.session-active .guided-scan-note {
+    margin-top: 8px;
+    padding: 8px 10px;
+    font-size: 0.76rem;
+  }
+
+  .reading-layout.session-active .guided-reading-actions {
+    margin-top: 10px;
+    grid-template-columns: 44px 1fr 1fr 44px;
+    gap: 6px;
+  }
+
+  .reading-layout.session-active .round-control.compact {
+    width: 44px;
+    height: 44px;
+  }
+
+  .reading-layout.session-active .guided-reading-actions .tactile-button {
+    min-height: 44px;
+    border-radius: 14px;
+    font-size: 0.86rem;
+    line-height: 1.15;
+  }
+
+  .reading-layout.session-active .talking-book-row {
+    margin-top: 8px;
+  }
+
+  .reading-layout.session-active .talking-book-row .tactile-button {
+    min-height: 48px;
+  }
+
+  .reading-layout.session-active .guided-blocked {
+    margin-top: 10px;
+  }
+}
