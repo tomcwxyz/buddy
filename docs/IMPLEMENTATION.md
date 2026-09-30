@@ -216,6 +216,33 @@ Cart style is stored alongside the coaster as `classic`, `rocket` or `buggy`. Al
 
 `lib/learning/local-store.ts` stores a capped local event stream in browser storage. Events describe support requested and words encountered rather than mistakes or correctness. The Learning Map remains device-local and child-visible/rejectable by design.
 
+## Reading evidence and local book memory
+
+Buddy is moving from “OCR result = text” towards an evidence resolver.
+
+`lib/reading/evidence.ts` defines the initial provenance contract:
+
+- `visual`;
+- `visual-consensus`;
+- `language-assisted`;
+- `known-text`;
+- `reader-corrected`.
+
+The first resolver is deterministic. It combines confidence from independent evidence while preventing a language-assisted candidate from appearing with no visual, known-text or human grounding. OCR words now carry optional provenance, and agreement between AUTO/SPARSE passes can be represented explicitly as visual consensus rather than merely replacing one confidence number with another.
+
+`lib/reading/book-memory.ts` provides the first local-only memory primitives. Passage memory uses compact hashed three-token fingerprints rather than stored page prose, plus bounded repeated vocabulary and explicit correction records. The storage layer remains disabled by default because reading-memory mode defaults to `session`; only an explicit future/device preference switches persistence to `device`.
+
+This is intentionally not a cloud training pipeline. No page-image upload path exists. A future contribution flow must be separate from device memory and must define child/guardian consent, minimisation, retention and deletion before shipping.
+
+The next resolver layers are:
+
+1. use local book corrections and repeated vocabulary as constrained candidates;
+2. add canonical-source retrieval/alignment for legitimately available texts;
+3. expose provenance in the OCR lab and sentence quality gates;
+4. only then trial a small language model as a bounded candidate scorer.
+
+See `docs/READING_EVIDENCE.md`.
+
 ## Architectural rules
 
 1. Copy used by multiple surfaces belongs in `lib/buddy-language.ts`, not device-specific components.
@@ -247,14 +274,15 @@ Cart style is stored alongside the coaster as `classic`, `rocket` or `buggy`. Al
 
 ## Next implementation slice
 
-1. run and review `/lab/words`, adding permanent regression cases whenever real reading exposes a poor explanation;
-2. add a high-frequency/common-word evaluation set and measure local semantic, pronunciation and network-fallback coverage;
-3. promote common WordNet glosses that are wrong/too adult into reviewed child-friendly Buddy evidence;
-4. add reviewed/context-aware mappings for common Britfone multi-pronunciation/heteronym words;
-5. evolve grapheme/phoneme alignment against validated structured-literacy mappings;
-6. improve image crop/deskew and OCR confidence behaviour;
-7. add a provider-neutral companion agent interface with strict child-safe tool capabilities;
-8. define child/profile/privacy boundaries before cloud synchronisation;
-9. define the R1/Android adapter contract using the same Buddy semantics.
+1. wire local book-memory correction/vocabulary candidates into the evidence resolver without changing visible text unless the resolver clears an explicit threshold;
+2. add direct OCR correction in the reading UI and store reader-corrected evidence only when local device memory is explicitly enabled;
+3. expose word provenance and competing candidates in `/lab/ocr`;
+4. add canonical-text fingerprint retrieval and sequence alignment using only legitimately available sources;
+5. trial a small language model only as a constrained candidate scorer and measure it against the real-page fixture set;
+6. run and review `/lab/words`, adding permanent regression cases whenever real reading exposes a poor explanation;
+7. continue improving capture geometry from fixture evidence, particularly curvature and capture-quality hints;
+8. add a provider-neutral companion agent interface with strict child-safe tool capabilities;
+9. define child/profile/privacy boundaries before cloud synchronisation;
+10. define the R1/Android adapter contract using the same Buddy semantics.
 
 Do not build a parent dashboard, full account system or gamification before the core reading interaction has been tested with a child.
