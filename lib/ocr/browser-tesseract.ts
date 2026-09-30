@@ -139,8 +139,8 @@ async function refineWeakSentences(
   sentences: OcrSentence[],
   width: number,
   height: number,
-  PSM: { SINGLE_LINE: string | number; AUTO: string | number },
 ) {
+  const { PSM } = await import("tesseract.js");
   const targets = sentences
     .map((sentence, index) => ({ sentence, index }))
     .filter(({ sentence }) =>
@@ -254,7 +254,6 @@ export async function recognisePage(
     initialSentences,
     prepared.width,
     prepared.height,
-    PSM,
   );
 
   return {
