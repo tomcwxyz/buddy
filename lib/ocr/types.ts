@@ -16,6 +16,8 @@ export type OcrWord = {
   readingOrder?: number;
 };
 
+export type OcrSentenceQuality = "good" | "check" | "blocked";
+
 export type OcrSentence = {
   id: string;
   text: string;
@@ -23,7 +25,10 @@ export type OcrSentence = {
   bounds: OcrBox[];
   confidence: number;
   weakWordShare: number;
+  suspiciousWordShare: number;
   uncertain: boolean;
+  quality: OcrSentenceQuality;
+  refined?: boolean;
   paragraphId?: string;
 };
 
@@ -34,18 +39,28 @@ export type OcrDeskewMetadata = {
   confidence: number;
 };
 
+export type OcrPageIsolationMetadata = {
+  applied: boolean;
+  confidence: number;
+  crop: OcrBox;
+  perspectiveApplied: boolean;
+};
+
 export type OcrRecoveryMetadata = {
   sparsePass: boolean;
   reason: "few-trusted-words" | "too-many-weak-words" | "healthy";
   primaryTrustedWords: number;
   finalTrustedWords: number;
   deskew: OcrDeskewMetadata;
+  pageIsolation: OcrPageIsolationMetadata;
 };
 
 export type OcrResult = {
   text: string;
   words: OcrWord[];
   sentences: OcrSentence[];
+  image: string;
+  ocrImage: string;
   width: number;
   height: number;
   recovery: OcrRecoveryMetadata;
