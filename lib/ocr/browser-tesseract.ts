@@ -90,6 +90,117 @@ function trustedPageWords(words: OcrWord[]) {
   return words.filter((word) => shouldBoxPageWord(word));
 }
 
+function pagePassScore(words: OcrWord[]) {
+  const usable = words.filter((word) => keepPageWord(word));
+  if (usable.length < 8) return Number.NEGATIVE_INFINITY;
+
+  const confidence = usable.reduce((sum, word) => sum + word.confidence, 0) / usable.length;
+  const weakShare = usable.filter((word) => word.confidence < 55).length / usable.length;
+  const suspiciousShare = sentenceTextSuspiciousWordShare(usable.map((word) => word.text).join(" "));
+  const lineCount = new Set(usable.map((word) => word.lineId).filter(Boolean)).size;
+
+  return confidence
+    - weakShare * 28
+    - suspiciousShare * 38
+    + Math.min(10, lineCount) * 0.25;
+}
+
+function loadBrowserImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("ocr_line_image_load_failed"));
+    image.src = src;
+  });
+}
+
+function percentileFromHistogram(histogram: number[], total: number, fraction: number) {
+  const target = total * fraction;
+  let seen = 0;
+  for (let value = 0; value < histogram.length; value += 1) {
+    seen += histogram[value];
+    if (seen >= target) return value;
+  }
+  return histogram.length - 1;
+}
+
+function makeFocusedLineVariants(source: HTMLImageElement, region: OcrRegion) {
+  if (typeof document === "undefined") return [] as string[];
+
+  const scale = Math.min(2, Math.max(1.35, 1100 / Math.max(1, region.width)));
+  const width = Math.max(1, Math.round(region.width * scale));
+  const height = Math.max(1, Math.round(region.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return [];
+
+  context.imageSmoothingEnabled = true;
+  context.drawImage(
+    source,
+    region.left,
+    region.top,
+    region.width,
+    region.height,
+    0,
+    0,
+    width,
+    height,
+  );
+
+  const original = context.getImageData(0, 0, width, height);
+  const histogram = Array.from({ length: 256 }, () => 0);
+  let total = 0;
+
+  for (let index = 0; index < original.data.length; index += 4) {
+    const grey = Math.round(
+      original.data[index] * 0.299
+      + original.data[index + 1] * 0.587
+      + original.data[index + 2] * 0.114,
+    );
+    histogram[grey] += 1;
+    total += 1;
+  }
+
+  const low = percentileFromHistogram(histogram, total, 0.06);
+  const high = Math.max(low + 28, percentileFromHistogram(histogram, total, 0.94));
+  const stretched = new ImageData(new Uint8ClampedArray(original.data), width, height);
+  const binary = new ImageData(new Uint8ClampedArray(original.data), width, height);
+  const threshold = low + (high - low) * 0.55;
+
+  for (let index = 0; index < original.data.length; index += 4) {
+    const grey = Math.round(
+      original.data[index] * 0.299
+      + original.data[index + 1] * 0.587
+      + original.data[index + 2] * 0.114,
+    );
+    const normalised = Math.max(0, Math.min(255, Math.round(((grey - low) / (high - low)) * 255)));
+
+    stretched.data[index] = normalised;
+    stretched.data[index + 1] = normalised;
+    stretched.data[index + 2] = normalised;
+
+    const bit = grey <= threshold ? 0 : 255;
+    binary.data[index] = bit;
+    binary.data[index + 1] = bit;
+    binary.data[index + 2] = bit;
+  }
+
+  context.putImageData(stretched, 0, 0);
+  const contrast = canvas.toDataURL("image/png");
+  context.putImageData(binary, 0, 0);
+  const thresholded = canvas.toDataURL("image/png");
+
+  return [contrast, thresholded];
+}
+
+function lineCandidateScore(text: string, confidence: number) {
+  const suspiciousShare = sentenceTextSuspiciousWordShare(text);
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  return confidence - suspiciousShare * 72 - (wordCount < 2 ? 10 : 0);
+}
+
 function attachToPrimaryLines(words: OcrWord[], primaryWords: OcrWord[]) {
   return words.flatMap((word) => {
     const anchor = nearestLineAnchor(word, primaryWords);
@@ -153,6 +264,15 @@ async function refineWeakSentences(
   if (!targets.length) return sentences;
 
   const refined = sentences.map((sentence) => ({ ...sentence }));
+  let browserImage: HTMLImageElement | null = null;
+  if (typeof document !== "undefined") {
+    try {
+      browserImage = await loadBrowserImage(image);
+    } catch {
+      browserImage = null;
+    }
+  }
+
   await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE });
 
   try {
@@ -161,14 +281,44 @@ async function refineWeakSentences(
 
       for (const bound of sentence.bounds.slice(0, 4)) {
         try {
+          const region = expandBox(bound, width, height);
           const result = await worker.recognize(
             image,
-            { rectangle: expandBox(bound, width, height) },
+            { rectangle: region },
             { text: true },
           );
-          const text = cleanedLine(result.data.text);
-          if (!text || (text.match(/[a-z]/gi)?.length ?? 0) < 3) continue;
-          readings.push({ text, confidence: result.data.confidence ?? 0 });
+          const firstText = cleanedLine(result.data.text);
+          const firstConfidence = result.data.confidence ?? 0;
+          const candidates: Array<{ text: string; confidence: number }> = [];
+
+          if (firstText && (firstText.match(/[a-z]/gi)?.length ?? 0) >= 3) {
+            candidates.push({ text: firstText, confidence: firstConfidence });
+          }
+
+          const needsAnotherLook = !firstText
+            || firstConfidence < 76
+            || sentenceTextSuspiciousWordShare(firstText) >= 0.07;
+
+          if (browserImage && needsAnotherLook) {
+            for (const variant of makeFocusedLineVariants(browserImage, region)) {
+              try {
+                const variantResult = await worker.recognize(variant, {}, { text: true });
+                const variantText = cleanedLine(variantResult.data.text);
+                if (!variantText || (variantText.match(/[a-z]/gi)?.length ?? 0) < 3) continue;
+                candidates.push({
+                  text: variantText,
+                  confidence: variantResult.data.confidence ?? 0,
+                });
+              } catch {
+                // A failed enhancement is only one candidate, never the whole scan.
+              }
+            }
+          }
+
+          const best = candidates.sort(
+            (a, b) => lineCandidateScore(b.text, b.confidence) - lineCandidateScore(a.text, a.confidence),
+          )[0];
+          if (best) readings.push(best);
         } catch {
           // Keep the original sentence if a focused pass fails.
         }
@@ -218,10 +368,32 @@ export async function recognisePage(
   const recognitionImage = prepared.image;
 
   await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
-  const primaryResult = await worker.recognize(recognitionImage, {}, { text: true, blocks: true });
-  const primaryWords = extractWords(primaryResult as TesseractPageResult, "auto");
-  const primaryTrusted = trustedPageWords(primaryWords);
-  const recoveryDecision = decideSparseRecovery(primaryWords, primaryTrusted);
+  let primaryResult = await worker.recognize(recognitionImage, {}, { text: true, blocks: true });
+  let primaryPageResult = primaryResult as TesseractPageResult;
+  let primaryWords = extractWords(primaryPageResult, "auto");
+  let primaryTrusted = trustedPageWords(primaryWords);
+  let recoveryDecision = decideSparseRecovery(primaryWords, primaryTrusted);
+
+  if (recoveryDecision.run) {
+    try {
+      await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK });
+      const proseResult = await worker.recognize(recognitionImage, {}, { text: true, blocks: true });
+      const prosePageResult = proseResult as TesseractPageResult;
+      const proseWords = extractWords(prosePageResult, "prose");
+
+      if (pagePassScore(proseWords) >= pagePassScore(primaryWords) + 2.5) {
+        primaryResult = proseResult;
+        primaryPageResult = prosePageResult;
+        primaryWords = proseWords;
+        primaryTrusted = trustedPageWords(primaryWords);
+        recoveryDecision = decideSparseRecovery(primaryWords, primaryTrusted);
+      }
+    } catch {
+      // AUTO remains the baseline if the prose-layout pass is not helpful.
+    } finally {
+      await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
+    }
+  }
 
   let finalWords = primaryTrusted;
   let sentenceWords = primaryWords.filter((word) => keepPageWord(word));
@@ -257,7 +429,7 @@ export async function recognisePage(
   );
 
   return {
-    text: primaryResult.data.text ?? "",
+    text: primaryPageResult.data.text ?? "",
     words: finalWords,
     sentences,
     image: prepared.displayImage,
