@@ -728,7 +728,7 @@ export function ReadingCompanion() {
                   progress={readingSentenceIndex === activeSentenceIndex ? readingProgress : 0}
                   speaking={buddyState === "speaking" && readingSentenceIndex === activeSentenceIndex}
                 />
-              ))}
+              )}
               {ocrState === "ready" && ocrWords.map((word) => (
                 <button
                   key={word.id}
