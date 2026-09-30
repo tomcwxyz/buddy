@@ -1,6 +1,6 @@
 import type { Worker } from "tesseract.js";
 import { prepareRecognitionImage } from "@/lib/ocr/browser-preprocess";
-import { focusedWordIsUsable, shouldBoxPageWord } from "@/lib/ocr/confidence";
+import { focusedWordIsUsable, keepPageWord, shouldBoxPageWord } from "@/lib/ocr/confidence";
 import { mapBoxFromDeskewed } from "@/lib/ocr/geometry";
 import {
   decideSparseRecovery,
@@ -127,6 +127,7 @@ export async function recognisePage(
   const recoveryDecision = decideSparseRecovery(primaryWords, primaryTrusted);
 
   let finalWords = primaryTrusted;
+  let sentenceWords = primaryWords.filter((word) => keepPageWord(word));
   let sparsePass = false;
 
   if (recoveryDecision.run) {
@@ -135,7 +136,13 @@ export async function recognisePage(
       const sparseResult = await worker.recognize(recognitionImage, {}, { text: true, blocks: true });
       const sparseWords = extractWords(sparseResult as TesseractPageResult, "sparse");
       const sparseTrusted = addPrimaryLineContext(trustedPageWords(sparseWords), primaryWords);
+      const sparseSentenceWords = addPrimaryLineContext(
+        sparseWords.filter((word) => keepPageWord(word)),
+        primaryWords,
+      );
       finalWords = mergeOcrWords(primaryTrusted, sparseTrusted);
+      sentenceWords = mergeOcrWords(sentenceWords, sparseSentenceWords)
+        .map((word, index) => ({ ...word, readingOrder: index }));
       sparsePass = true;
     } catch {
       // The AUTO result is already useful. A failed recovery pass should not
@@ -152,8 +159,8 @@ export async function recognisePage(
     height,
     prepared.deskew.angle,
   );
-  const mappedPrimaryWords = mapWordsBackToPhoto(
-    primaryTrusted,
+  const mappedSentenceWords = mapWordsBackToPhoto(
+    sentenceWords,
     width,
     height,
     prepared.deskew.angle,
@@ -162,7 +169,7 @@ export async function recognisePage(
   return {
     text: primaryResult.data.text ?? "",
     words: mappedWords,
-    sentences: buildReadingSentences(mappedPrimaryWords),
+    sentences: buildReadingSentences(mappedSentenceWords),
     width,
     height,
     recovery: {
