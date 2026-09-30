@@ -1,5 +1,5 @@
 import { OCR_CONFIDENCE } from "@/lib/ocr/confidence";
-import type { OcrBox, OcrSentence, OcrWord } from "@/lib/ocr/types";
+import type { OcrBox, OcrSentence, OcrSentenceQuality, OcrWord } from "@/lib/ocr/types";
 
 function unionBoxes(boxes: OcrBox[]): OcrBox {
   const first = boxes[0];
@@ -33,18 +33,29 @@ function joinTokens(words: OcrWord[]) {
     .trim();
 }
 
-function readingOrder(words: OcrWord[]) {
-  return [...words].sort((a, b) => {
-    if (a.readingOrder !== undefined && b.readingOrder !== undefined) {
-      return a.readingOrder - b.readingOrder;
-    }
+function lineAwareReadingOrder(words: OcrWord[]) {
+  const groups = new Map<string, OcrWord[]>();
 
-    const aMid = (a.bbox.y0 + a.bbox.y1) / 2;
-    const bMid = (b.bbox.y0 + b.bbox.y1) / 2;
-    const averageHeight = Math.max(1, ((a.bbox.y1 - a.bbox.y0) + (b.bbox.y1 - b.bbox.y0)) / 2);
-    if (Math.abs(aMid - bMid) <= averageHeight * 0.45) return a.bbox.x0 - b.bbox.x0;
-    return aMid - bMid;
+  words.forEach((word, index) => {
+    const key = word.lineId ?? `fallback-${index}`;
+    groups.set(key, [...(groups.get(key) ?? []), word]);
   });
+
+  return [...groups.values()]
+    .map((lineWords) => {
+      const sorted = [...lineWords].sort((a, b) => a.bbox.x0 - b.bbox.x0);
+      const order = sorted.reduce<number | undefined>((lowest, word) => {
+        if (word.readingOrder === undefined) return lowest;
+        return lowest === undefined ? word.readingOrder : Math.min(lowest, word.readingOrder);
+      }, undefined);
+      const centreY = sorted.reduce((sum, word) => sum + (word.bbox.y0 + word.bbox.y1) / 2, 0) / sorted.length;
+      return { words: sorted, order, centreY };
+    })
+    .sort((a, b) => {
+      if (a.order !== undefined && b.order !== undefined && a.order !== b.order) return a.order - b.order;
+      return a.centreY - b.centreY;
+    })
+    .flatMap((line) => line.words);
 }
 
 function sentenceBounds(words: OcrWord[]) {
@@ -61,8 +72,61 @@ function sentenceBounds(words: OcrWord[]) {
     .sort((a, b) => a.y0 - b.y0 || a.x0 - b.x0);
 }
 
+const COMMON_SHORT_WORDS = new Set([
+  "a", "i", "am", "an", "as", "at", "be", "by", "do", "go", "he", "if", "in", "is",
+  "it", "me", "mr", "ms", "my", "no", "of", "oh", "on", "or", "so", "to", "up", "us",
+  "we",
+]);
+
+function normaliseToken(token: string) {
+  return token
+    .toLocaleLowerCase("en-GB")
+    .replace(/^[^a-z0-9'-]+|[^a-z0-9'-]+$/gi, "");
+}
+
+export function sentenceTextSuspiciousWordShare(text: string) {
+  const tokens = text.split(/\s+/).map(normaliseToken).filter(Boolean);
+  if (!tokens.length) return 1;
+
+  const suspicious = tokens.filter((token) => {
+    if (/\d/.test(token) && /[a-z]/i.test(token)) return true;
+    if (token.length === 1 && token !== "a" && token !== "i") return true;
+    if (token.length === 2 && /^[a-z]+$/i.test(token) && !COMMON_SHORT_WORDS.has(token)) return true;
+    if (token.length >= 4 && /^[a-z'-]+$/i.test(token) && !/[aeiouy]/i.test(token)) return true;
+    return false;
+  });
+
+  return suspicious.length / tokens.length;
+}
+
+export function classifySentenceQuality(
+  confidence: number,
+  weakWordShare: number,
+  suspiciousWordShare: number,
+  wordCount: number,
+): OcrSentenceQuality {
+  if (
+    wordCount >= 4
+    && (confidence < 48 || weakWordShare >= 0.34 || suspiciousWordShare >= 0.12)
+  ) {
+    return "blocked";
+  }
+
+  if (
+    confidence < 70
+    || weakWordShare >= 0.15
+    || suspiciousWordShare >= 0.07
+  ) {
+    return "check";
+  }
+
+  return "good";
+}
+
 export function buildReadingSentences(words: OcrWord[]): OcrSentence[] {
-  const usable = readingOrder(words.filter((word) => word.text.trim() && /[a-z0-9]/i.test(word.text)));
+  const usable = lineAwareReadingOrder(
+    words.filter((word) => word.text.trim() && /[a-z0-9]/i.test(word.text)),
+  );
   if (!usable.length) return [];
 
   const sentences: OcrSentence[] = [];
@@ -80,6 +144,13 @@ export function buildReadingSentences(words: OcrWord[]): OcrSentence[] {
     const confidence = current.reduce((sum, word) => sum + word.confidence, 0) / current.length;
     const weakWordCount = current.filter((word) => word.confidence < OCR_CONFIDENCE.trustedPage).length;
     const weakWordShare = weakWordCount / current.length;
+    const suspiciousWordShare = sentenceTextSuspiciousWordShare(text);
+    const quality = classifySentenceQuality(
+      confidence,
+      weakWordShare,
+      suspiciousWordShare,
+      current.length,
+    );
 
     sentences.push({
       id: "sentence-" + sentences.length,
@@ -88,7 +159,9 @@ export function buildReadingSentences(words: OcrWord[]): OcrSentence[] {
       bounds: sentenceBounds(current),
       confidence,
       weakWordShare,
-      uncertain: confidence < 68 || weakWordShare >= 0.2,
+      suspiciousWordShare,
+      quality,
+      uncertain: quality !== "good",
       paragraphId: current[0]?.paragraphId,
     });
     current = [];
