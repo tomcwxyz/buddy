@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Camera, HandPointing, Pause, Play, Scan, SpeakerHigh, TextAlignLeft, X } from "@phosphor-icons/react";
 import { BuddyPresence } from "@/components/BuddyPresence";
+import { ReadingBuddyCursor } from "@/components/ReadingBuddyCursor";
 import { VoicePicker } from "@/components/VoicePicker";
 import { PressToTalk } from "@/components/PressToTalk";
 import { getWordSupport, helpText, type HelpDepth } from "@/lib/literacy/engine";
@@ -64,6 +65,49 @@ function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
+type BrowserImageCapture = {
+  takePhoto: () => Promise<Blob>;
+};
+
+type BrowserImageCaptureConstructor = new (track: MediaStreamTrack) => BrowserImageCapture;
+
+function scaledCaptureCanvas(source: CanvasImageSource, sourceWidth: number, sourceHeight: number) {
+  const maxLongEdge = 3000;
+  const scale = Math.min(1, maxLongEdge / Math.max(sourceWidth, sourceHeight));
+  const width = Math.max(1, Math.round(sourceWidth * scale));
+  const height = Math.max(1, Math.round(sourceHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  context.drawImage(source, 0, 0, width, height);
+  return canvas;
+}
+
+async function captureBestCameraFrame(video: HTMLVideoElement, stream: MediaStream | null) {
+  const track = stream?.getVideoTracks()[0];
+  const ImageCaptureConstructor = (window as typeof window & {
+    ImageCapture?: BrowserImageCaptureConstructor;
+  }).ImageCapture;
+
+  if (track && ImageCaptureConstructor && "createImageBitmap" in window) {
+    try {
+      const blob = await new ImageCaptureConstructor(track).takePhoto();
+      const bitmap = await createImageBitmap(blob);
+      const canvas = scaledCaptureCanvas(bitmap, bitmap.width, bitmap.height);
+      bitmap.close?.();
+      if (canvas) return canvas;
+    } catch {
+      // Some Android cameras expose ImageCapture but reject takePhoto().
+      // Fall back to the live video frame below.
+    }
+  }
+
+  if (!video.videoWidth || !video.videoHeight) return null;
+  return scaledCaptureCanvas(video, video.videoWidth, video.videoHeight);
+}
+
 function makeOcrImage(source: HTMLCanvasElement) {
   const canvas = document.createElement("canvas");
   canvas.width = source.width;
@@ -112,6 +156,8 @@ export function ReadingCompanion() {
   const [lookup, setLookup] = useState<WordLookup | null>(null);
   const [lookupState, setLookupState] = useState<LookupState>("idle");
   const [tapLookupMessage, setTapLookupMessage] = useState<string | null>(null);
+  const [readingSentenceIndex, setReadingSentenceIndex] = useState<number | null>(null);
+  const [readingProgress, setReadingProgress] = useState(0);
   const speech = useBuddySpeech();
   const activeSentence = sentences[activeSentenceIndex] ?? null;
   const activeSentenceChunks = useMemo(
@@ -190,6 +236,8 @@ export function ReadingCompanion() {
     setSentences([]);
     setActiveSentenceIndex(0);
     setShowSentenceChunks(false);
+    setReadingSentenceIndex(null);
+    setReadingProgress(0);
     autoReadingRef.current = false;
     setAutoReading(false);
     speech.stop();
@@ -204,12 +252,23 @@ export function ReadingCompanion() {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 2560 },
-          height: { ideal: 1440 },
+          width: { ideal: 3840 },
+          height: { ideal: 2160 },
         },
         audio: false,
       });
       streamRef.current = stream;
+      const track = stream.getVideoTracks()[0];
+      try {
+        const capabilities = track?.getCapabilities?.() as MediaTrackCapabilities & { focusMode?: string[] };
+        if (capabilities?.focusMode?.includes("continuous")) {
+          await track.applyConstraints({
+            advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
+          });
+        }
+      } catch {
+        // Focus hints are optional; unsupported devices keep their normal autofocus.
+      }
       if (videoRef.current) videoRef.current.srcObject = stream;
       setCameraState("ready");
     } catch {
@@ -247,20 +306,14 @@ export function ReadingCompanion() {
 
   async function capturePage() {
     const video = videoRef.current;
-    if (!video || !video.videoWidth || !video.videoHeight) return;
+    if (!video) return;
 
-    const maxWidth = 2000;
-    const scale = Math.min(1, maxWidth / video.videoWidth);
-    const width = Math.round(video.videoWidth * scale);
-    const height = Math.round(video.videoHeight * scale);
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext("2d");
-    if (!context) return;
+    const canvas = await captureBestCameraFrame(video, streamRef.current);
+    if (!canvas) return;
 
-    context.drawImage(video, 0, 0, width, height);
-    const image = canvas.toDataURL("image/jpeg", 0.94);
+    const width = canvas.width;
+    const height = canvas.height;
+    const image = canvas.toDataURL("image/jpeg", 0.95);
     const ocrImage = makeOcrImage(canvas);
     setCapturedPage({ image, ocrImage, width, height });
     stopCamera();
@@ -394,6 +447,7 @@ export function ReadingCompanion() {
   }
 
   function speak(text: string) {
+    setReadingSentenceIndex(null);
     speech.speak(text, {
       onStart: () => setBuddyState("speaking"),
       onEnd: () => setBuddyState("idle"),
@@ -432,12 +486,15 @@ export function ReadingCompanion() {
 
     setActiveSentenceIndex(index);
     setShowSentenceChunks(false);
+    setReadingSentenceIndex(index);
+    setReadingProgress(0);
 
     if (sentence.quality === "blocked") {
       autoReadingRef.current = false;
       setAutoReading(false);
       speech.stop();
       setBuddyState("idle");
+      setReadingSentenceIndex(null);
       setTapLookupMessage("I can't read this bit reliably yet. Try the page again, or move to the next sentence.");
       return;
     }
@@ -448,8 +505,17 @@ export function ReadingCompanion() {
     }
 
     speech.speak(sentence.text, {
-      onStart: () => setBuddyState("speaking"),
+      onStart: () => {
+        setBuddyState("speaking");
+        setReadingProgress(0);
+      },
+      onBoundary: ({ charIndex, charLength, name }) => {
+        if (name && name !== "word" && name !== "sentence") return;
+        const position = charIndex + Math.max(1, charLength) * 0.5;
+        setReadingProgress(clamp(position / Math.max(1, sentence.text.length), 0, 1));
+      },
       onEnd: () => {
+        setReadingProgress(1);
         if (autoReadingRef.current && index < sentences.length - 1) {
           window.setTimeout(() => readSentenceAt(index + 1, true), 180);
           return;
@@ -479,6 +545,8 @@ export function ReadingCompanion() {
     stopContinuousReading();
     moveOn();
     setShowSentenceChunks(false);
+    setReadingSentenceIndex(null);
+    setReadingProgress(0);
     setActiveSentenceIndex((current) => clamp(current + direction, 0, sentences.length - 1));
   }
 
@@ -698,6 +766,15 @@ export function ReadingCompanion() {
                     width: `${((box.x1 - box.x0) / capturedPage.width) * 100}%`,
                     height: `${((box.y1 - box.y0) / capturedPage.height) * 100}%`,
                   }}
+                />
+              ))}
+              {ocrState === "ready" && activeSentence && activeSentence.quality !== "blocked" && (
+                <ReadingBuddyCursor
+                  bounds={activeSentence.bounds}
+                  pageWidth={capturedPage.width}
+                  pageHeight={capturedPage.height}
+                  progress={readingSentenceIndex === activeSentenceIndex ? readingProgress : 0}
+                  speaking={buddyState === "speaking" && readingSentenceIndex === activeSentenceIndex}
                 />
               ))}
               {ocrState === "ready" && ocrWords.map((word) => (
