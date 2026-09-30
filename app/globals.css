@@ -1019,3 +1019,14 @@ button {
     overflow-y: auto;
   }
 }
+
+
+@media (max-width: 620px) {
+  .read-page-shell .bottom-nav {
+    display: none;
+  }
+
+  .read-page-shell .main {
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+}
