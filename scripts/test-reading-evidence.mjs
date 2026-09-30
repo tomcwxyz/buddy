@@ -19,6 +19,7 @@ async function importTsModule(path) {
 
 const evidence = await importTsModule("../lib/reading/evidence.ts");
 const memory = await importTsModule("../lib/reading/book-memory.ts");
+const knownText = await importTsModule("../lib/reading/known-text.ts");
 
 const cases = [
   [
@@ -91,6 +92,41 @@ const cases = [
       );
       assert.equal(match.record.id, "book-1");
       assert.equal(match.similarity > 0.1, true);
+    },
+  ],
+  [
+    "known text matching retrieves a canonical passage from strong anchors",
+    () => {
+      const source = {
+        id: "open-ocean",
+        title: "Open Ocean",
+        licence: "open-licence",
+        text: "Before the voyage Kimokeo thanked the elders and talked about our place between the heavens the ocean and the earth.",
+      };
+      const match = knownText.findKnownTextMatch(
+        "Kimokeo thanked the elders and talked about our place between the heavems the ocean",
+        [source],
+        0.65,
+      );
+      assert.equal(match.sourceId, "open-ocean");
+      assert.equal(match.exactMatches >= 6, true);
+      assert.equal(match.fuzzyMatches >= 1, true);
+    },
+  ],
+  [
+    "weak canonical overlap is not treated as a known text",
+    () => {
+      const source = {
+        id: "other",
+        licence: "public-domain",
+        text: "The quick brown fox jumps over the lazy dog beside the river.",
+      };
+      const match = knownText.findKnownTextMatch(
+        "Kimokeo thanked the elders before the voyage",
+        [source],
+        0.65,
+      );
+      assert.equal(match, null);
     },
   ],
   [
