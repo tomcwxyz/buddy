@@ -65,49 +65,6 @@ function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
-type BrowserImageCapture = {
-  takePhoto: () => Promise<Blob>;
-};
-
-type BrowserImageCaptureConstructor = new (track: MediaStreamTrack) => BrowserImageCapture;
-
-function scaledCaptureCanvas(source: CanvasImageSource, sourceWidth: number, sourceHeight: number) {
-  const maxLongEdge = 3000;
-  const scale = Math.min(1, maxLongEdge / Math.max(sourceWidth, sourceHeight));
-  const width = Math.max(1, Math.round(sourceWidth * scale));
-  const height = Math.max(1, Math.round(sourceHeight * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) return null;
-  context.drawImage(source, 0, 0, width, height);
-  return canvas;
-}
-
-async function captureBestCameraFrame(video: HTMLVideoElement, stream: MediaStream | null) {
-  const track = stream?.getVideoTracks()[0];
-  const ImageCaptureConstructor = (window as typeof window & {
-    ImageCapture?: BrowserImageCaptureConstructor;
-  }).ImageCapture;
-
-  if (track && ImageCaptureConstructor && "createImageBitmap" in window) {
-    try {
-      const blob = await new ImageCaptureConstructor(track).takePhoto();
-      const bitmap = await createImageBitmap(blob);
-      const canvas = scaledCaptureCanvas(bitmap, bitmap.width, bitmap.height);
-      bitmap.close?.();
-      if (canvas) return canvas;
-    } catch {
-      // Some Android cameras expose ImageCapture but reject takePhoto().
-      // Fall back to the live video frame below.
-    }
-  }
-
-  if (!video.videoWidth || !video.videoHeight) return null;
-  return scaledCaptureCanvas(video, video.videoWidth, video.videoHeight);
-}
-
 function makeOcrImage(source: HTMLCanvasElement) {
   const canvas = document.createElement("canvas");
   canvas.width = source.width;
@@ -295,13 +252,19 @@ export function ReadingCompanion() {
 
   async function capturePage() {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !video.videoWidth || !video.videoHeight) return;
 
-    const canvas = await captureBestCameraFrame(video, streamRef.current);
-    if (!canvas) return;
+    const maxLongEdge = 2800;
+    const scale = Math.min(1, maxLongEdge / Math.max(video.videoWidth, video.videoHeight));
+    const width = Math.max(1, Math.round(video.videoWidth * scale));
+    const height = Math.max(1, Math.round(video.videoHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) return;
 
-    const width = canvas.width;
-    const height = canvas.height;
+    context.drawImage(video, 0, 0, width, height);
     const image = canvas.toDataURL("image/jpeg", 0.95);
     const ocrImage = makeOcrImage(canvas);
     setCapturedPage({ image, ocrImage, width, height });
