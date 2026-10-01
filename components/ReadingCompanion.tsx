@@ -9,6 +9,7 @@ import { PressToTalk } from "@/components/PressToTalk";
 import { getWordSupport, helpText, type HelpDepth } from "@/lib/literacy/engine";
 import { recordLearningEvent } from "@/lib/learning/local-store";
 import {
+  measureRegionInk,
   recognisePage,
   recogniseWordRegion,
   recogniseWordRegionEvidence,
@@ -434,7 +435,7 @@ export function ReadingCompanion() {
 
     let trustedWords = initialTrustedWords;
     let nextReadingWords = initialReadingWords;
-    let nextSentences = markSentencesWithDetectedGaps(initialSentences, gaps);
+    let nextSentences = initialSentences;
     const resolvedGapIds = new Set<string>();
 
     setGapReviews(gaps.map((gap) => ({
@@ -444,16 +445,29 @@ export function ReadingCompanion() {
       candidates: [],
       modelEnabled: null,
     })));
-    setSentences(nextSentences);
+    setSentences(markSentencesWithDetectedGaps(nextSentences, gaps));
 
     for (const gap of gaps) {
       if (gapRunRef.current !== runId) return;
 
+      const region = gapOcrRegion(gap, page.width, page.height);
+      const inkDensity = await measureRegionInk(page.ocrImage, region);
+      if (gapRunRef.current !== runId) return;
+
+      if (inkDensity >= 0 && inkDensity < 0.006) {
+        resolvedGapIds.add(gap.id);
+        const remaining = gaps.filter((candidate) => !resolvedGapIds.has(candidate.id));
+        setSentences(markSentencesWithDetectedGaps(nextSentences, remaining));
+        setGapReviews((current) => current.map((review) =>
+          review.gap.id === gap.id
+            ? { ...review, status: "resolved", modelEnabled: false }
+            : review,
+        ));
+        continue;
+      }
+
       const [focused, language] = await Promise.all([
-        recogniseWordRegionEvidence(
-          page.ocrImage,
-          gapOcrRegion(gap, page.width, page.height),
-        ).catch(() => null),
+        recogniseWordRegionEvidence(page.ocrImage, region).catch(() => null),
         fetchGapCandidates(gap),
       ]);
 
