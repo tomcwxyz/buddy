@@ -155,7 +155,8 @@
 
 .ocr-preview-card,
 .ocr-evaluation-panel,
-.ocr-word-table-card {
+.ocr-word-table-card,
+.ocr-gap-table-card {
   border: 1px solid rgba(40, 37, 31, 0.12);
   border-radius: 20px;
   background: rgba(255, 250, 242, 0.82);
@@ -338,7 +339,8 @@
   overflow-wrap: anywhere;
 }
 
-.ocr-word-table-card {
+.ocr-word-table-card,
+.ocr-gap-table-card {
   max-width: 1240px;
   margin: 20px auto 0;
   padding: 18px;
@@ -451,4 +453,59 @@
 .ocr-word-row > span:nth-child(4) {
   color: #665f54;
   line-height: 1.4;
+}
+
+
+.ocr-eval-gap {
+  position: absolute;
+  z-index: 5;
+  min-width: 10px;
+  min-height: 10px;
+  border: 2px dashed rgba(120, 91, 137, 0.9);
+  border-radius: 4px;
+  background: rgba(120, 91, 137, 0.1);
+  color: #563d62;
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.ocr-gap-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ocr-gap-row {
+  display: grid;
+  grid-template-columns: 100px 150px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 12px;
+  border: 1px solid rgba(120, 91, 137, 0.12);
+  border-radius: 12px;
+  background: rgba(120, 91, 137, 0.05);
+  font-size: 0.86rem;
+}
+
+.ocr-gap-row > span {
+  color: #756e62;
+  font-size: 0.78rem;
+}
+
+.ocr-gap-row > p {
+  margin: 0;
+  color: #665f54;
+  line-height: 1.45;
+}
+
+@media (max-width: 700px) {
+  .ocr-gap-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ocr-gap-row > p {
+    grid-column: 1 / -1;
+  }
 }
