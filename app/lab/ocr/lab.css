@@ -351,9 +351,9 @@
 }
 
 .ocr-word-row {
-  min-width: 720px;
+  min-width: 920px;
   display: grid;
-  grid-template-columns: 1fr 110px 140px 2.2fr;
+  grid-template-columns: 1fr 100px 150px 1.45fr 2.2fr;
   gap: 12px;
   align-items: start;
   padding: 10px 12px;
@@ -416,4 +416,39 @@
   .ocr-review-grid {
     grid-template-columns: 1fr;
   }
+}
+
+
+.ocr-eval-box.source-visual-consensus {
+  border-width: 2px;
+  border-color: rgba(63, 104, 124, 0.86);
+  background: rgba(63, 104, 124, 0.08);
+}
+
+.ocr-eval-box.source-reader-corrected {
+  border-width: 2px;
+  border-color: rgba(116, 82, 137, 0.9);
+  background: rgba(116, 82, 137, 0.1);
+}
+
+.ocr-eval-box.source-known-text {
+  border-width: 2px;
+  border-color: rgba(73, 120, 86, 0.92);
+  background: rgba(73, 120, 86, 0.1);
+}
+
+.ocr-eval-box.source-language-assisted {
+  border-style: dotted;
+  border-color: rgba(164, 108, 53, 0.92);
+  background: rgba(164, 108, 53, 0.09);
+}
+
+.ocr-word-row code {
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.ocr-word-row > span:nth-child(4) {
+  color: #665f54;
+  line-height: 1.4;
 }
