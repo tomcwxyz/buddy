@@ -217,6 +217,15 @@ export function ReadingCompanion() {
       : [],
     [activeSentence, gapReviews],
   );
+  const activeSentenceHasUnresolvedGap = useMemo(
+    () => activeSentence
+      ? gapReviews.some((review) =>
+          review.status !== "resolved"
+          && gapBelongsToSentence(review.gap, activeSentence.wordIds),
+        )
+      : false,
+    [activeSentence, gapReviews],
+  );
 
   const support = useMemo(() => (selectedWord ? getWordSupport(selectedWord) : null), [selectedWord]);
   const checkedMeaning = support?.meaning ?? lookup?.meaning ?? null;
@@ -287,6 +296,8 @@ export function ReadingCompanion() {
   }, [support, selectedContext, selectedSource]);
 
   async function startCamera() {
+    gapRunRef.current += 1;
+    setGapReviews([]);
     setCameraState("starting");
     setCapturedPage(null);
     setOcrWords([]);
@@ -334,6 +345,8 @@ export function ReadingCompanion() {
   }
 
   function clearPage() {
+    gapRunRef.current += 1;
+    setGapReviews([]);
     stopCamera();
     setCapturedPage(null);
     setOcrWords([]);
@@ -356,6 +369,267 @@ export function ReadingCompanion() {
     setLookupState("idle");
     setTapLookupMessage(null);
     recordedSelectionRef.current = null;
+  }
+
+  async function fetchGapCandidates(gap: ReadingGap) {
+    try {
+      const response = await fetch("/api/gap-candidates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          before: gap.contextBefore,
+          after: gap.contextAfter,
+          estimatedCharacters: gap.estimatedCharacters,
+        }),
+      });
+      if (!response.ok) return { enabled: false, candidates: [] as GapLanguageCandidate[] };
+      const payload = await response.json() as {
+        enabled?: boolean;
+        candidates?: GapLanguageCandidate[];
+      };
+      return {
+        enabled: payload.enabled === true,
+        candidates: (payload.candidates ?? [])
+          .filter((candidate) =>
+            candidate
+            && typeof candidate.text === "string"
+            && typeof candidate.confidence === "number"
+            && gapCandidateFitsLength(gap, candidate.text),
+          )
+          .slice(0, 5),
+      };
+    } catch {
+      return { enabled: false, candidates: [] as GapLanguageCandidate[] };
+    }
+  }
+
+  function languageEvidence(candidate: GapLanguageCandidate): ReadingEvidence {
+    return {
+      source: "language-assisted",
+      candidate: candidate.text,
+      confidence: clamp(candidate.confidence, 0, 1),
+      method: "gap-candidate-model",
+      evidenceId: `gap-language:${normaliseGapCandidate(candidate.text)}`,
+      independent: true,
+    };
+  }
+
+  async function recoverPageGaps(
+    page: CapturedPage,
+    initialTrustedWords: OcrWord[],
+    initialReadingWords: OcrWord[],
+    initialSentences: OcrSentence[],
+    runId: number,
+  ) {
+    const gaps = detectReadingGaps(initialReadingWords, page.width)
+      .filter((gap) => gap.confidence >= 0.5)
+      .slice(0, 6);
+
+    if (!gaps.length || gapRunRef.current !== runId) {
+      setGapReviews([]);
+      return;
+    }
+
+    let trustedWords = initialTrustedWords;
+    let nextReadingWords = initialReadingWords;
+    let nextSentences = markSentencesWithDetectedGaps(initialSentences, gaps);
+    const resolvedGapIds = new Set<string>();
+
+    setGapReviews(gaps.map((gap) => ({
+      gap,
+      status: "checking" as const,
+      focused: null,
+      candidates: [],
+      modelEnabled: null,
+    })));
+    setSentences(nextSentences);
+
+    for (const gap of gaps) {
+      if (gapRunRef.current !== runId) return;
+
+      const [focused, language] = await Promise.all([
+        recogniseWordRegionEvidence(
+          page.ocrImage,
+          gapOcrRegion(gap, page.width, page.height),
+        ).catch(() => null),
+        fetchGapCandidates(gap),
+      ]);
+
+      if (gapRunRef.current !== runId) return;
+
+      const languageCandidates = language.candidates
+        .filter((candidate) => candidate.confidence >= 0.25)
+        .sort((a, b) => b.confidence - a.confidence);
+
+      let automaticText: string | null = null;
+      let automaticEvidence: ReadingEvidence[] = [];
+
+      if (
+        focused
+        && focused.confidence >= 80
+        && gapCandidateFitsLength(gap, focused.text)
+      ) {
+        automaticText = focused.text;
+        automaticEvidence = [
+          visualEvidence(focused.text, focused.confidence, "focused-gap-ocr"),
+        ];
+
+        const agreeing = languageCandidates.find((candidate) =>
+          normaliseGapCandidate(candidate.text) === normaliseGapCandidate(focused.text)
+          && candidate.confidence >= 0.5,
+        );
+        if (agreeing) automaticEvidence.push(languageEvidence(agreeing));
+      } else if (focused && focused.confidence >= 25) {
+        const agreeing = languageCandidates.find((candidate) =>
+          normaliseGapCandidate(candidate.text) === normaliseGapCandidate(focused.text)
+          && candidate.confidence >= 0.65,
+        );
+        if (agreeing) {
+          automaticText = agreeing.text;
+          automaticEvidence = [
+            visualEvidence(focused.text, focused.confidence, "focused-gap-ocr"),
+            languageEvidence(agreeing),
+          ];
+        }
+      }
+
+      if (automaticText) {
+        const inserted = insertGapWord(
+          trustedWords,
+          nextReadingWords,
+          gap,
+          automaticText,
+          automaticEvidence,
+        );
+
+        if (inserted && inserted.word.confidence >= 55) {
+          trustedWords = inserted.trustedWords;
+          nextReadingWords = inserted.readingWords;
+          nextSentences = inserted.sentences;
+          resolvedGapIds.add(gap.id);
+
+          const remaining = gaps.filter((candidate) =>
+            candidate.id !== gap.id && !resolvedGapIds.has(candidate.id),
+          );
+          nextSentences = markSentencesWithDetectedGaps(nextSentences, remaining);
+
+          setOcrWords(trustedWords.filter((word) => word.confidence >= 18 && /[a-z]/i.test(word.text)));
+          setReadingWords(nextReadingWords);
+          setSentences(nextSentences);
+          setGapReviews((current) => current.map((review) =>
+            review.gap.id === gap.id
+              ? {
+                  ...review,
+                  status: "resolved",
+                  focused,
+                  candidates: languageCandidates,
+                  modelEnabled: language.enabled,
+                  resolvedWord: inserted.word.text,
+                }
+              : review,
+          ));
+          continue;
+        }
+      }
+
+      const suggestions = [...languageCandidates];
+      if (
+        focused
+        && focused.confidence >= 18
+        && gapCandidateFitsLength(gap, focused.text)
+        && !suggestions.some((candidate) =>
+          normaliseGapCandidate(candidate.text) === normaliseGapCandidate(focused.text),
+        )
+      ) {
+        suggestions.push({
+          text: focused.text,
+          confidence: Math.min(0.7, focused.confidence / 100),
+        });
+      }
+
+      suggestions.sort((a, b) => b.confidence - a.confidence);
+
+      setGapReviews((current) => current.map((review) =>
+        review.gap.id === gap.id
+          ? {
+              ...review,
+              status: suggestions.length ? "suggested" : "unavailable",
+              focused,
+              candidates: suggestions.slice(0, 4),
+              modelEnabled: language.enabled,
+            }
+          : review,
+      ));
+    }
+  }
+
+  function acceptGapSuggestion(review: GapReview, candidate: GapLanguageCandidate) {
+    const evidence: ReadingEvidence[] = [{
+      source: "reader-corrected",
+      candidate: candidate.text,
+      confidence: 1,
+      method: "reader-confirmed-gap",
+      evidenceId: `gap-confirmation:${review.gap.id}:${normaliseGapCandidate(candidate.text)}`,
+      independent: true,
+    }];
+
+    const modelCandidate = review.candidates.find((item) =>
+      normaliseGapCandidate(item.text) === normaliseGapCandidate(candidate.text),
+    );
+    if (modelCandidate) evidence.push(languageEvidence(modelCandidate));
+
+    if (
+      review.focused
+      && normaliseGapCandidate(review.focused.text) === normaliseGapCandidate(candidate.text)
+    ) {
+      evidence.push(visualEvidence(
+        review.focused.text,
+        review.focused.confidence,
+        "focused-gap-ocr",
+      ));
+    }
+
+    const inserted = insertGapWord(
+      ocrWords,
+      readingWords,
+      review.gap,
+      candidate.text,
+      evidence,
+    );
+    if (!inserted) return;
+
+    setOcrWords(inserted.trustedWords);
+    setReadingWords(inserted.readingWords);
+
+    const remainingGaps = gapReviews
+      .filter((item) => item.gap.id !== review.gap.id && item.status !== "resolved")
+      .map((item) => item.gap);
+    const guardedSentences = markSentencesWithDetectedGaps(inserted.sentences, remainingGaps);
+    setSentences(guardedSentences);
+
+    setGapReviews((current) => current.map((item) =>
+      item.gap.id === review.gap.id
+        ? { ...item, status: "resolved", resolvedWord: inserted.word.text }
+        : item,
+    ));
+
+    let bookMemory = activeBookMemory
+      ?? createBookMemory(globalThis.crypto?.randomUUID?.() ?? `book-${Date.now()}`);
+    bookMemory = observeBookPassage(bookMemory, candidate.text, { confirmed: true });
+    setActiveBookMemory(bookMemory);
+    if (readingMemoryMode === "device") saveBookMemory(bookMemory);
+
+    const sentenceIndex = guardedSentences.findIndex((sentence) =>
+      sentence.wordIds.includes(inserted.word.id),
+    );
+    if (sentenceIndex >= 0) setActiveSentenceIndex(sentenceIndex);
+    setTapLookupMessage(`Got it — I’ll read that gap as “${inserted.word.text}”.`);
+  }
+
+  function dismissGapSuggestion(gapId: string) {
+    setGapReviews((current) => current.map((review) =>
+      review.gap.id === gapId ? { ...review, status: "dismissed" } : review,
+    ));
   }
 
   async function capturePage() {
