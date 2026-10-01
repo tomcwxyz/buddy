@@ -247,6 +247,94 @@ export function likelyBookTerm(record: BookMemoryRecord, token: string) {
   };
 }
 
+function boundedEditDistance(a: string, b: string, maximum: number) {
+  if (Math.abs(a.length - b.length) > maximum) return maximum + 1;
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+
+  for (let left = 1; left <= a.length; left += 1) {
+    const current = [left];
+    let rowMinimum = current[0];
+
+    for (let right = 1; right <= b.length; right += 1) {
+      const substitution = previous[right - 1] + (a[left - 1] === b[right - 1] ? 0 : 1);
+      const insertion = current[right - 1] + 1;
+      const deletion = previous[right] + 1;
+      current[right] = Math.min(substitution, insertion, deletion);
+      rowMinimum = Math.min(rowMinimum, current[right]);
+    }
+
+    if (rowMinimum > maximum) return maximum + 1;
+    for (let index = 0; index < current.length; index += 1) previous[index] = current[index];
+  }
+
+  return previous[b.length];
+}
+
+export type BookMemoryCandidate = {
+  text: string;
+  confidence: number;
+  reason: "explicit-correction" | "confirmed-term";
+  observations: number;
+};
+
+/**
+ * Return only strong, locally grounded alternatives. An explicit correction is
+ * strongest. A fuzzy remembered term is considered only when it has been
+ * explicitly confirmed before and the OCR spelling is very close.
+ */
+export function bookMemoryCandidates(
+  record: BookMemoryRecord,
+  observed: string,
+): BookMemoryCandidate[] {
+  const token = normaliseBookToken(observed);
+  if (!token) return [];
+
+  const candidates: BookMemoryCandidate[] = [];
+  const correction = correctionCandidate(record, token);
+  if (correction) {
+    candidates.push({
+      text: correction.text,
+      confidence: correction.confidence,
+      reason: "explicit-correction",
+      observations: correction.observations,
+    });
+  }
+
+  if (token.length >= 5) {
+    for (const term of record.terms) {
+      if (term.confirmedCount < 1 || term.token === token || term.token.length < 5) continue;
+      const maximumDistance = Math.max(token.length, term.token.length) >= 8 ? 2 : 1;
+      const distance = boundedEditDistance(token, term.token, maximumDistance);
+      if (distance > maximumDistance) continue;
+
+      const similarity = 1 - distance / Math.max(token.length, term.token.length);
+      if (similarity < 0.78) continue;
+
+      candidates.push({
+        text: term.token,
+        confidence: Math.min(
+          0.91,
+          0.64
+            + similarity * 0.16
+            + Math.log2(term.confirmedCount + 1) * 0.06,
+        ),
+        reason: "confirmed-term",
+        observations: term.confirmedCount,
+      });
+    }
+  }
+
+  const byText = new Map<string, BookMemoryCandidate>();
+  for (const candidate of candidates) {
+    const existing = byText.get(candidate.text);
+    if (!existing || candidate.confidence > existing.confidence) byText.set(candidate.text, candidate);
+  }
+
+  return [...byText.values()]
+    .sort((a, b) => b.confidence - a.confidence || b.observations - a.observations)
+    .slice(0, 3);
+}
+
 export function readReadingMemoryMode(): ReadingMemoryMode {
   if (!canUseStorage()) return "session";
   return window.localStorage.getItem(MEMORY_MODE_KEY) === "device" ? "device" : "session";
