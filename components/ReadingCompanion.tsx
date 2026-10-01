@@ -213,7 +213,6 @@ export function ReadingCompanion() {
     () => activeSentence
       ? gapReviews.filter((review) =>
           review.status !== "resolved"
-          && review.status !== "dismissed"
           && gapBelongsToSentence(review.gap, activeSentence.wordIds),
         )
       : [],
