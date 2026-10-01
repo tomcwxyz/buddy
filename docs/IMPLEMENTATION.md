@@ -20,6 +20,7 @@ Buddy treats visual language, verbal language, learning memory and multi-surface
 - `lib/literacy/sound-map.ts` — child-friendly spelling/sound observations.
 - `lib/literacy/grapheme-phoneme.ts` — aligns spelling to already-resolved pronunciation data before Buddy offers sound-pattern guidance.
 - `lib/ai/word-explainer.ts` — optional, tightly scoped model fallback for lexical explanations.
+- `lib/ai/gap-candidates.ts` — optional structured language-candidate scorer for visually detected missing-word regions.
 - `lib/literacy/eval-cases.ts` + `/lab/words` — internal lexical, corpus and sound evaluation harness.
 
 ### Reading pipeline
@@ -31,22 +32,27 @@ The alpha now supports:
 3. local browser OCR using Tesseract.js;
 4. word bounding boxes rendered as tappable regions over the captured page;
 5. a targeted second OCR pass when a user taps a word the full-page pass missed;
-6. morphology/lemma analysis for the printed word;
-7. reviewed Buddy meaning and morphology evidence;
-8. deliberately child-simple Buddy-curated literacy meanings;
-9. broad local Princeton WordNet semantics and sense-order priors;
-10. local British pronunciation from reviewed data and the full Britfone runtime;
-11. remote Wiktionary, DictionaryAPI.dev and Datamuse only when local evidence is incomplete;
-12. context-sensitive sense selection using nearby OCR text, part of speech, lemma evidence, source quality and weak sense-order priors;
-13. pronunciation-aware grapheme/phoneme alignment before sound clues are shown;
-14. browser text-to-speech for the word, reading line and example sentences;
-15. press-and-hold browser speech recognition for simple voice requests;
-16. an uncertainty/correction state for text that does not look like a recognised English word;
-17. local learning events recorded only after a selected OCR word is lexically recognised;
-18. `Words we've met` and a three-word Practice loop derived from those events;
-19. photographed school spelling lists converted into reviewed local practice sets;
-20. any word explored in Play produces a piece in the same shared world, with word structure influencing a suggested starting shape while every explored word can use the full track toybox;
-21. `/practice`, `/practice/coaster` and `/practice/add-spellings` sit under one visible Play sub-navigation: Words / World / Add words; `/practice/coaster` provides the persistent construction world.
+6. missing-word gap detection from internal spacing and suspicious prose line endings;
+7. an actual-ink check so ordinary typography/blank spacing does not trigger language inference;
+8. focused OCR over the suspected missing region;
+9. optional constrained language candidates from a minimised nearby word window when visual recovery remains weak;
+10. reader confirmation before a language-only candidate becomes printed text;
+11. morphology/lemma analysis for the printed word;
+12. reviewed Buddy meaning and morphology evidence;
+13. deliberately child-simple Buddy-curated literacy meanings;
+14. broad local Princeton WordNet semantics and sense-order priors;
+15. local British pronunciation from reviewed data and the full Britfone runtime;
+16. remote Wiktionary, DictionaryAPI.dev and Datamuse only when local evidence is incomplete;
+17. context-sensitive sense selection using nearby OCR text, part of speech, lemma evidence, source quality and weak sense-order priors;
+18. pronunciation-aware grapheme/phoneme alignment before sound clues are shown;
+19. browser text-to-speech for the word, reading line and example sentences;
+20. press-and-hold browser speech recognition for simple voice requests;
+21. an uncertainty/correction state for text that does not look like a recognised English word;
+22. local learning events recorded only after a selected OCR word is lexically recognised;
+23. `Words we've met` and a three-word Practice loop derived from those events;
+24. photographed school spelling lists converted into reviewed local practice sets;
+25. any word explored in Play produces a piece in the same shared world, with word structure influencing a suggested starting shape while every explored word can use the full track toybox;
+26. `/practice`, `/practice/coaster` and `/practice/add-spellings` sit under one visible Play sub-navigation: Words / World / Add words; `/practice/coaster` provides the persistent construction world.
 
 Page images are not uploaded by Buddy in this alpha. OCR runs in the browser. Tesseract language/wasm resources may still be downloaded by the OCR library at runtime.
 
@@ -136,16 +142,21 @@ If no lexical source recognises the selected spelling:
 - a close spelling suggestion can be offered when edit distance makes that suggestion plausible;
 - the child can accept the correction or tap the printed word again.
 
-## Optional model fallback
+## Optional model assistance
 
-`lib/ai/word-explainer.ts` implements a deliberately narrow fallback using the OpenAI Responses API and structured JSON output.
+`lib/ai/word-explainer.ts` implements a deliberately narrow lexical fallback using the OpenAI Responses API and structured JSON output.
 
-The model receives only the selected word, a short minimised nearby lexical window, existing lexical meaning/POS evidence, and lemma/form evidence. It does **not** receive page images, the full OCR page, audio, account/profile data, Learning Map history or child voice transcripts.
+`lib/ai/gap-candidates.ts` implements the first missing-word language scorer. The model is never asked to transcribe a page. Buddy must first detect a plausible geometric gap, verify that the photographed region actually contains ink, and run focused OCR. Only then may the model receive a minimised window of up to six nearby words on each side plus an approximate character count. Proper-name-shaped nearby tokens are redacted. The response is a strict list of at most five single-word candidates and confidence scores.
+
+A language-only candidate is shown as a tentative suggestion and cannot be spoken as printed text until a person confirms it. Automatic recovery requires visual OCR evidence as well as enough combined evidence to clear the resolver threshold.
+
+Neither model route receives page images, the full OCR page, audio, account/profile data, Learning Map history or child voice transcripts.
 
 The fallback remains disabled unless explicitly configured:
 
 ```env
 BUDDY_MODEL_FALLBACK_ENABLED=true
+BUDDY_GAP_MODEL_ENABLED=true
 OPENAI_API_KEY=...
 ```
 
@@ -274,13 +285,13 @@ See `docs/READING_EVIDENCE.md`.
 
 ## Next implementation slice
 
-1. wire local book-memory correction/vocabulary candidates into the evidence resolver without changing visible text unless the resolver clears an explicit threshold;
-2. add direct OCR correction in the reading UI and store reader-corrected evidence only when local device memory is explicitly enabled;
-3. expose word provenance and competing candidates in `/lab/ocr`;
-4. add canonical-text fingerprint retrieval and sequence alignment using only legitimately available sources;
-5. trial a small language model only as a constrained candidate scorer and measure it against the real-page fixture set;
-6. run and review `/lab/words`, adding permanent regression cases whenever real reading exposes a poor explanation;
-7. continue improving capture geometry from fixture evidence, particularly curvature and capture-quality hints;
+1. test gap detection and candidate recovery against the difficult real-book pages, recording false gaps, missed gaps and accepted/rejected language candidates in fixtures;
+2. tune automatic acceptance using measured visual/language agreement rather than intuition;
+3. connect canonical-text retrieval/alignment to explicitly permitted source packs so known text can resolve gaps without generation;
+4. extend gap detection to difficult page curvature and capture-quality hints where fixture evidence justifies it;
+5. compare the current remote constrained scorer with a small/local masked-language or SLM option on the same fixture set;
+6. continue growing `/lab/ocr` provenance/gap diagnostics and `/lab/words` lexical regressions;
+7. design the separate “Help improve Buddy” contribution consent/data-minimisation flow before any training upload path;
 8. add a provider-neutral companion agent interface with strict child-safe tool capabilities;
 9. define child/profile/privacy boundaries before cloud synchronisation;
 10. define the R1/Android adapter contract using the same Buddy semantics.
