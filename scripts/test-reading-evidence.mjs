@@ -61,7 +61,7 @@ const cases = [
         { source: "reader-corrected", candidate: "Kimokeo", confidence: 1, evidenceId: "correction-1" },
         { source: "known-text", candidate: "kimo keo", confidence: 0.78, sourceId: "source-a" },
       ]);
-      assert.equal(result.text, "kimokeo");
+      assert.equal(result.text, "Kimokeo");
       assert.equal(result.resolvedBy, "reader-corrected");
     },
   ],
@@ -138,9 +138,20 @@ const cases = [
       const once = memory.correctionCandidate(book, "Kimokco");
       book = memory.rememberBookCorrection(book, "Kimokco", "Kimokeo", "2026-09-30T20:01:00.000Z");
       const twice = memory.correctionCandidate(book, "Kimokco");
-      assert.equal(once.text, "kimokeo");
+      assert.equal(once.text, "Kimokeo");
       assert.equal(twice.observations, 2);
       assert.equal(twice.confidence > once.confidence, true);
+    },
+  ],
+  [
+    "reader-confirmed book terms can suggest close OCR spellings",
+    () => {
+      const now = "2026-09-30T20:00:00.000Z";
+      let book = memory.createBookMemory("book-1", undefined, now);
+      book = memory.rememberBookCorrection(book, "Kimokco", "Kimokeo", now);
+      const candidates = memory.bookMemoryCandidates(book, "Kimokao");
+      assert.equal(candidates[0].text, "Kimokeo");
+      assert.equal(candidates[0].reason, "confirmed-term");
     },
   ],
   [
