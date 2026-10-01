@@ -11,6 +11,10 @@ function validTokenArray(value: unknown): value is string[] {
     && value.every((item) => typeof item === "string" && item.length <= 40);
 }
 
+export function GET() {
+  return NextResponse.json({ enabled: gapModelEnabled() });
+}
+
 export async function POST(request: Request) {
   let body: Partial<GapCandidateRequest>;
 
