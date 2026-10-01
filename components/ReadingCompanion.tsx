@@ -948,8 +948,8 @@ export function ReadingCompanion() {
               onChange={(event) => changeReadingMemoryMode(event.target.checked ? "device" : "session")}
             />
             <span>
-              <strong>Remember this book on this device</strong>
-              <small>Buddy keeps corrections and small text fingerprints, not page photos.</small>
+              <strong>Help my Buddy learn on this device</strong>
+              <small>Buddy keeps book corrections and small text fingerprints, not page photos.</small>
             </span>
           </label>
         )}
