@@ -494,6 +494,55 @@ export type FocusedWordEvidence = {
   confidence: number;
 };
 
+export async function measureRegionInk(
+  image: string,
+  region: OcrRegion,
+): Promise<number> {
+  if (typeof document === "undefined") return 0;
+
+  try {
+    const source = await loadBrowserImage(image);
+    const left = Math.max(0, Math.min(source.naturalWidth - 1, region.left));
+    const top = Math.max(0, Math.min(source.naturalHeight - 1, region.top));
+    const width = Math.max(1, Math.min(source.naturalWidth - left, region.width));
+    const height = Math.max(1, Math.min(source.naturalHeight - top, region.height));
+    const canvas = document.createElement("canvas");
+    const scale = Math.min(1, 420 / Math.max(width, height));
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return 0;
+
+    context.drawImage(
+      source,
+      left,
+      top,
+      width,
+      height,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let dark = 0;
+    let total = 0;
+
+    for (let index = 0; index < pixels.length; index += 4) {
+      const grey = pixels[index] * 0.299
+        + pixels[index + 1] * 0.587
+        + pixels[index + 2] * 0.114;
+      if (grey < 170) dark += 1;
+      total += 1;
+    }
+
+    return total > 0 ? dark / total : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function recogniseWordRegionEvidence(
   image: string,
   region: OcrRegion,
