@@ -158,13 +158,22 @@ export function applyBookMemoryToPage(
   };
 }
 
+export type ReaderCorrectionResult = {
+  trustedWords: OcrWord[];
+  readingWords: OcrWord[];
+  sentences: OcrSentence[];
+  changed: boolean;
+  observed?: string;
+  corrected?: string;
+};
+
 export function applyReaderCorrection(
   trustedWords: OcrWord[],
   readingWords: OcrWord[],
   sentences: OcrSentence[],
   wordId: string,
   corrected: string,
-) {
+): ReaderCorrectionResult {
   const clean = corrected.trim();
   if (!clean || !/[a-z]/i.test(clean)) {
     return { trustedWords, readingWords, sentences, changed: false };
