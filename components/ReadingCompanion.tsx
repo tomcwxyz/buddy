@@ -263,6 +263,7 @@ export function ReadingCompanion() {
     stopCamera();
     setCapturedPage(null);
     setOcrWords([]);
+    setReadingWords([]);
     setSentences([]);
     setActiveSentenceIndex(0);
     setShowSentenceChunks(false);
@@ -271,6 +272,9 @@ export function ReadingCompanion() {
     speech.stop();
     setOcrState("idle");
     setSelectedWord(null);
+    setSelectedOcrWordId(null);
+    setCorrectionOpen(false);
+    setCorrectionDraft("");
     setSelectedContext(null);
     setVoiceReply(null);
     setLastTranscript(null);
@@ -310,8 +314,29 @@ export function ReadingCompanion() {
         width: result.width,
         height: result.height,
       });
-      setOcrWords(result.words.filter((word) => word.confidence >= 18 && /[a-z]/i.test(word.text)));
-      setSentences(result.sentences);
+      const rawPassage = result.sentences.map((sentence) => sentence.text).join(" ") || result.text;
+      const storedMatch = activeBookMemory
+        ? null
+        : matchBookMemory(rawPassage, readBookMemories());
+      let bookMemory = activeBookMemory
+        ?? storedMatch?.record
+        ?? createBookMemory(globalThis.crypto?.randomUUID?.() ?? `book-${Date.now()}`);
+
+      const resolvedPage = applyBookMemoryToPage(
+        result.words,
+        result.readingWords,
+        result.sentences,
+        bookMemory,
+      );
+      const resolvedPassage = resolvedPage.sentences.map((sentence) => sentence.text).join(" ") || rawPassage;
+      bookMemory = observeBookPassage(bookMemory, resolvedPassage);
+
+      setActiveBookMemory(bookMemory);
+      if (readingMemoryMode === "device") saveBookMemory(bookMemory);
+
+      setReadingWords(resolvedPage.readingWords);
+      setOcrWords(resolvedPage.trustedWords.filter((word) => word.confidence >= 18 && /[a-z]/i.test(word.text)));
+      setSentences(resolvedPage.sentences);
       setActiveSentenceIndex(0);
       setShowSentenceChunks(false);
       setOcrState("ready");
@@ -322,13 +347,16 @@ export function ReadingCompanion() {
     }
   }
 
-  function chooseWord(word: string, source: WordSource, context?: string) {
+  function chooseWord(word: string, source: WordSource, context?: string, wordId?: string) {
     autoReadingRef.current = false;
     setAutoReading(false);
     speech.stop();
     const cleanWord = getWordSupport(word).word;
     if (!cleanWord) return;
     setSelectedWord(cleanWord);
+    setSelectedOcrWordId(wordId ?? null);
+    setCorrectionOpen(false);
+    setCorrectionDraft("");
     setSelectedContext(context?.trim() || null);
     setSelectedSource(source);
     setVoiceReply(null);
