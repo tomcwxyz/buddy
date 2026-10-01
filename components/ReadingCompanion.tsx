@@ -636,6 +636,9 @@ export function ReadingCompanion() {
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) return;
 
+    const gapRunId = ++gapRunRef.current;
+    setGapReviews([]);
+
     const maxLongEdge = 2800;
     const scale = Math.min(1, maxLongEdge / Math.max(video.videoWidth, video.videoHeight));
     const width = Math.max(1, Math.round(video.videoWidth * scale));
@@ -656,12 +659,13 @@ export function ReadingCompanion() {
 
     try {
       const result = await recognisePage(ocrImage, width, height, image);
-      setCapturedPage({
+      const preparedPage = {
         image: result.image,
         ocrImage: result.ocrImage,
         width: result.width,
         height: result.height,
-      });
+      };
+      setCapturedPage(preparedPage);
       const rawPassage = result.sentences.map((sentence) => sentence.text).join(" ") || result.text;
       const storedMatch = activeBookMemory
         ? null
@@ -688,6 +692,14 @@ export function ReadingCompanion() {
       setActiveSentenceIndex(0);
       setShowSentenceChunks(false);
       setOcrState("ready");
+
+      void recoverPageGaps(
+        preparedPage,
+        resolvedPage.trustedWords,
+        resolvedPage.readingWords,
+        resolvedPage.sentences,
+        gapRunId,
+      );
     } catch {
       setOcrState("error");
     } finally {
