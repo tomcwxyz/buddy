@@ -143,6 +143,10 @@ export function ReadingCompanion() {
     () => activeSentence ? chunkSentenceText(activeSentence.text) : [],
     [activeSentence],
   );
+  const selectedOcrWord = useMemo(
+    () => selectedOcrWordId ? ocrWords.find((word) => word.id === selectedOcrWordId) ?? null : null,
+    [ocrWords, selectedOcrWordId],
+  );
 
   const support = useMemo(() => (selectedWord ? getWordSupport(selectedWord) : null), [selectedWord]);
   const checkedMeaning = support?.meaning ?? lookup?.meaning ?? null;
@@ -1110,7 +1114,13 @@ export function ReadingCompanion() {
           <section className={`selected-word-card${lookupUnknown ? " word-uncertain" : ""}`} aria-live="polite">
             <div className="selected-word-heading">
               <div>
-                <span className="selected-kicker">{lookupUnknown ? "I might have misread this" : "This one?"}</span>
+                <span className="selected-kicker">{
+                  lookupUnknown
+                    ? "I might have misread this"
+                    : selectedOcrWord?.resolvedBy === "reader-corrected"
+                      ? "I remember this one"
+                      : "This one?"
+                }</span>
                 <h2>{support.word}</h2>
               </div>
               {selectedSource === "ocr" && selectedOcrWordId && (
