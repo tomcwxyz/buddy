@@ -581,3 +581,128 @@
     margin-top: 10px;
   }
 }
+
+
+.book-memory-control {
+  margin: 12px 4px 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(102, 116, 94, 0.07);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.book-memory-control input {
+  margin-top: 3px;
+  width: 17px;
+  height: 17px;
+  accent-color: var(--buddy-character);
+}
+
+.book-memory-control > span {
+  display: grid;
+  gap: 2px;
+}
+
+.book-memory-control strong {
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.book-memory-control small {
+  color: var(--buddy-ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.selected-word-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.selected-word-heading > div {
+  min-width: 0;
+}
+
+.selected-word-heading h2 {
+  margin-bottom: 12px;
+}
+
+.word-correct-button {
+  border: 0;
+  background: rgba(120, 147, 166, 0.1);
+  color: var(--buddy-ink-soft);
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.reader-correction-form {
+  margin: 4px 0 18px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(120, 147, 166, 0.08);
+  border: 1px solid rgba(120, 147, 166, 0.14);
+  display: grid;
+  gap: 8px;
+}
+
+.reader-correction-form > label {
+  color: var(--buddy-ink-soft);
+  font-size: 0.78rem;
+}
+
+.reader-correction-form > div {
+  display: grid;
+  grid-template-columns: 1fr 44px;
+  gap: 8px;
+  align-items: center;
+}
+
+.reader-correction-form input {
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--buddy-line);
+  border-radius: 13px;
+  padding: 0 12px;
+  background: var(--buddy-paper-raised);
+  color: var(--buddy-ink);
+  font: inherit;
+}
+
+.reader-correction-form input:focus {
+  outline: 2px solid rgba(120, 147, 166, 0.28);
+  outline-offset: 1px;
+}
+
+.reader-correction-form small {
+  color: var(--buddy-ink-soft);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .book-memory-control {
+    margin-top: 8px;
+    padding: 10px 12px;
+  }
+
+  .selected-word-heading {
+    gap: 8px;
+  }
+
+  .word-correct-button {
+    min-height: 36px;
+    padding-inline: 10px;
+    font-size: 0.78rem;
+  }
+}
