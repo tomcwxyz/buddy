@@ -375,6 +375,62 @@ export function ReadingCompanion() {
     }, 320);
   }
 
+  function changeReadingMemoryMode(nextMode: ReadingMemoryMode) {
+    persistReadingMemoryMode(nextMode);
+    setReadingMemoryModeState(nextMode);
+    if (nextMode === "device" && activeBookMemory) saveBookMemory(activeBookMemory);
+  }
+
+  function openCorrection() {
+    if (!selectedWord || !selectedOcrWordId) return;
+    setCorrectionDraft(selectedWord);
+    setCorrectionOpen(true);
+  }
+
+  function commitCorrection(value = correctionDraft) {
+    const corrected = value.trim();
+    if (!selectedOcrWordId || !corrected || !/[a-z]/i.test(corrected)) return;
+
+    const next = applyReaderCorrection(
+      ocrWords,
+      readingWords,
+      sentences,
+      selectedOcrWordId,
+      corrected,
+    );
+    if (!next.changed || !next.observed || !next.corrected) return;
+
+    setOcrWords(next.trustedWords);
+    setReadingWords(next.readingWords);
+    setSentences(next.sentences);
+
+    let bookMemory = activeBookMemory
+      ?? createBookMemory(globalThis.crypto?.randomUUID?.() ?? `book-${Date.now()}`);
+    bookMemory = rememberBookCorrection(bookMemory, next.observed, next.corrected);
+    const correctedPassage = next.sentences.map((sentence) => sentence.text).join(" ");
+    if (correctedPassage) {
+      bookMemory = observeBookPassage(bookMemory, correctedPassage, { confirmed: true });
+    }
+    setActiveBookMemory(bookMemory);
+    if (readingMemoryMode === "device") saveBookMemory(bookMemory);
+
+    const sentence = next.sentences.find((candidate) =>
+      candidate.wordIds.includes(selectedOcrWordId),
+    );
+
+    chooseWord(
+      next.corrected,
+      "ocr",
+      sentence?.text ?? selectedContext ?? undefined,
+      selectedOcrWordId,
+    );
+    setTapLookupMessage(
+      readingMemoryMode === "device"
+        ? "Got it — I'll remember that for this book on this device."
+        : "Got it — I'll use that while we're reading this book.",
+    );
+  }
+
   function nearestLineText(y: number) {
     const nearest = ocrWords.reduce<{ distance: number; text: string | null }>(
       (best, word) => {
@@ -809,6 +865,7 @@ export function ReadingCompanion() {
                       word.text,
                       "ocr",
                       sentenceIndex >= 0 ? sentences[sentenceIndex].text : word.lineText,
+                      word.id,
                     );
                   }}
                   aria-label={`Choose ${word.text}`}
@@ -876,6 +933,20 @@ export function ReadingCompanion() {
             </button>
           )}
         </div>
+
+        {capturedPage && (
+          <label className="book-memory-control">
+            <input
+              type="checkbox"
+              checked={readingMemoryMode === "device"}
+              onChange={(event) => changeReadingMemoryMode(event.target.checked ? "device" : "session")}
+            />
+            <span>
+              <strong>Remember this book on this device</strong>
+              <small>Buddy keeps corrections and small text fingerprints, not page photos.</small>
+            </span>
+          </label>
+        )}
       </section>
 
       <aside className="reading-side">
@@ -1035,9 +1106,54 @@ export function ReadingCompanion() {
 
         {support ? (
           <section className={`selected-word-card${lookupUnknown ? " word-uncertain" : ""}`} aria-live="polite">
-            <span className="selected-kicker">{lookupUnknown ? "I might have misread this" : "This one?"}</span>
-            <h2>{support.word}</h2>
+            <div className="selected-word-heading">
+              <div>
+                <span className="selected-kicker">{lookupUnknown ? "I might have misread this" : "This one?"}</span>
+                <h2>{support.word}</h2>
+              </div>
+              {selectedSource === "ocr" && selectedOcrWordId && (
+                <button type="button" className="word-correct-button" onClick={openCorrection}>
+                  <PencilSimple size={17} /> Not right?
+                </button>
+              )}
+            </div>
             {!lookupUnknown && lookup?.partOfSpeech && <span className="word-kind">{lookup.partOfSpeech}</span>}
+
+            {correctionOpen && selectedOcrWordId && (
+              <form
+                className="reader-correction-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  commitCorrection();
+                }}
+              >
+                <label htmlFor="buddy-word-correction">What does the book say?</label>
+                <div>
+                  <input
+                    id="buddy-word-correction"
+                    value={correctionDraft}
+                    onChange={(event) => setCorrectionDraft(event.target.value)}
+                    autoCapitalize="sentences"
+                    autoComplete="off"
+                    spellCheck
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className="round-control compact"
+                    disabled={!correctionDraft.trim() || correctionDraft.trim() === selectedWord}
+                    aria-label="Use corrected word"
+                  >
+                    <Check size={18} />
+                  </button>
+                </div>
+                <small>
+                  {readingMemoryMode === "device"
+                    ? "Buddy can use this correction again in this book on this device."
+                    : "Buddy will use this correction for this reading session."}
+                </small>
+              </form>
+            )}
             <p className="word-help">{currentHelp}</p>
 
             {lookupState === "loading" && (
@@ -1050,7 +1166,10 @@ export function ReadingCompanion() {
                   <button
                     type="button"
                     className="tactile-button dark"
-                    onClick={() => chooseWord(lookup.possibleSpelling!, selectedSource, selectedContext ?? undefined)}
+                    onClick={() => {
+                      if (selectedOcrWordId) commitCorrection(lookup.possibleSpelling!);
+                      else chooseWord(lookup.possibleSpelling!, selectedSource, selectedContext ?? undefined);
+                    }}
                   >
                     Yes — {lookup.possibleSpelling}
                   </button>
