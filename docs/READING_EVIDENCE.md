@@ -56,6 +56,24 @@ The first resolver is deterministic. Each candidate carries:
 
 The resolver combines independent support and records why the winning candidate won. A later small language model can contribute a bounded candidate-ranking signal without changing this contract.
 
+## Missing-word gaps
+
+A missing OCR token is different from a badly recognised token because there is no word object to attach evidence to.
+
+Buddy therefore treats gap recovery as its own evidence loop:
+
+1. detect an unusually large internal space or suspicious prose line ending from OCR geometry;
+2. inspect the corresponding photographed region and abandon the gap if there is no meaningful ink;
+3. run focused OCR over that region;
+4. optionally request a constrained single-word candidate list from a minimised nearby language window;
+5. automatically insert only when visual evidence and the language candidate agree strongly enough to clear the resolver threshold;
+6. otherwise show the candidate as tentative and require reader confirmation;
+7. keep the sentence out of text-to-speech while the gap is unresolved.
+
+The optional language request contains no image. It contains at most a small nearby token window and an approximate character count. Proper-name-shaped nearby tokens are redacted. The model returns structured candidates only; it does not receive an instruction to reconstruct the passage.
+
+Confirmed gap words become `reader-corrected` evidence and may feed local book vocabulary when device learning is enabled.
+
 ## Book memory
 
 Book memory is not a stored photograph of a book.
