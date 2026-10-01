@@ -8,9 +8,26 @@ import { VoicePicker } from "@/components/VoicePicker";
 import { PressToTalk } from "@/components/PressToTalk";
 import { getWordSupport, helpText, type HelpDepth } from "@/lib/literacy/engine";
 import { recordLearningEvent } from "@/lib/learning/local-store";
-import { recognisePage, recogniseWordRegion } from "@/lib/ocr/browser-tesseract";
+import {
+  recognisePage,
+  recogniseWordRegion,
+  recogniseWordRegionEvidence,
+  type FocusedWordEvidence,
+} from "@/lib/ocr/browser-tesseract";
 import type { OcrSentence, OcrWord } from "@/lib/ocr/types";
 import { chunkSentenceText } from "@/lib/reading/guided-reading";
+import {
+  detectReadingGaps,
+  gapBelongsToSentence,
+  gapCandidateFitsLength,
+  gapContextSentence,
+  markSentencesWithDetectedGaps,
+  type ReadingGap,
+} from "@/lib/reading/gaps";
+import {
+  visualEvidence,
+  type ReadingEvidence,
+} from "@/lib/reading/evidence";
 import {
   createBookMemory,
   matchBookMemory,
@@ -26,6 +43,7 @@ import {
 import {
   applyBookMemoryToPage,
   applyReaderCorrection,
+  insertGapWord,
 } from "@/lib/reading/word-resolution";
 import { useBuddySpeech } from "@/lib/speech/useBuddySpeech";
 
@@ -34,6 +52,21 @@ type OcrState = "idle" | "reading" | "ready" | "error";
 type BuddyState = "idle" | "listening" | "thinking" | "speaking";
 type WordSource = "ocr" | "demo";
 type LookupState = "idle" | "loading" | "ready" | "error";
+type GapReviewStatus = "checking" | "suggested" | "resolved" | "unavailable" | "dismissed";
+
+type GapLanguageCandidate = {
+  text: string;
+  confidence: number;
+};
+
+type GapReview = {
+  gap: ReadingGap;
+  status: GapReviewStatus;
+  focused: FocusedWordEvidence | null;
+  candidates: GapLanguageCandidate[];
+  modelEnabled: boolean | null;
+  resolvedWord?: string;
+};
 
 type CapturedPage = {
   image: string;
@@ -81,6 +114,31 @@ function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
+function normaliseGapCandidate(value: string) {
+  return value
+    .toLocaleLowerCase("en-GB")
+    .replace(/[‘’]/g, "'")
+    .replace(/^[^a-z0-9'-]+|[^a-z0-9'-]+$/gi, "")
+    .trim();
+}
+
+function gapOcrRegion(gap: ReadingGap, pageWidth: number, pageHeight: number) {
+  const height = Math.max(1, gap.bbox.y1 - gap.bbox.y0);
+  const marginX = Math.max(4, gap.normalGap * 0.25);
+  const marginY = Math.max(5, height * 0.45);
+  const left = clamp(gap.bbox.x0 - marginX, 0, pageWidth);
+  const top = clamp(gap.bbox.y0 - marginY, 0, pageHeight);
+  const right = clamp(gap.bbox.x1 + marginX, 0, pageWidth);
+  const bottom = clamp(gap.bbox.y1 + marginY, 0, pageHeight);
+
+  return {
+    left: Math.round(left),
+    top: Math.round(top),
+    width: Math.max(1, Math.round(right - left)),
+    height: Math.max(1, Math.round(bottom - top)),
+  };
+}
+
 function makeOcrImage(source: HTMLCanvasElement) {
   const canvas = document.createElement("canvas");
   canvas.width = source.width;
@@ -111,6 +169,7 @@ export function ReadingCompanion() {
   const streamRef = useRef<MediaStream | null>(null);
   const recordedSelectionRef = useRef<string | null>(null);
   const autoReadingRef = useRef(false);
+  const gapRunRef = useRef(0);
   const [cameraState, setCameraState] = useState<CameraState>("idle");
   const [ocrState, setOcrState] = useState<OcrState>("idle");
   const [capturedPage, setCapturedPage] = useState<CapturedPage | null>(null);
@@ -137,6 +196,7 @@ export function ReadingCompanion() {
   const [readingMemoryMode, setReadingMemoryModeState] = useState<ReadingMemoryMode>("session");
   const [readingSentenceIndex, setReadingSentenceIndex] = useState<number | null>(null);
   const [readingProgress, setReadingProgress] = useState(0);
+  const [gapReviews, setGapReviews] = useState<GapReview[]>([]);
   const speech = useBuddySpeech();
   const activeSentence = sentences[activeSentenceIndex] ?? null;
   const activeSentenceChunks = useMemo(
@@ -146,6 +206,16 @@ export function ReadingCompanion() {
   const selectedOcrWord = useMemo(
     () => selectedOcrWordId ? ocrWords.find((word) => word.id === selectedOcrWordId) ?? null : null,
     [ocrWords, selectedOcrWordId],
+  );
+  const activeGapReviews = useMemo(
+    () => activeSentence
+      ? gapReviews.filter((review) =>
+          review.status !== "resolved"
+          && review.status !== "dismissed"
+          && gapBelongsToSentence(review.gap, activeSentence.wordIds),
+        )
+      : [],
+    [activeSentence, gapReviews],
   );
 
   const support = useMemo(() => (selectedWord ? getWordSupport(selectedWord) : null), [selectedWord]);
