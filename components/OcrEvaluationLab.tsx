@@ -100,6 +100,15 @@ function parseReviewWords(value: string) {
     .filter((word) => /[a-z]/.test(word));
 }
 
+function evidenceSources(word: OcrResult["words"][number]) {
+  const sources = word.evidence?.map((item) => item.source) ?? [word.resolvedBy ?? "visual"];
+  return [...new Set(sources)];
+}
+
+function evidenceLabel(word: OcrResult["words"][number]) {
+  return evidenceSources(word).join(" + ");
+}
+
 export function OcrEvaluationLab() {
   const [page, setPage] = useState<PreparedPage | null>(null);
   const [result, setResult] = useState<OcrResult | null>(null);
@@ -125,6 +134,15 @@ export function OcrEvaluationLab() {
     const detected = new Set(result.words.map((word) => normaliseEvaluationWord(word.text)));
     return [...new Set(mustNotTrustWords.filter((word) => detected.has(word)))];
   }, [mustNotTrustWords, result]);
+
+  const provenanceCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const word of result?.words ?? []) {
+      const source = word.resolvedBy ?? "visual";
+      counts.set(source, (counts.get(source) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [result]);
 
   async function chooseFile(file: File | null) {
     if (!file) return;
@@ -194,6 +212,8 @@ export function OcrEvaluationLab() {
         bbox: word.bbox,
         lineText: word.lineText ?? null,
         pass: word.id.startsWith("sparse-") ? "sparse" : "auto-or-merged",
+        resolvedBy: word.resolvedBy ?? "visual",
+        evidence: word.evidence ?? [],
       })),
     };
 
@@ -265,8 +285,8 @@ export function OcrEvaluationLab() {
               {result?.words.map((word) => (
                 <span
                   key={word.id}
-                  className={`ocr-eval-box ${word.id.startsWith("sparse-") ? "recovered" : ""}`}
-                  title={`${word.text} · ${Math.round(word.confidence)}%`}
+                  className={`ocr-eval-box ${word.id.startsWith("sparse-") ? "recovered" : ""} source-${word.resolvedBy ?? "visual"}`}
+                  title={`${word.text} · ${Math.round(word.confidence)}% · ${word.resolvedBy ?? "visual"} · ${evidenceLabel(word)}`}
                   style={{
                     left: `${(word.bbox.x0 / page.width) * 100}%`,
                     top: `${(word.bbox.y0 / page.height) * 100}%`,
@@ -378,6 +398,7 @@ export function OcrEvaluationLab() {
                 <strong>{result.recovery.sparsePass ? "Second pass used" : "Single pass was enough"}</strong>
                 <span>{result.recovery.reason.replaceAll("-", " ")} · {result.recovery.primaryTrustedWords} → {result.recovery.finalTrustedWords} trusted words</span>
                 <span>{result.recovery.deskew.applied ? `Deskew ${result.recovery.deskew.angle.toFixed(2)}° applied` : `Deskew not applied · candidate ${result.recovery.deskew.candidateAngle.toFixed(2)}°`}</span>
+                <span>Evidence: {provenanceCounts.map(([source, count]) => `${source} ${count}`).join(" · ") || "none"}</span>
               </div>
 
               <div className="ocr-diff-grid">
@@ -413,12 +434,13 @@ export function OcrEvaluationLab() {
             </div>
           </div>
           <div className="ocr-word-table">
-            <div className="ocr-word-row heading"><span>Word</span><span>Confidence</span><span>Pass</span><span>Line context</span></div>
+            <div className="ocr-word-row heading"><span>Word</span><span>Confidence</span><span>Resolved by</span><span>Evidence</span><span>Line context</span></div>
             {result.words.map((word) => (
               <div className="ocr-word-row" key={`row-${word.id}`}>
                 <strong>{word.text}</strong>
                 <span>{Math.round(word.confidence)}%</span>
-                <span>{word.id.startsWith("sparse-") ? "recovered" : "auto / merged"}</span>
+                <span><code>{word.resolvedBy ?? "visual"}</code></span>
+                <span>{evidenceLabel(word)}</span>
                 <span>{word.lineText ?? "—"}</span>
               </div>
             ))}
