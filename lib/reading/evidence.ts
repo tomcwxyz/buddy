@@ -116,12 +116,18 @@ export function resolveReadingEvidence(input: ReadingEvidence[]): ResolvedReadin
   }
 
   const candidates = [...groups.entries()]
-    .map(([text, evidence]) => ({
-      text,
-      evidence,
-      confidence: languageCandidateIsGrounded(evidence) ? candidateScore(evidence) : 0,
-      resolvedBy: strongestSource(evidence),
-    }))
+    .map(([, evidence]) => {
+      const representative = [...evidence].sort((a, b) =>
+        SOURCE_PRECEDENCE[b.source] - SOURCE_PRECEDENCE[a.source]
+        || b.confidence - a.confidence,
+      )[0];
+      return {
+        text: representative?.candidate.trim() ?? "",
+        evidence,
+        confidence: languageCandidateIsGrounded(evidence) ? candidateScore(evidence) : 0,
+        resolvedBy: strongestSource(evidence),
+      };
+    })
     .filter((candidate) => candidate.confidence > 0)
     .sort((a, b) =>
       b.confidence - a.confidence
