@@ -72,11 +72,10 @@ function minimiseContext(tokens: string[], takeFromEnd: boolean) {
 }
 
 export function gapModelEnabled() {
-  return Boolean(process.env.OPENAI_API_KEY)
-    && (
-      process.env.BUDDY_GAP_MODEL_ENABLED === "true"
-      || process.env.BUDDY_MODEL_FALLBACK_ENABLED === "true"
-    );
+  if (!process.env.OPENAI_API_KEY) return false;
+  if (process.env.BUDDY_GAP_MODEL_ENABLED === "false") return false;
+  if (process.env.BUDDY_GAP_MODEL_ENABLED === "true") return true;
+  return process.env.BUDDY_MODEL_FALLBACK_ENABLED === "true";
 }
 
 export async function suggestGapCandidates(
