@@ -62,6 +62,7 @@ export type OcrRecoveryMetadata = {
 export type OcrResult = {
   text: string;
   words: OcrWord[];
+  readingWords: OcrWord[];
   sentences: OcrSentence[];
   image: string;
   ocrImage: string;
