@@ -489,7 +489,15 @@ export async function recognisePage(
   };
 }
 
-export async function recogniseWordRegion(image: string, region: OcrRegion): Promise<string | null> {
+export type FocusedWordEvidence = {
+  text: string;
+  confidence: number;
+};
+
+export async function recogniseWordRegionEvidence(
+  image: string,
+  region: OcrRegion,
+): Promise<FocusedWordEvidence | null> {
   const worker = await getWorker();
   const { PSM } = await import("tesseract.js");
 
@@ -507,9 +515,17 @@ export async function recogniseWordRegion(image: string, region: OcrRegion): Pro
       ?.replace(/^[^a-z'-]+|[^a-z'-]+$/gi, "");
 
     if (!candidate || !/[a-z]/i.test(candidate)) return null;
-    if (!focusedWordIsUsable(result.data.confidence ?? 0)) return null;
-    return candidate;
+    return {
+      text: candidate,
+      confidence: result.data.confidence ?? 0,
+    };
   } finally {
     await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
   }
+}
+
+export async function recogniseWordRegion(image: string, region: OcrRegion): Promise<string | null> {
+  const result = await recogniseWordRegionEvidence(image, region);
+  if (!result || !focusedWordIsUsable(result.confidence)) return null;
+  return result.text;
 }
