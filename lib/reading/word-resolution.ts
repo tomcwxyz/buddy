@@ -1,4 +1,5 @@
 import type { OcrSentence, OcrWord } from "@/lib/ocr/types";
+import type { ReadingGap } from "@/lib/reading/gaps";
 import type { BookMemoryRecord } from "@/lib/reading/book-memory";
 import { bookMemoryCandidates } from "@/lib/reading/book-memory";
 import {
@@ -7,6 +8,7 @@ import {
   type ReadingEvidence,
 } from "@/lib/reading/evidence";
 import {
+  buildReadingSentences,
   classifySentenceQuality,
   sentenceTextSuspiciousWordShare,
 } from "@/lib/reading/guided-reading";
@@ -210,5 +212,62 @@ export function applyReaderCorrection(
     changed: true,
     observed: sourceWord.text,
     corrected: clean,
+  };
+}
+
+
+export type InsertGapWordResult = {
+  trustedWords: OcrWord[];
+  readingWords: OcrWord[];
+  sentences: OcrSentence[];
+  word: OcrWord;
+};
+
+export function insertGapWord(
+  trustedWords: OcrWord[],
+  readingWords: OcrWord[],
+  gap: ReadingGap,
+  candidate: string,
+  evidence: ReadingEvidence[],
+): InsertGapWordResult | null {
+  const clean = candidate.trim();
+  if (!clean || !/^[A-Za-z]+(?:['’-][A-Za-z]+)*$/.test(clean)) return null;
+
+  const resolved = resolveReadingEvidence(evidence);
+  if (!resolved) return null;
+
+  const left = readingWords.find((word) => word.id === gap.leftWordId);
+  const right = readingWords.find((word) => word.id === gap.rightWordId);
+  if (!left || !right) return null;
+
+  const word: OcrWord = {
+    id: `gap-word:${gap.id}`,
+    text: resolved.text,
+    confidence: resolved.confidence * 100,
+    bbox: gap.bbox,
+    lineId: gap.lineId,
+    paragraphId: gap.paragraphId ?? left.paragraphId ?? right.paragraphId,
+    readingOrder: left.readingOrder !== undefined && right.readingOrder !== undefined
+      ? (left.readingOrder + right.readingOrder) / 2
+      : left.readingOrder !== undefined
+        ? left.readingOrder + 0.5
+        : right.readingOrder !== undefined
+          ? right.readingOrder - 0.5
+          : undefined,
+    evidence: resolved.evidence,
+    resolvedBy: resolved.resolvedBy,
+  };
+
+  const nextReadingWords = [...readingWords, word];
+  const nextTrustedWords = resolved.confidence >= 0.55 || resolved.resolvedBy === "reader-corrected"
+    ? [...trustedWords, word]
+    : trustedWords;
+  const sentences = buildReadingSentences(nextReadingWords);
+
+  return {
+    trustedWords: nextTrustedWords,
+    readingWords: nextReadingWords,
+    sentences,
+    word,
   };
 }
