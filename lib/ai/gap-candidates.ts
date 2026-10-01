@@ -36,14 +36,29 @@ function outputText(response: OpenAIResponse) {
   return null;
 }
 
+const COMMON_CAPITALISED = new Set([
+  "a", "an", "and", "as", "at", "but", "for", "from", "he", "her", "his", "i", "in",
+  "it", "its", "my", "of", "on", "or", "our", "she", "so", "that", "the", "their",
+  "they", "this", "to", "we", "with", "you", "your",
+]);
+
 function cleanToken(value: string) {
-  return value
+  const clean = value
     .replace(/https?:\/\/\S+/gi, "")
     .replace(/\b\S+@\S+\.\S+\b/g, "")
     .replace(/\b\+?\d[\d\s().-]{6,}\d\b/g, "")
     .replace(/[^A-Za-z'’-]/g, "")
     .slice(0, 32)
     .trim();
+
+  if (
+    /^[A-Z][a-z]+$/.test(clean)
+    && !COMMON_CAPITALISED.has(clean.toLocaleLowerCase("en-GB"))
+  ) {
+    return "[name]";
+  }
+
+  return clean;
 }
 
 function minimiseContext(tokens: string[], takeFromEnd: boolean) {
