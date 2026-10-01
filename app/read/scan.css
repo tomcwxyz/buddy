@@ -388,3 +388,53 @@
     transition: none !important;
   }
 }
+
+
+.ocr-gap-marker {
+  position: absolute;
+  z-index: 4;
+  min-width: 12px;
+  min-height: 12px;
+  border: 1.5px dashed rgba(120, 91, 137, 0.78);
+  border-radius: 6px;
+  background: rgba(120, 91, 137, 0.08);
+  pointer-events: none;
+  display: grid;
+  place-items: start center;
+}
+
+.ocr-gap-marker > span {
+  transform: translateY(-115%);
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgba(62, 52, 68, 0.88);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 3px 8px rgba(37, 35, 31, 0.18);
+}
+
+.ocr-gap-marker.checking {
+  opacity: 0.64;
+}
+
+.ocr-gap-marker.suggested {
+  border-style: solid;
+  background: rgba(120, 91, 137, 0.12);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ocr-gap-marker.checking > span {
+    animation: buddy-gap-pulse 1.25s ease-in-out infinite;
+  }
+}
+
+@keyframes buddy-gap-pulse {
+  0%, 100% { transform: translateY(-115%) scale(1); }
+  50% { transform: translateY(-115%) scale(1.08); }
+}
