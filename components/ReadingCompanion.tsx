@@ -407,10 +407,6 @@ export function ReadingCompanion() {
     let bookMemory = activeBookMemory
       ?? createBookMemory(globalThis.crypto?.randomUUID?.() ?? `book-${Date.now()}`);
     bookMemory = rememberBookCorrection(bookMemory, next.observed, next.corrected);
-    const correctedPassage = next.sentences.map((sentence) => sentence.text).join(" ");
-    if (correctedPassage) {
-      bookMemory = observeBookPassage(bookMemory, correctedPassage, { confirmed: true });
-    }
     setActiveBookMemory(bookMemory);
     if (readingMemoryMode === "device") saveBookMemory(bookMemory);
 
