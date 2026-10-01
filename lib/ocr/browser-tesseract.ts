@@ -498,7 +498,7 @@ export async function measureRegionInk(
   image: string,
   region: OcrRegion,
 ): Promise<number> {
-  if (typeof document === "undefined") return 0;
+  if (typeof document === "undefined") return -1;
 
   try {
     const source = await loadBrowserImage(image);
@@ -511,7 +511,7 @@ export async function measureRegionInk(
     canvas.width = Math.max(1, Math.round(width * scale));
     canvas.height = Math.max(1, Math.round(height * scale));
     const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (!context) return 0;
+    if (!context) return -1;
 
     context.drawImage(
       source,
@@ -539,7 +539,7 @@ export async function measureRegionInk(
 
     return total > 0 ? dark / total : 0;
   } catch {
-    return 0;
+    return -1;
   }
 }
 
