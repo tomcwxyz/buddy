@@ -467,6 +467,7 @@ export async function recognisePage(
   return {
     text: primaryPageResult.data.text ?? "",
     words: finalWords,
+    readingWords: sentenceWords,
     sentences,
     image: prepared.displayImage,
     ocrImage: prepared.image,
