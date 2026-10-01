@@ -146,7 +146,7 @@ function addTerms(record: BookMemoryRecord, text: string, confirmed: boolean, no
 
   for (const { token, display } of observedTokens) {
     if (STOP_WORDS.has(token) || token.length < 4) continue;
-    const existing = terms.get(token) ?? {
+    const existing: BookMemoryTerm = terms.get(token) ?? {
       token,
       ...(display ? { display } : {}),
       count: 0,
@@ -204,7 +204,7 @@ export function rememberBookCorrection(
     ]),
   );
 
-  const existing = corrections.get(key) ?? {
+  const existing: BookMemoryCorrection = corrections.get(key) ?? {
     observed: from,
     corrected: to,
     ...(correctedDisplay ? { correctedDisplay } : {}),
