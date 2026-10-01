@@ -86,8 +86,33 @@ export function detectReadingGaps(
 
   const gaps: ReadingGap[] = [];
 
-  for (const [lineId, rawLineWords] of lines) {
-    const lineWords = usableLineWords(rawLineWords);
+  const lineEntries = [...lines.entries()]
+    .map(([lineId, rawLineWords]) => {
+      const lineWords = usableLineWords(rawLineWords);
+      const readingOrder = lineWords.reduce<number | undefined>((lowest, word) => {
+        if (word.readingOrder === undefined) return lowest;
+        return lowest === undefined ? word.readingOrder : Math.min(lowest, word.readingOrder);
+      }, undefined);
+      const centreY = lineWords.length
+        ? lineWords.reduce((sum, word) => sum + (word.bbox.y0 + word.bbox.y1) / 2, 0) / lineWords.length
+        : 0;
+      return {
+        lineId,
+        lineWords,
+        paragraphId: lineWords[0]?.paragraphId,
+        readingOrder,
+        centreY,
+      };
+    })
+    .filter((line) => line.lineWords.length >= 2)
+    .sort((a, b) => {
+      if (a.readingOrder !== undefined && b.readingOrder !== undefined && a.readingOrder !== b.readingOrder) {
+        return a.readingOrder - b.readingOrder;
+      }
+      return a.centreY - b.centreY;
+    });
+
+  for (const { lineId, lineWords } of lineEntries) {
     if (lineWords.length < 3) continue;
 
     const metrics = lineMetrics(lineWords);
@@ -157,6 +182,82 @@ export function detectReadingGaps(
         contextAfter: lineWords
           .slice(index + 1, index + 7)
           .map((word) => word.text),
+        confidence,
+      });
+    }
+  }
+
+  const paragraphs = new Map<string, typeof lineEntries>();
+  for (const line of lineEntries) {
+    if (!line.paragraphId) continue;
+    paragraphs.set(line.paragraphId, [...(paragraphs.get(line.paragraphId) ?? []), line]);
+  }
+
+  for (const paragraphLines of paragraphs.values()) {
+    if (paragraphLines.length < 2) continue;
+
+    const rightEdges = paragraphLines
+      .map((line) => line.lineWords.at(-1)?.bbox.x1 ?? 0)
+      .filter((value) => value > 0);
+    const expectedRightEdge = percentile(rightEdges, 0.75);
+
+    for (let lineIndex = 0; lineIndex < paragraphLines.length - 1; lineIndex += 1) {
+      const line = paragraphLines[lineIndex];
+      const nextLine = paragraphLines[lineIndex + 1];
+      const last = line.lineWords.at(-1);
+      const nextFirst = nextLine.lineWords[0];
+      if (!last || !nextFirst || line.lineWords.length < 3) continue;
+      if (/[.!?][”"'’)]*$/.test(last.text.trim())) continue;
+
+      const metrics = lineMetrics(line.lineWords);
+      const normalGap = Math.max(metrics.normalGap, metrics.medianCharWidth * 0.35);
+      const trailingWidth = expectedRightEdge - last.bbox.x1;
+      const missingWidth = trailingWidth - normalGap;
+      const minimumMissingWidth = Math.max(
+        metrics.medianCharWidth * 1.55,
+        metrics.medianHeight * 0.42,
+      );
+      const maximumGapWidth = Math.min(
+        pageWidth * 0.28,
+        metrics.medianCharWidth * 15 + normalGap,
+      );
+
+      if (
+        missingWidth < minimumMissingWidth
+        || trailingWidth <= 0
+        || trailingWidth > maximumGapWidth
+      ) {
+        continue;
+      }
+
+      const margin = Math.max(1, normalGap * 0.35);
+      const estimatedCharacters = Math.max(
+        1,
+        Math.min(14, Math.round(missingWidth / metrics.medianCharWidth)),
+      );
+      const widthRatio = missingWidth / Math.max(1, metrics.medianCharWidth);
+      const confidence = Math.max(
+        0,
+        Math.min(0.72, 0.48 + Math.min(0.24, widthRatio * 0.025)),
+      );
+
+      gaps.push({
+        id: `gap:${line.lineId}:${last.id}:line-end:${nextFirst.id}`,
+        lineId: line.lineId,
+        ...(line.paragraphId ? { paragraphId: line.paragraphId } : {}),
+        leftWordId: last.id,
+        rightWordId: nextFirst.id,
+        bbox: {
+          x0: Math.min(expectedRightEdge - 1, last.bbox.x1 + margin),
+          y0: Math.min(...line.lineWords.map((word) => word.bbox.y0)),
+          x1: Math.max(last.bbox.x1 + 1, expectedRightEdge - margin),
+          y1: Math.max(...line.lineWords.map((word) => word.bbox.y1)),
+        },
+        gapWidth: trailingWidth,
+        normalGap,
+        estimatedCharacters,
+        contextBefore: line.lineWords.slice(-6).map((word) => word.text),
+        contextAfter: nextLine.lineWords.slice(0, 6).map((word) => word.text),
         confidence,
       });
     }
