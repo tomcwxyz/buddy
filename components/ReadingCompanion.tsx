@@ -674,6 +674,9 @@ export function ReadingCompanion() {
 
   function retrySelection() {
     setSelectedWord(null);
+    setSelectedOcrWordId(null);
+    setCorrectionOpen(false);
+    setCorrectionDraft("");
     setSelectedContext(null);
     setVoiceReply(null);
     setLastTranscript(null);
@@ -688,6 +691,9 @@ export function ReadingCompanion() {
       recordLearningEvent({ kind: "moved_on", word: selectedWord, helpDepth, source: selectedSource });
     }
     setSelectedWord(null);
+    setSelectedOcrWordId(null);
+    setCorrectionOpen(false);
+    setCorrectionDraft("");
     setSelectedContext(null);
     setVoiceReply(null);
     setLastTranscript(null);
