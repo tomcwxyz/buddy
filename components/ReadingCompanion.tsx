@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Camera, HandPointing, Pause, Play, Scan, SpeakerHigh, TextAlignLeft, X } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, Camera, Check, HandPointing, Pause, PencilSimple, Play, Scan, SpeakerHigh, TextAlignLeft, X } from "@phosphor-icons/react";
 import { BuddyPresence } from "@/components/BuddyPresence";
 import { ReadingBuddyCursor } from "@/components/ReadingBuddyCursor";
 import { VoicePicker } from "@/components/VoicePicker";
@@ -11,6 +11,22 @@ import { recordLearningEvent } from "@/lib/learning/local-store";
 import { recognisePage, recogniseWordRegion } from "@/lib/ocr/browser-tesseract";
 import type { OcrSentence, OcrWord } from "@/lib/ocr/types";
 import { chunkSentenceText } from "@/lib/reading/guided-reading";
+import {
+  createBookMemory,
+  matchBookMemory,
+  observeBookPassage,
+  readBookMemories,
+  readReadingMemoryMode,
+  rememberBookCorrection,
+  saveBookMemory,
+  setReadingMemoryMode as persistReadingMemoryMode,
+  type BookMemoryRecord,
+  type ReadingMemoryMode,
+} from "@/lib/reading/book-memory";
+import {
+  applyBookMemoryToPage,
+  applyReaderCorrection,
+} from "@/lib/reading/word-resolution";
 import { useBuddySpeech } from "@/lib/speech/useBuddySpeech";
 
 type CameraState = "idle" | "starting" | "ready" | "error";
@@ -99,6 +115,7 @@ export function ReadingCompanion() {
   const [ocrState, setOcrState] = useState<OcrState>("idle");
   const [capturedPage, setCapturedPage] = useState<CapturedPage | null>(null);
   const [ocrWords, setOcrWords] = useState<OcrWord[]>([]);
+  const [readingWords, setReadingWords] = useState<OcrWord[]>([]);
   const [sentences, setSentences] = useState<OcrSentence[]>([]);
   const [activeSentenceIndex, setActiveSentenceIndex] = useState(0);
   const [showSentenceChunks, setShowSentenceChunks] = useState(false);
@@ -113,6 +130,11 @@ export function ReadingCompanion() {
   const [lookup, setLookup] = useState<WordLookup | null>(null);
   const [lookupState, setLookupState] = useState<LookupState>("idle");
   const [tapLookupMessage, setTapLookupMessage] = useState<string | null>(null);
+  const [selectedOcrWordId, setSelectedOcrWordId] = useState<string | null>(null);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [correctionDraft, setCorrectionDraft] = useState("");
+  const [activeBookMemory, setActiveBookMemory] = useState<BookMemoryRecord | null>(null);
+  const [readingMemoryMode, setReadingMemoryModeState] = useState<ReadingMemoryMode>("session");
   const [readingSentenceIndex, setReadingSentenceIndex] = useState<number | null>(null);
   const [readingProgress, setReadingProgress] = useState(0);
   const speech = useBuddySpeech();
@@ -133,6 +155,10 @@ export function ReadingCompanion() {
         : "I'm not sure I read that word correctly. You can tap it again, or ask Buddy to check the word anyway."
       : voiceReply ?? helpText(support, helpDepth, lookup?.meaning)
     : null;
+
+  useEffect(() => {
+    setReadingMemoryModeState(readReadingMemoryMode());
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -190,6 +216,7 @@ export function ReadingCompanion() {
     setCameraState("starting");
     setCapturedPage(null);
     setOcrWords([]);
+    setReadingWords([]);
     setSentences([]);
     setActiveSentenceIndex(0);
     setShowSentenceChunks(false);
@@ -200,6 +227,9 @@ export function ReadingCompanion() {
     speech.stop();
     setOcrState("idle");
     setSelectedWord(null);
+    setSelectedOcrWordId(null);
+    setCorrectionOpen(false);
+    setCorrectionDraft("");
     setSelectedContext(null);
     setVoiceReply(null);
     setTapLookupMessage(null);
