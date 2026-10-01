@@ -19,13 +19,13 @@ async function importTsModule(path) {
 
 const gaps = await importTsModule("../lib/reading/gaps.ts");
 
-function word(id, text, x0, x1, order) {
+function word(id, text, x0, x1, order, lineId = "line-1", y0 = 40) {
   return {
     id,
     text,
     confidence: 82,
-    bbox: { x0, y0: 40, x1, y1: 60 },
-    lineId: "line-1",
+    bbox: { x0, y0, x1, y1: y0 + 20 },
+    lineId,
     paragraphId: "p-1",
     readingOrder: order,
   };
@@ -63,6 +63,35 @@ const cases = [
       assert.equal(found[0].estimatedCharacters >= 3, true);
       assert.equal(found[0].contextBefore.at(-1), "elders");
       assert.equal(found[0].contextAfter[0], "talked");
+    },
+  ],
+  [
+    "missing text at the end of a prose line is detected using neighbouring line width",
+    () => {
+      const words = [
+        word("a", "As", 10, 26, 0, "line-1", 40),
+        word("b", "always", 34, 78, 1, "line-1", 40),
+        word("c", "Kimokeo", 86, 142, 2, "line-1", 40),
+
+        word("d", "thanked", 10, 62, 3, "line-2", 68),
+        word("e", "the", 70, 92, 4, "line-2", 68),
+        word("f", "elders", 100, 140, 5, "line-2", 68),
+        word("g", "before", 148, 190, 6, "line-2", 68),
+        word("h", "leaving", 198, 246, 7, "line-2", 68),
+
+        word("i", "They", 10, 40, 8, "line-3", 96),
+        word("j", "walked", 48, 92, 9, "line-3", 96),
+        word("k", "towards", 100, 150, 10, "line-3", 96),
+        word("l", "the", 158, 180, 11, "line-3", 96),
+        word("m", "ocean.", 188, 234, 12, "line-3", 96),
+      ];
+      const found = gaps.detectReadingGaps(words, 400);
+      const lineEnd = found.find((gap) => gap.id.includes("line-end"));
+      assert.ok(lineEnd);
+      assert.equal(lineEnd.leftWordId, "c");
+      assert.equal(lineEnd.rightWordId, "d");
+      assert.equal(lineEnd.contextBefore.at(-1), "Kimokeo");
+      assert.equal(lineEnd.contextAfter[0], "thanked");
     },
   ],
   [
