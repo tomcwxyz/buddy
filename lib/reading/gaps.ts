@@ -1,4 +1,4 @@
-import type { OcrBox, OcrWord } from "@/lib/ocr/types";
+import type { OcrBox, OcrSentence, OcrWord } from "@/lib/ocr/types";
 
 export type ReadingGap = {
   id: string;
@@ -181,4 +181,33 @@ export function gapContextSentence(gap: ReadingGap, candidate = "___") {
     candidate,
     ...gap.contextAfter,
   ].join(" ").replace(/\s+/g, " ").trim();
+}
+
+
+export function gapCandidateFitsLength(gap: ReadingGap, candidate: string) {
+  const length = normalisedToken(candidate).length;
+  if (!length) return false;
+  const tolerance = Math.max(2, Math.round(gap.estimatedCharacters * 0.38));
+  return Math.abs(length - gap.estimatedCharacters) <= tolerance;
+}
+
+export function markSentencesWithDetectedGaps(
+  sentences: OcrSentence[],
+  gaps: ReadingGap[],
+) {
+  const meaningful = gaps.filter((gap) => gap.confidence >= 0.5);
+  if (!meaningful.length) return sentences;
+
+  return sentences.map((sentence) => {
+    const hasGap = meaningful.some((gap) =>
+      gapBelongsToSentence(gap, sentence.wordIds),
+    );
+    if (!hasGap || sentence.quality === "blocked") return sentence;
+
+    return {
+      ...sentence,
+      quality: "check" as const,
+      uncertain: true,
+    };
+  });
 }
