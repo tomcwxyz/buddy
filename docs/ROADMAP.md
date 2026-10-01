@@ -109,6 +109,8 @@ Priorities:
 
 Success means Buddy can get better at the particular book being read, can exploit genuinely known text where permitted, and can explain internally whether a word came from sight, agreement, memory, a canonical source or a human correction.
 
+**First live slice — October 2026:** provenance is now carried on OCR words; AUTO/SPARSE agreement becomes visual-consensus evidence; reader corrections can update the current page immediately; corrections and confirmed vocabulary feed a session book memory; device persistence is an explicit opt-in and stores no page photographs; remembered corrections can resolve later weak OCR candidates; and the OCR lab exposes/export provenance for evaluation. Canonical-source alignment exists as a deterministic library primitive but is not yet wired to a production corpus. The language-model candidate scorer remains the next experiment, after this deterministic path has been tested on real pages.
+
 See docs/READING_EVIDENCE.md for the architecture and privacy boundary.
 
 ### 2. Build the first reviewed real-page fixture set
