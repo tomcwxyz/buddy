@@ -3,6 +3,7 @@ export type ReadingMemoryMode = "session" | "device";
 export type BookMemoryCorrection = {
   observed: string;
   corrected: string;
+  correctedDisplay?: string;
   count: number;
   firstSeen: string;
   lastSeen: string;
@@ -10,6 +11,7 @@ export type BookMemoryCorrection = {
 
 export type BookMemoryTerm = {
   token: string;
+  display?: string;
   count: number;
   confirmedCount: number;
   lastSeen: string;
@@ -137,16 +139,25 @@ function mergeFingerprints(existing: string[], incoming: string[]) {
 
 function addTerms(record: BookMemoryRecord, text: string, confirmed: boolean, now: string) {
   const terms = new Map(record.terms.map((term) => [term.token, { ...term }]));
-  for (const token of bookTokens(text)) {
+  const observedTokens = text.split(/\s+/).map((raw) => ({
+    token: normaliseBookToken(raw),
+    display: raw.replace(/^[^a-z0-9'-]+|[^a-z0-9'-]+$/gi, "").trim(),
+  }));
+
+  for (const { token, display } of observedTokens) {
     if (STOP_WORDS.has(token) || token.length < 4) continue;
     const existing = terms.get(token) ?? {
       token,
+      ...(display ? { display } : {}),
       count: 0,
       confirmedCount: 0,
       lastSeen: now,
     };
     existing.count += 1;
-    if (confirmed) existing.confirmedCount += 1;
+    if (confirmed) {
+      existing.confirmedCount += 1;
+      if (display) existing.display = display;
+    }
     existing.lastSeen = now;
     terms.set(token, existing);
   }
@@ -182,6 +193,7 @@ export function rememberBookCorrection(
 ): BookMemoryRecord {
   const from = normaliseBookToken(observed);
   const to = normaliseBookToken(corrected);
+  const correctedDisplay = corrected.replace(/^[^a-z0-9'-]+|[^a-z0-9'-]+$/gi, "").trim();
   if (!from || !to || from === to) return record;
 
   const key = `${from}=>${to}`;
@@ -195,12 +207,14 @@ export function rememberBookCorrection(
   const existing = corrections.get(key) ?? {
     observed: from,
     corrected: to,
+    ...(correctedDisplay ? { correctedDisplay } : {}),
     count: 0,
     firstSeen: now,
     lastSeen: now,
   };
 
   existing.count += 1;
+  if (correctedDisplay) existing.correctedDisplay = correctedDisplay;
   existing.lastSeen = now;
   corrections.set(key, existing);
 
@@ -225,7 +239,7 @@ export function correctionCandidate(record: BookMemoryRecord, observed: string) 
   if (!best) return null;
 
   return {
-    text: best.corrected,
+    text: best.correctedDisplay ?? best.corrected,
     confidence: Math.min(0.98, 0.72 + Math.log2(best.count + 1) * 0.08),
     observations: best.count,
   };
@@ -311,7 +325,7 @@ export function bookMemoryCandidates(
       if (similarity < 0.78) continue;
 
       candidates.push({
-        text: term.token,
+        text: term.display ?? term.token,
         confidence: Math.min(
           0.91,
           0.64
