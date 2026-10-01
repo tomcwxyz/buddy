@@ -57,6 +57,7 @@ type GapReviewStatus = "checking" | "suggested" | "resolved" | "unavailable" | "
 type GapLanguageCandidate = {
   text: string;
   confidence: number;
+  source?: "language" | "focused";
 };
 
 type GapReview = {
@@ -396,6 +397,7 @@ export function ReadingCompanion() {
             && typeof candidate.confidence === "number"
             && gapCandidateFitsLength(gap, candidate.text),
           )
+          .map((candidate) => ({ ...candidate, source: "language" as const }))
           .slice(0, 5),
       };
     } catch {
@@ -544,6 +546,7 @@ export function ReadingCompanion() {
         suggestions.push({
           text: focused.text,
           confidence: Math.min(0.7, focused.confidence / 100),
+          source: "focused",
         });
       }
 
@@ -574,7 +577,8 @@ export function ReadingCompanion() {
     }];
 
     const modelCandidate = review.candidates.find((item) =>
-      normaliseGapCandidate(item.text) === normaliseGapCandidate(candidate.text),
+      item.source === "language"
+      && normaliseGapCandidate(item.text) === normaliseGapCandidate(candidate.text),
     );
     if (modelCandidate) evidence.push(languageEvidence(modelCandidate));
 
