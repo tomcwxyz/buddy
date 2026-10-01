@@ -109,8 +109,8 @@ const cases = [
     () => {
       const words = [
         word("a", "elders", 10, 52, 0),
-        word("b", "talked", 104, 146, 1),
-        word("c", "about", 154, 190, 2),
+        word("b", "talked", 82, 124, 1),
+        word("c", "about", 132, 168, 2),
       ];
       const [gap] = gaps.detectReadingGaps(words, 300);
       assert.ok(gap);
