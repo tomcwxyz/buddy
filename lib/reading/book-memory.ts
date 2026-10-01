@@ -224,7 +224,7 @@ export function rememberBookCorrection(
     corrections: [...corrections.values()]
       .sort((a, b) => b.count - a.count || b.lastSeen.localeCompare(a.lastSeen))
       .slice(0, MAX_CORRECTIONS_PER_BOOK),
-  }, to, { confirmed: true, now });
+  }, correctedDisplay || to, { confirmed: true, now });
 }
 
 export function correctionCandidate(record: BookMemoryRecord, observed: string) {
