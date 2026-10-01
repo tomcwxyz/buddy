@@ -911,13 +911,22 @@ export function ReadingCompanion() {
     setReadingSentenceIndex(index);
     setReadingProgress(0);
 
-    if (sentence.quality === "blocked") {
+    const hasUnresolvedGap = gapReviews.some((review) =>
+      review.status !== "resolved"
+      && gapBelongsToSentence(review.gap, sentence.wordIds),
+    );
+
+    if (sentence.quality === "blocked" || hasUnresolvedGap) {
       autoReadingRef.current = false;
       setAutoReading(false);
       speech.stop();
       setBuddyState("idle");
       setReadingSentenceIndex(null);
-      setTapLookupMessage("I can't read this bit reliably yet. Try the page again, or move to the next sentence.");
+      setTapLookupMessage(
+        hasUnresolvedGap
+          ? "I think a word is missing here. Check the gap with me before I read this sentence aloud."
+          : "I can't read this bit reliably yet. Try the page again, or move to the next sentence.",
+      );
       return;
     }
 
@@ -950,14 +959,14 @@ export function ReadingCompanion() {
   }
 
   function readCurrentSentence() {
-    if (!activeSentence || activeSentence.quality === "blocked") return;
+    if (!activeSentence || activeSentence.quality === "blocked" || activeSentenceHasUnresolvedGap) return;
     autoReadingRef.current = false;
     setAutoReading(false);
     readSentenceAt(activeSentenceIndex, false);
   }
 
   function startContinuousReading() {
-    if (!activeSentence || activeSentence.quality === "blocked") return;
+    if (!activeSentence || activeSentence.quality === "blocked" || activeSentenceHasUnresolvedGap) return;
     moveOn();
     readSentenceAt(activeSentenceIndex, true);
   }
@@ -973,7 +982,7 @@ export function ReadingCompanion() {
   }
 
   function breakUpSentence() {
-    if (!activeSentence || activeSentence.quality === "blocked") return;
+    if (!activeSentence || activeSentence.quality === "blocked" || activeSentenceHasUnresolvedGap) return;
     stopContinuousReading();
     setShowSentenceChunks(true);
   }
@@ -1196,6 +1205,27 @@ export function ReadingCompanion() {
                   }}
                 />
               ))}
+              {ocrState === "ready" && activeSentence && gapReviews
+                .filter((review) =>
+                  review.status !== "resolved"
+                  && review.status !== "dismissed"
+                  && gapBelongsToSentence(review.gap, activeSentence.wordIds),
+                )
+                .map((review) => (
+                  <span
+                    key={`marker-${review.gap.id}`}
+                    className={`ocr-gap-marker ${review.status}`}
+                    aria-hidden="true"
+                    style={{
+                      left: `${(review.gap.bbox.x0 / capturedPage.width) * 100}%`,
+                      top: `${(review.gap.bbox.y0 / capturedPage.height) * 100}%`,
+                      width: `${((review.gap.bbox.x1 - review.gap.bbox.x0) / capturedPage.width) * 100}%`,
+                      height: `${((review.gap.bbox.y1 - review.gap.bbox.y0) / capturedPage.height) * 100}%`,
+                    }}
+                  >
+                    <span>?</span>
+                  </span>
+                ))}
               {ocrState === "ready" && activeSentence && activeSentence.quality !== "blocked" && (
                 <ReadingBuddyCursor
                   bounds={activeSentence.bounds}
@@ -1361,11 +1391,89 @@ export function ReadingCompanion() {
               <p className="guided-sentence">{activeSentence.text}</p>
             )}
 
-            {activeSentence.quality === "check" && (
+            {activeSentence.quality === "check" && !activeSentenceHasUnresolvedGap && (
               <p className="guided-scan-note">
                 I had to look more closely at this sentence. Check the highlighted line against the book before asking Buddy to read it.
               </p>
             )}
+
+            {activeGapReviews.map((review) => (
+              <div className="gap-recovery-card" key={review.gap.id}>
+                {review.status === "checking" ? (
+                  <>
+                    <strong>I spotted a space where a word might be missing.</strong>
+                    <span>I'm looking more closely at that bit of the page.</span>
+                  </>
+                ) : review.status === "suggested" ? (
+                  <>
+                    <strong>I think a word may be missing here.</strong>
+                    <p>“{gapContextSentence(review.gap, "___")}”</p>
+                    <div className="gap-candidate-actions">
+                      {review.candidates.slice(0, 3).map((candidate) => (
+                        <button
+                          type="button"
+                          className="gap-candidate"
+                          key={`${review.gap.id}-${candidate.text}`}
+                          onClick={() => acceptGapSuggestion(review, candidate)}
+                        >
+                          {candidate.text}?
+                        </button>
+                      ))}
+                    </div>
+                    <form
+                      className="gap-manual-form"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const data = new FormData(event.currentTarget);
+                        const value = String(data.get("gapWord") ?? "").trim();
+                        if (!value) return;
+                        acceptGapSuggestion(review, { text: value, confidence: 0 });
+                      }}
+                    >
+                      <input
+                        name="gapWord"
+                        aria-label="Type the missing word"
+                        placeholder="Or type the word…"
+                        autoComplete="off"
+                        spellCheck
+                      />
+                      <button type="submit">Use it</button>
+                    </form>
+                    <button
+                      type="button"
+                      className="text-button gap-dismiss"
+                      onClick={() => dismissGapSuggestion(review.gap.id)}
+                    >
+                      I'm not sure — leave this gap
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <strong>I can see a likely gap, but I can't tell what it says.</strong>
+                    <span>Read this word yourself, type it below, or try a clearer photo.</span>
+                    <form
+                      className="gap-manual-form"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const data = new FormData(event.currentTarget);
+                        const value = String(data.get("gapWord") ?? "").trim();
+                        if (!value) return;
+                        acceptGapSuggestion(review, { text: value, confidence: 0 });
+                      }}
+                    >
+                      <input
+                        name="gapWord"
+                        aria-label="Type the missing word"
+                        placeholder="Type the missing word…"
+                        autoComplete="off"
+                        spellCheck
+                      />
+                      <button type="submit">Use it</button>
+                    </form>
+                  </>
+                )}
+              </div>
+            ))}
 
             {showSentenceChunks && activeSentence.quality !== "blocked" && activeSentenceChunks.length > 1 && (
               <div className="sentence-chunks" aria-label="Sentence broken into smaller parts">
@@ -1392,7 +1500,7 @@ export function ReadingCompanion() {
                 type="button"
                 className="tactile-button dark"
                 onClick={readCurrentSentence}
-                disabled={activeSentence.quality === "blocked"}
+                disabled={activeSentence.quality === "blocked" || activeSentenceHasUnresolvedGap}
               >
                 <SpeakerHigh size={20} /> Read this
               </button>
@@ -1400,7 +1508,7 @@ export function ReadingCompanion() {
                 type="button"
                 className="tactile-button"
                 onClick={breakUpSentence}
-                disabled={activeSentence.quality === "blocked"}
+                disabled={activeSentence.quality === "blocked" || activeSentenceHasUnresolvedGap}
               >
                 Break it up
               </button>
@@ -1420,7 +1528,7 @@ export function ReadingCompanion() {
                 type="button"
                 className={`tactile-button${autoReading ? "" : " dark"}`}
                 onClick={autoReading ? stopContinuousReading : startContinuousReading}
-                disabled={!autoReading && activeSentence.quality === "blocked"}
+                disabled={!autoReading && (activeSentence.quality === "blocked" || activeSentenceHasUnresolvedGap)}
               >
                 {autoReading ? <Pause size={20} /> : <Play size={20} />}
                 {autoReading ? "I'll read now" : "Keep reading to me"}
