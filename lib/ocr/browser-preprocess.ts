@@ -1,8 +1,21 @@
-import { estimateDeskewAngle, type DeskewEstimate, type InkPoint } from "@/lib/ocr/geometry";
+import {
+  estimateDeskewAngle,
+  estimateHorizontalPerspective,
+  estimatePageCrop,
+  type DeskewEstimate,
+  type HorizontalPerspectiveEstimate,
+  type InkPoint,
+  type PageCropEstimate,
+} from "@/lib/ocr/geometry";
 
 export type PreparedRecognitionImage = {
   image: string;
+  displayImage: string;
+  width: number;
+  height: number;
   deskew: DeskewEstimate;
+  pageCrop: PageCropEstimate;
+  perspective: HorizontalPerspectiveEstimate;
 };
 
 function loadImage(src: string) {
@@ -67,8 +80,8 @@ function collectInkPoints(imageData: ImageData, width: number, height: number) {
 
   const threshold = Math.min(205, otsuThreshold(histogram, total));
   const samplingStep = Math.max(2, Math.ceil(Math.max(width, height) / 700));
-  const marginX = Math.round(width * 0.04);
-  const marginY = Math.round(height * 0.04);
+  const marginX = Math.round(width * 0.025);
+  const marginY = Math.round(height * 0.025);
   const points: InkPoint[] = [];
 
   for (let y = marginY; y < height - marginY; y += samplingStep) {
@@ -79,67 +92,178 @@ function collectInkPoints(imageData: ImageData, width: number, height: number) {
     }
   }
 
-  // Illustrations or dark backgrounds can create far more dark samples than
-  // text does. Keep the calculation bounded and deterministic.
   if (points.length <= 40_000) return points;
   const stride = Math.ceil(points.length / 40_000);
   return points.filter((_, index) => index % stride === 0);
 }
 
+function canvasFromImage(image: HTMLImageElement, width: number, height: number) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("ocr_canvas_unavailable");
+  context.drawImage(image, 0, 0, width, height);
+  return canvas;
+}
+
+function inkPointsFromCanvas(canvas: HTMLCanvasElement) {
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return [] as InkPoint[];
+  return collectInkPoints(context.getImageData(0, 0, canvas.width, canvas.height), canvas.width, canvas.height);
+}
+
+function cropCanvas(source: HTMLCanvasElement, crop: PageCropEstimate) {
+  if (!crop.applied) return source;
+  const width = Math.max(1, Math.round(crop.box.x1 - crop.box.x0));
+  const height = Math.max(1, Math.round(crop.box.y1 - crop.box.y0));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) return source;
+  context.drawImage(
+    source,
+    crop.box.x0,
+    crop.box.y0,
+    crop.box.x1 - crop.box.x0,
+    crop.box.y1 - crop.box.y0,
+    0,
+    0,
+    width,
+    height,
+  );
+  return canvas;
+}
+
+function perspectiveWarpCanvas(
+  source: HTMLCanvasElement,
+  perspective: HorizontalPerspectiveEstimate,
+) {
+  if (!perspective.applied) return source;
+  const canvas = document.createElement("canvas");
+  canvas.width = source.width;
+  canvas.height = source.height;
+  const context = canvas.getContext("2d");
+  if (!context) return source;
+
+  const stripHeight = 2;
+  for (let y = 0; y < source.height; y += stripHeight) {
+    const t = source.height > 1 ? y / (source.height - 1) : 0;
+    const left = perspective.leftTop + (perspective.leftBottom - perspective.leftTop) * t;
+    const right = perspective.rightTop + (perspective.rightBottom - perspective.rightTop) * t;
+    const sourceWidth = Math.max(1, right - left);
+    const height = Math.min(stripHeight, source.height - y);
+    context.drawImage(source, left, y, sourceWidth, height, 0, y, source.width, height);
+  }
+
+  return canvas;
+}
+
+function rotateCanvas(source: HTMLCanvasElement, angle: number) {
+  if (!angle) return source;
+  const canvas = document.createElement("canvas");
+  canvas.width = source.width;
+  canvas.height = source.height;
+  const context = canvas.getContext("2d");
+  if (!context) return source;
+
+  context.fillStyle = "white";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.translate(canvas.width / 2, canvas.height / 2);
+  context.rotate(angle * Math.PI / 180);
+  context.drawImage(source, -canvas.width / 2, -canvas.height / 2);
+  return canvas;
+}
+
 /**
- * Prepare the already contrast-enhanced Buddy OCR image for whole-page
- * recognition. Only a strong small-angle deskew is applied; perspective and
- * aggressive page cropping remain deliberately out of scope until page
- * fixtures show they are needed.
+ * Prepare a photographed reading page before OCR. Buddy first isolates the
+ * dominant text-bearing page, then cautiously straightens horizontal
+ * perspective and finally applies the existing small-angle deskew.
+ *
+ * The same geometry is applied to the colour photograph and OCR image so word
+ * boxes stay aligned with what the child sees.
  */
 export async function prepareRecognitionImage(
   imageSource: string,
   width: number,
   height: number,
+  displaySource = imageSource,
 ): Promise<PreparedRecognitionImage> {
+  const identityDeskew = { angle: 0, candidateAngle: 0, confidence: 0, applied: false };
+  const identityCrop = {
+    box: { x0: 0, y0: 0, x1: width, y1: height },
+    confidence: 0,
+    applied: false,
+  };
+  const identityPerspective = {
+    leftTop: 0,
+    leftBottom: 0,
+    rightTop: width,
+    rightBottom: width,
+    confidence: 0,
+    applied: false,
+  };
+
   if (typeof document === "undefined" || width <= 0 || height <= 0) {
     return {
       image: imageSource,
-      deskew: { angle: 0, candidateAngle: 0, confidence: 0, applied: false },
+      displayImage: displaySource,
+      width,
+      height,
+      deskew: identityDeskew,
+      pageCrop: identityCrop,
+      perspective: identityPerspective,
     };
   }
 
   try {
-    const image = await loadImage(imageSource);
-    const analysisCanvas = document.createElement("canvas");
-    analysisCanvas.width = width;
-    analysisCanvas.height = height;
-    const analysisContext = analysisCanvas.getContext("2d", { willReadFrequently: true });
-    if (!analysisContext) throw new Error("ocr_canvas_unavailable");
+    const [ocrImage, displayImage] = await Promise.all([
+      loadImage(imageSource),
+      displaySource === imageSource ? loadImage(imageSource) : loadImage(displaySource),
+    ]);
 
-    analysisContext.drawImage(image, 0, 0, width, height);
-    const imageData = analysisContext.getImageData(0, 0, width, height);
-    const points = collectInkPoints(imageData, width, height);
-    const deskew = estimateDeskewAngle(points, width, height);
+    let ocrCanvas = canvasFromImage(ocrImage, width, height);
+    let displayCanvas = canvasFromImage(displayImage, width, height);
 
-    if (!deskew.applied) return { image: imageSource, deskew };
+    const pageCrop = estimatePageCrop(inkPointsFromCanvas(ocrCanvas), width, height);
+    ocrCanvas = cropCanvas(ocrCanvas, pageCrop);
+    displayCanvas = cropCanvas(displayCanvas, pageCrop);
 
-    const rotatedCanvas = document.createElement("canvas");
-    rotatedCanvas.width = width;
-    rotatedCanvas.height = height;
-    const rotatedContext = rotatedCanvas.getContext("2d");
-    if (!rotatedContext) return { image: imageSource, deskew: { ...deskew, angle: 0, applied: false } };
+    const perspective = estimateHorizontalPerspective(
+      inkPointsFromCanvas(ocrCanvas),
+      ocrCanvas.width,
+      ocrCanvas.height,
+    );
+    ocrCanvas = perspectiveWarpCanvas(ocrCanvas, perspective);
+    displayCanvas = perspectiveWarpCanvas(displayCanvas, perspective);
 
-    rotatedContext.fillStyle = "white";
-    rotatedContext.fillRect(0, 0, width, height);
-    rotatedContext.translate(width / 2, height / 2);
-    rotatedContext.rotate(deskew.angle * Math.PI / 180);
-    rotatedContext.drawImage(image, -width / 2, -height / 2, width, height);
+    const deskew = estimateDeskewAngle(
+      inkPointsFromCanvas(ocrCanvas),
+      ocrCanvas.width,
+      ocrCanvas.height,
+    );
+    ocrCanvas = rotateCanvas(ocrCanvas, deskew.angle);
+    displayCanvas = rotateCanvas(displayCanvas, deskew.angle);
 
     return {
-      image: rotatedCanvas.toDataURL("image/png"),
+      image: ocrCanvas.toDataURL("image/png"),
+      displayImage: displayCanvas.toDataURL("image/jpeg", 0.94),
+      width: ocrCanvas.width,
+      height: ocrCanvas.height,
       deskew,
+      pageCrop,
+      perspective,
     };
   } catch {
-    // Geometry help should never turn a readable capture into an OCR failure.
     return {
       image: imageSource,
-      deskew: { angle: 0, candidateAngle: 0, confidence: 0, applied: false },
+      displayImage: displaySource,
+      width,
+      height,
+      deskew: identityDeskew,
+      pageCrop: identityCrop,
+      perspective: identityPerspective,
     };
   }
 }

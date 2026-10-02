@@ -9,6 +9,7 @@ import {
 } from "@/lib/ocr/evaluation";
 import { recognisePage } from "@/lib/ocr/browser-tesseract";
 import type { OcrResult } from "@/lib/ocr/types";
+import { detectReadingGaps, gapContextSentence } from "@/lib/reading/gaps";
 
 type PreparedPage = {
   fileName: string;
@@ -100,6 +101,15 @@ function parseReviewWords(value: string) {
     .filter((word) => /[a-z]/.test(word));
 }
 
+function evidenceSources(word: OcrResult["words"][number]) {
+  const sources = word.evidence?.map((item) => item.source) ?? [word.resolvedBy ?? "visual"];
+  return [...new Set(sources)];
+}
+
+function evidenceLabel(word: OcrResult["words"][number]) {
+  return evidenceSources(word).join(" + ");
+}
+
 export function OcrEvaluationLab() {
   const [page, setPage] = useState<PreparedPage | null>(null);
   const [result, setResult] = useState<OcrResult | null>(null);
@@ -118,6 +128,11 @@ export function OcrEvaluationLab() {
     [expectedText, result],
   );
 
+  const detectedGaps = useMemo(
+    () => result ? detectReadingGaps(result.readingWords, result.width) : [],
+    [result],
+  );
+
   const recoverOnTapWords = useMemo(() => parseReviewWords(recoverOnTapText), [recoverOnTapText]);
   const mustNotTrustWords = useMemo(() => parseReviewWords(mustNotTrustText), [mustNotTrustText]);
   const unsafeTrustedWords = useMemo(() => {
@@ -125,6 +140,15 @@ export function OcrEvaluationLab() {
     const detected = new Set(result.words.map((word) => normaliseEvaluationWord(word.text)));
     return [...new Set(mustNotTrustWords.filter((word) => detected.has(word)))];
   }, [mustNotTrustWords, result]);
+
+  const provenanceCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const word of result?.words ?? []) {
+      const source = word.resolvedBy ?? "visual";
+      counts.set(source, (counts.get(source) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [result]);
 
   async function chooseFile(file: File | null) {
     if (!file) return;
@@ -188,12 +212,24 @@ export function OcrEvaluationLab() {
       },
       evaluation,
       recovery: result.recovery,
+      detectedGaps: detectedGaps.map((gap) => ({
+        id: gap.id,
+        bbox: gap.bbox,
+        confidence: gap.confidence,
+        estimatedCharacters: gap.estimatedCharacters,
+        leftWordId: gap.leftWordId,
+        rightWordId: gap.rightWordId,
+        contextBefore: gap.contextBefore,
+        contextAfter: gap.contextAfter,
+      })),
       detectedWords: result.words.map((word) => ({
         text: word.text,
         confidence: word.confidence,
         bbox: word.bbox,
         lineText: word.lineText ?? null,
         pass: word.id.startsWith("sparse-") ? "sparse" : "auto-or-merged",
+        resolvedBy: word.resolvedBy ?? "visual",
+        evidence: word.evidence ?? [],
       })),
     };
 
@@ -265,8 +301,8 @@ export function OcrEvaluationLab() {
               {result?.words.map((word) => (
                 <span
                   key={word.id}
-                  className={`ocr-eval-box ${word.id.startsWith("sparse-") ? "recovered" : ""}`}
-                  title={`${word.text} · ${Math.round(word.confidence)}%`}
+                  className={`ocr-eval-box ${word.id.startsWith("sparse-") ? "recovered" : ""} source-${word.resolvedBy ?? "visual"}`}
+                  title={`${word.text} · ${Math.round(word.confidence)}% · ${word.resolvedBy ?? "visual"} · ${evidenceLabel(word)}`}
                   style={{
                     left: `${(word.bbox.x0 / page.width) * 100}%`,
                     top: `${(word.bbox.y0 / page.height) * 100}%`,
@@ -274,6 +310,21 @@ export function OcrEvaluationLab() {
                     height: `${((word.bbox.y1 - word.bbox.y0) / page.height) * 100}%`,
                   }}
                 />
+              ))}
+              {result && detectedGaps.map((gap) => (
+                <span
+                  key={`gap-${gap.id}`}
+                  className="ocr-eval-gap"
+                  title={`Possible missing word · ~${gap.estimatedCharacters} characters · ${gapContextSentence(gap)}`}
+                  style={{
+                    left: `${(gap.bbox.x0 / result.width) * 100}%`,
+                    top: `${(gap.bbox.y0 / result.height) * 100}%`,
+                    width: `${((gap.bbox.x1 - gap.bbox.x0) / result.width) * 100}%`,
+                    height: `${((gap.bbox.y1 - gap.bbox.y0) / result.height) * 100}%`,
+                  }}
+                >
+                  ?
+                </span>
               ))}
             </div>
           ) : (
@@ -372,12 +423,14 @@ export function OcrEvaluationLab() {
                 <div><span>Precision</span><strong>{percent(evaluation.precision)}</strong></div>
                 <div><span>Matched</span><strong>{evaluation.matchedCount}/{evaluation.expectedCount || "—"}</strong></div>
                 <div><span>Recovered</span><strong>+{recoveredCount}</strong></div>
+                <div><span>Possible gaps</span><strong>{detectedGaps.length}</strong></div>
               </div>
 
               <div className="ocr-recovery-note">
                 <strong>{result.recovery.sparsePass ? "Second pass used" : "Single pass was enough"}</strong>
                 <span>{result.recovery.reason.replaceAll("-", " ")} · {result.recovery.primaryTrustedWords} → {result.recovery.finalTrustedWords} trusted words</span>
                 <span>{result.recovery.deskew.applied ? `Deskew ${result.recovery.deskew.angle.toFixed(2)}° applied` : `Deskew not applied · candidate ${result.recovery.deskew.candidateAngle.toFixed(2)}°`}</span>
+                <span>Evidence: {provenanceCounts.map(([source, count]) => `${source} ${count}`).join(" · ") || "none"}</span>
               </div>
 
               <div className="ocr-diff-grid">
@@ -404,6 +457,26 @@ export function OcrEvaluationLab() {
         </aside>
       </div>
 
+      {result && detectedGaps.length > 0 && (
+        <section className="ocr-gap-table-card">
+          <div className="ocr-section-heading">
+            <div>
+              <span>Possible missing words</span>
+              <strong>Geometry Buddy wants to inspect more closely</strong>
+            </div>
+          </div>
+          <div className="ocr-gap-list">
+            {detectedGaps.map((gap) => (
+              <div className="ocr-gap-row" key={`row-${gap.id}`}>
+                <strong>~{gap.estimatedCharacters} chars</strong>
+                <span>{Math.round(gap.confidence * 100)}% geometry signal</span>
+                <p>“{gapContextSentence(gap)}”</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {result && (
         <section className="ocr-word-table-card">
           <div className="ocr-section-heading">
@@ -413,12 +486,13 @@ export function OcrEvaluationLab() {
             </div>
           </div>
           <div className="ocr-word-table">
-            <div className="ocr-word-row heading"><span>Word</span><span>Confidence</span><span>Pass</span><span>Line context</span></div>
+            <div className="ocr-word-row heading"><span>Word</span><span>Confidence</span><span>Resolved by</span><span>Evidence</span><span>Line context</span></div>
             {result.words.map((word) => (
               <div className="ocr-word-row" key={`row-${word.id}`}>
                 <strong>{word.text}</strong>
                 <span>{Math.round(word.confidence)}%</span>
-                <span>{word.id.startsWith("sparse-") ? "recovered" : "auto / merged"}</span>
+                <span><code>{word.resolvedBy ?? "visual"}</code></span>
+                <span>{evidenceLabel(word)}</span>
                 <span>{word.lineText ?? "—"}</span>
               </div>
             ))}

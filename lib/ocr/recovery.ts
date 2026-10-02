@@ -11,6 +11,9 @@ export type RecoveryOcrWord = {
   confidence: number;
   bbox: RecoveryOcrBox;
   lineText?: string;
+  paragraphId?: string;
+  lineId?: string;
+  readingOrder?: number;
 };
 
 export type SparseRecoveryDecision = {
@@ -103,22 +106,68 @@ export function mergeOcrWords<T extends RecoveryOcrWord>(primary: T[], secondary
   });
 }
 
+export type NearestLineAnchor = {
+  lineText: string;
+  lineId?: string;
+  paragraphId?: string;
+  readingOrder?: number;
+};
+
+export function nearestLineAnchor(
+  target: Pick<RecoveryOcrWord, "bbox">,
+  anchors: Array<Pick<RecoveryOcrWord, "bbox" | "lineText" | "lineId" | "paragraphId" | "readingOrder">>,
+): NearestLineAnchor | null {
+  const targetCentreY = (target.bbox.y0 + target.bbox.y1) / 2;
+  const targetCentreX = (target.bbox.x0 + target.bbox.x1) / 2;
+  const targetHeight = Math.max(1, target.bbox.y1 - target.bbox.y0);
+  const grouped = new Map<string, typeof anchors>();
+
+  anchors.forEach((word, index) => {
+    if (!word.lineText) return;
+    const key = word.lineId ?? `fallback-${index}`;
+    grouped.set(key, [...(grouped.get(key) ?? []), word]);
+  });
+
+  let best: { score: number; anchor: NearestLineAnchor } | null = null;
+  for (const lineWords of grouped.values()) {
+    const x0 = Math.min(...lineWords.map((word) => word.bbox.x0));
+    const x1 = Math.max(...lineWords.map((word) => word.bbox.x1));
+    const centres = lineWords.map((word) => (word.bbox.y0 + word.bbox.y1) / 2);
+    const centreY = centres.reduce((sum, value) => sum + value, 0) / centres.length;
+    const verticalDistance = Math.abs(centreY - targetCentreY);
+    if (verticalDistance > targetHeight * 1.8) continue;
+
+    const horizontalGap = targetCentreX < x0
+      ? x0 - targetCentreX
+      : targetCentreX > x1
+        ? targetCentreX - x1
+        : 0;
+    if (horizontalGap > targetHeight * 3.4) continue;
+
+    const score = verticalDistance + horizontalGap * 0.22;
+    const first = lineWords[0];
+    if (!best || score < best.score) {
+      best = {
+        score,
+        anchor: {
+          lineText: first.lineText!,
+          lineId: first.lineId,
+          paragraphId: first.paragraphId,
+          readingOrder: lineWords.reduce<number | undefined>((lowest, word) => {
+            if (word.readingOrder === undefined) return lowest;
+            return lowest === undefined ? word.readingOrder : Math.min(lowest, word.readingOrder);
+          }, undefined),
+        },
+      };
+    }
+  }
+
+  return best?.anchor ?? null;
+}
+
 export function nearestLineText(
   target: Pick<RecoveryOcrWord, "bbox">,
-  anchors: Array<Pick<RecoveryOcrWord, "bbox" | "lineText">>,
+  anchors: Array<Pick<RecoveryOcrWord, "bbox" | "lineText" | "lineId" | "paragraphId" | "readingOrder">>,
 ) {
-  const targetCentre = (target.bbox.y0 + target.bbox.y1) / 2;
-  const targetHeight = Math.max(1, target.bbox.y1 - target.bbox.y0);
-
-  const nearest = anchors.reduce<{ distance: number; text: string | null }>(
-    (best, word) => {
-      if (!word.lineText) return best;
-      const centre = (word.bbox.y0 + word.bbox.y1) / 2;
-      const distance = Math.abs(centre - targetCentre);
-      return distance < best.distance ? { distance, text: word.lineText } : best;
-    },
-    { distance: Number.POSITIVE_INFINITY, text: null },
-  );
-
-  return nearest.distance <= targetHeight * 2.2 ? nearest.text : null;
+  return nearestLineAnchor(target, anchors)?.lineText ?? null;
 }

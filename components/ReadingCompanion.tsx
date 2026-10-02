@@ -1,15 +1,51 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Camera, HandPointing, Pause, Play, Scan, SpeakerHigh, TextAlignLeft, X } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, Camera, Check, HandPointing, Pause, PencilSimple, Play, Scan, SpeakerHigh, TextAlignLeft, X } from "@phosphor-icons/react";
 import { BuddyPresence } from "@/components/BuddyPresence";
+import { ReadingBuddyCursor } from "@/components/ReadingBuddyCursor";
 import { VoicePicker } from "@/components/VoicePicker";
 import { PressToTalk } from "@/components/PressToTalk";
 import { getWordSupport, helpText, type HelpDepth } from "@/lib/literacy/engine";
 import { recordLearningEvent } from "@/lib/learning/local-store";
-import { recognisePage, recogniseWordRegion } from "@/lib/ocr/browser-tesseract";
+import {
+  measureRegionInk,
+  recognisePage,
+  recogniseWordRegion,
+  recogniseWordRegionEvidence,
+  type FocusedWordEvidence,
+} from "@/lib/ocr/browser-tesseract";
 import type { OcrSentence, OcrWord } from "@/lib/ocr/types";
 import { chunkSentenceText } from "@/lib/reading/guided-reading";
+import {
+  detectReadingGaps,
+  gapBelongsToSentence,
+  gapCandidateFitsLength,
+  gapContextSentence,
+  markSentencesWithDetectedGaps,
+  type ReadingGap,
+} from "@/lib/reading/gaps";
+import {
+  visualEvidence,
+  type ReadingEvidence,
+} from "@/lib/reading/evidence";
+import {
+  createBookMemory,
+  matchBookMemory,
+  observeBookPassage,
+  readBookMemories,
+  readReadingMemoryMode,
+  rememberBookCorrection,
+  saveBookMemory,
+  setReadingMemoryMode as persistReadingMemoryMode,
+  type BookMemoryRecord,
+  type ReadingMemoryMode,
+} from "@/lib/reading/book-memory";
+import {
+  applyBookMemoryToPage,
+  applyReaderCorrection,
+  insertGapWord,
+} from "@/lib/reading/word-resolution";
 import { useBuddySpeech } from "@/lib/speech/useBuddySpeech";
 
 type CameraState = "idle" | "starting" | "ready" | "error";
@@ -17,6 +53,22 @@ type OcrState = "idle" | "reading" | "ready" | "error";
 type BuddyState = "idle" | "listening" | "thinking" | "speaking";
 type WordSource = "ocr" | "demo";
 type LookupState = "idle" | "loading" | "ready" | "error";
+type GapReviewStatus = "checking" | "suggested" | "resolved" | "unavailable" | "dismissed";
+
+type GapLanguageCandidate = {
+  text: string;
+  confidence: number;
+  source?: "language" | "focused";
+};
+
+type GapReview = {
+  gap: ReadingGap;
+  status: GapReviewStatus;
+  focused: FocusedWordEvidence | null;
+  candidates: GapLanguageCandidate[];
+  modelEnabled: boolean | null;
+  resolvedWord?: string;
+};
 
 type CapturedPage = {
   image: string;
@@ -64,6 +116,31 @@ function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
+function normaliseGapCandidate(value: string) {
+  return value
+    .toLocaleLowerCase("en-GB")
+    .replace(/[‘’]/g, "'")
+    .replace(/^[^a-z0-9'-]+|[^a-z0-9'-]+$/gi, "")
+    .trim();
+}
+
+function gapOcrRegion(gap: ReadingGap, pageWidth: number, pageHeight: number) {
+  const height = Math.max(1, gap.bbox.y1 - gap.bbox.y0);
+  const marginX = Math.max(4, gap.normalGap * 0.25);
+  const marginY = Math.max(5, height * 0.45);
+  const left = clamp(gap.bbox.x0 - marginX, 0, pageWidth);
+  const top = clamp(gap.bbox.y0 - marginY, 0, pageHeight);
+  const right = clamp(gap.bbox.x1 + marginX, 0, pageWidth);
+  const bottom = clamp(gap.bbox.y1 + marginY, 0, pageHeight);
+
+  return {
+    left: Math.round(left),
+    top: Math.round(top),
+    width: Math.max(1, Math.round(right - left)),
+    height: Math.max(1, Math.round(bottom - top)),
+  };
+}
+
 function makeOcrImage(source: HTMLCanvasElement) {
   const canvas = document.createElement("canvas");
   canvas.width = source.width;
@@ -94,10 +171,12 @@ export function ReadingCompanion() {
   const streamRef = useRef<MediaStream | null>(null);
   const recordedSelectionRef = useRef<string | null>(null);
   const autoReadingRef = useRef(false);
+  const gapRunRef = useRef(0);
   const [cameraState, setCameraState] = useState<CameraState>("idle");
   const [ocrState, setOcrState] = useState<OcrState>("idle");
   const [capturedPage, setCapturedPage] = useState<CapturedPage | null>(null);
   const [ocrWords, setOcrWords] = useState<OcrWord[]>([]);
+  const [readingWords, setReadingWords] = useState<OcrWord[]>([]);
   const [sentences, setSentences] = useState<OcrSentence[]>([]);
   const [activeSentenceIndex, setActiveSentenceIndex] = useState(0);
   const [showSentenceChunks, setShowSentenceChunks] = useState(false);
@@ -112,11 +191,41 @@ export function ReadingCompanion() {
   const [lookup, setLookup] = useState<WordLookup | null>(null);
   const [lookupState, setLookupState] = useState<LookupState>("idle");
   const [tapLookupMessage, setTapLookupMessage] = useState<string | null>(null);
+  const [selectedOcrWordId, setSelectedOcrWordId] = useState<string | null>(null);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [correctionDraft, setCorrectionDraft] = useState("");
+  const [activeBookMemory, setActiveBookMemory] = useState<BookMemoryRecord | null>(null);
+  const [readingMemoryMode, setReadingMemoryModeState] = useState<ReadingMemoryMode>("session");
+  const [readingSentenceIndex, setReadingSentenceIndex] = useState<number | null>(null);
+  const [readingProgress, setReadingProgress] = useState(0);
+  const [gapReviews, setGapReviews] = useState<GapReview[]>([]);
   const speech = useBuddySpeech();
   const activeSentence = sentences[activeSentenceIndex] ?? null;
   const activeSentenceChunks = useMemo(
     () => activeSentence ? chunkSentenceText(activeSentence.text) : [],
     [activeSentence],
+  );
+  const selectedOcrWord = useMemo(
+    () => selectedOcrWordId ? ocrWords.find((word) => word.id === selectedOcrWordId) ?? null : null,
+    [ocrWords, selectedOcrWordId],
+  );
+  const activeGapReviews = useMemo(
+    () => activeSentence
+      ? gapReviews.filter((review) =>
+          review.status !== "resolved"
+          && gapBelongsToSentence(review.gap, activeSentence.wordIds),
+        )
+      : [],
+    [activeSentence, gapReviews],
+  );
+  const activeSentenceHasUnresolvedGap = useMemo(
+    () => activeSentence
+      ? gapReviews.some((review) =>
+          review.status !== "resolved"
+          && gapBelongsToSentence(review.gap, activeSentence.wordIds),
+        )
+      : false,
+    [activeSentence, gapReviews],
   );
 
   const support = useMemo(() => (selectedWord ? getWordSupport(selectedWord) : null), [selectedWord]);
@@ -130,6 +239,10 @@ export function ReadingCompanion() {
         : "I'm not sure I read that word correctly. You can tap it again, or ask Buddy to check the word anyway."
       : voiceReply ?? helpText(support, helpDepth, lookup?.meaning)
     : null;
+
+  useEffect(() => {
+    setReadingMemoryModeState(readReadingMemoryMode());
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -184,17 +297,25 @@ export function ReadingCompanion() {
   }, [support, selectedContext, selectedSource]);
 
   async function startCamera() {
+    gapRunRef.current += 1;
+    setGapReviews([]);
     setCameraState("starting");
     setCapturedPage(null);
     setOcrWords([]);
+    setReadingWords([]);
     setSentences([]);
     setActiveSentenceIndex(0);
     setShowSentenceChunks(false);
+    setReadingSentenceIndex(null);
+    setReadingProgress(0);
     autoReadingRef.current = false;
     setAutoReading(false);
     speech.stop();
     setOcrState("idle");
     setSelectedWord(null);
+    setSelectedOcrWordId(null);
+    setCorrectionOpen(false);
+    setCorrectionDraft("");
     setSelectedContext(null);
     setVoiceReply(null);
     setTapLookupMessage(null);
@@ -204,8 +325,8 @@ export function ReadingCompanion() {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 2560 },
-          height: { ideal: 1440 },
+          width: { ideal: 3840 },
+          height: { ideal: 2160 },
         },
         audio: false,
       });
@@ -225,9 +346,12 @@ export function ReadingCompanion() {
   }
 
   function clearPage() {
+    gapRunRef.current += 1;
+    setGapReviews([]);
     stopCamera();
     setCapturedPage(null);
     setOcrWords([]);
+    setReadingWords([]);
     setSentences([]);
     setActiveSentenceIndex(0);
     setShowSentenceChunks(false);
@@ -236,6 +360,9 @@ export function ReadingCompanion() {
     speech.stop();
     setOcrState("idle");
     setSelectedWord(null);
+    setSelectedOcrWordId(null);
+    setCorrectionOpen(false);
+    setCorrectionDraft("");
     setSelectedContext(null);
     setVoiceReply(null);
     setLastTranscript(null);
@@ -245,14 +372,294 @@ export function ReadingCompanion() {
     recordedSelectionRef.current = null;
   }
 
+  async function fetchGapCandidates(gap: ReadingGap) {
+    try {
+      const response = await fetch("/api/gap-candidates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          before: gap.contextBefore,
+          after: gap.contextAfter,
+          estimatedCharacters: gap.estimatedCharacters,
+        }),
+      });
+      if (!response.ok) return { enabled: false, candidates: [] as GapLanguageCandidate[] };
+      const payload = await response.json() as {
+        enabled?: boolean;
+        candidates?: GapLanguageCandidate[];
+      };
+      return {
+        enabled: payload.enabled === true,
+        candidates: (payload.candidates ?? [])
+          .filter((candidate) =>
+            candidate
+            && typeof candidate.text === "string"
+            && typeof candidate.confidence === "number"
+            && gapCandidateFitsLength(gap, candidate.text),
+          )
+          .map((candidate) => ({ ...candidate, source: "language" as const }))
+          .slice(0, 5),
+      };
+    } catch {
+      return { enabled: false, candidates: [] as GapLanguageCandidate[] };
+    }
+  }
+
+  function languageEvidence(candidate: GapLanguageCandidate): ReadingEvidence {
+    return {
+      source: "language-assisted",
+      candidate: candidate.text,
+      confidence: clamp(candidate.confidence, 0, 1),
+      method: "gap-candidate-model",
+      evidenceId: `gap-language:${normaliseGapCandidate(candidate.text)}`,
+      independent: true,
+    };
+  }
+
+  async function recoverPageGaps(
+    page: CapturedPage,
+    initialTrustedWords: OcrWord[],
+    initialReadingWords: OcrWord[],
+    initialSentences: OcrSentence[],
+    runId: number,
+  ) {
+    const gaps = detectReadingGaps(initialReadingWords, page.width)
+      .filter((gap) => gap.confidence >= 0.5)
+      .slice(0, 6);
+
+    if (!gaps.length || gapRunRef.current !== runId) {
+      setGapReviews([]);
+      return;
+    }
+
+    let trustedWords = initialTrustedWords;
+    let nextReadingWords = initialReadingWords;
+    let nextSentences = initialSentences;
+    const resolvedGapIds = new Set<string>();
+
+    setGapReviews(gaps.map((gap) => ({
+      gap,
+      status: "checking" as const,
+      focused: null,
+      candidates: [],
+      modelEnabled: null,
+    })));
+    setSentences(markSentencesWithDetectedGaps(nextSentences, gaps));
+
+    for (const gap of gaps) {
+      if (gapRunRef.current !== runId) return;
+
+      const region = gapOcrRegion(gap, page.width, page.height);
+      const inkDensity = await measureRegionInk(page.ocrImage, region);
+      if (gapRunRef.current !== runId) return;
+
+      if (inkDensity >= 0 && inkDensity < 0.006) {
+        resolvedGapIds.add(gap.id);
+        const remaining = gaps.filter((candidate) => !resolvedGapIds.has(candidate.id));
+        setSentences(markSentencesWithDetectedGaps(nextSentences, remaining));
+        setGapReviews((current) => current.map((review) =>
+          review.gap.id === gap.id
+            ? { ...review, status: "resolved", modelEnabled: false }
+            : review,
+        ));
+        continue;
+      }
+
+      const [focused, language] = await Promise.all([
+        recogniseWordRegionEvidence(page.ocrImage, region).catch(() => null),
+        fetchGapCandidates(gap),
+      ]);
+
+      if (gapRunRef.current !== runId) return;
+
+      const languageCandidates = language.candidates
+        .filter((candidate) => candidate.confidence >= 0.25)
+        .sort((a, b) => b.confidence - a.confidence);
+
+      let automaticText: string | null = null;
+      let automaticEvidence: ReadingEvidence[] = [];
+
+      if (
+        focused
+        && focused.confidence >= 80
+        && gapCandidateFitsLength(gap, focused.text)
+      ) {
+        automaticText = focused.text;
+        automaticEvidence = [
+          visualEvidence(focused.text, focused.confidence, "focused-gap-ocr"),
+        ];
+
+        const agreeing = languageCandidates.find((candidate) =>
+          normaliseGapCandidate(candidate.text) === normaliseGapCandidate(focused.text)
+          && candidate.confidence >= 0.5,
+        );
+        if (agreeing) automaticEvidence.push(languageEvidence(agreeing));
+      } else if (focused && focused.confidence >= 25) {
+        const agreeing = languageCandidates.find((candidate) =>
+          normaliseGapCandidate(candidate.text) === normaliseGapCandidate(focused.text)
+          && candidate.confidence >= 0.65,
+        );
+        if (agreeing) {
+          automaticText = agreeing.text;
+          automaticEvidence = [
+            visualEvidence(focused.text, focused.confidence, "focused-gap-ocr"),
+            languageEvidence(agreeing),
+          ];
+        }
+      }
+
+      if (automaticText) {
+        const inserted = insertGapWord(
+          trustedWords,
+          nextReadingWords,
+          gap,
+          automaticText,
+          automaticEvidence,
+        );
+
+        if (inserted && inserted.word.confidence >= 55) {
+          trustedWords = inserted.trustedWords;
+          nextReadingWords = inserted.readingWords;
+          nextSentences = inserted.sentences;
+          resolvedGapIds.add(gap.id);
+
+          const remaining = gaps.filter((candidate) =>
+            candidate.id !== gap.id && !resolvedGapIds.has(candidate.id),
+          );
+          nextSentences = markSentencesWithDetectedGaps(nextSentences, remaining);
+
+          setOcrWords(trustedWords.filter((word) => word.confidence >= 18 && /[a-z]/i.test(word.text)));
+          setReadingWords(nextReadingWords);
+          setSentences(nextSentences);
+          setGapReviews((current) => current.map((review) =>
+            review.gap.id === gap.id
+              ? {
+                  ...review,
+                  status: "resolved",
+                  focused,
+                  candidates: languageCandidates,
+                  modelEnabled: language.enabled,
+                  resolvedWord: inserted.word.text,
+                }
+              : review,
+          ));
+          continue;
+        }
+      }
+
+      const suggestions = [...languageCandidates];
+      if (
+        focused
+        && focused.confidence >= 18
+        && gapCandidateFitsLength(gap, focused.text)
+        && !suggestions.some((candidate) =>
+          normaliseGapCandidate(candidate.text) === normaliseGapCandidate(focused.text),
+        )
+      ) {
+        suggestions.push({
+          text: focused.text,
+          confidence: Math.min(0.7, focused.confidence / 100),
+          source: "focused",
+        });
+      }
+
+      suggestions.sort((a, b) => b.confidence - a.confidence);
+
+      setGapReviews((current) => current.map((review) =>
+        review.gap.id === gap.id
+          ? {
+              ...review,
+              status: suggestions.length ? "suggested" : "unavailable",
+              focused,
+              candidates: suggestions.slice(0, 4),
+              modelEnabled: language.enabled,
+            }
+          : review,
+      ));
+    }
+  }
+
+  function acceptGapSuggestion(review: GapReview, candidate: GapLanguageCandidate) {
+    const evidence: ReadingEvidence[] = [{
+      source: "reader-corrected",
+      candidate: candidate.text,
+      confidence: 1,
+      method: "reader-confirmed-gap",
+      evidenceId: `gap-confirmation:${review.gap.id}:${normaliseGapCandidate(candidate.text)}`,
+      independent: true,
+    }];
+
+    const modelCandidate = review.candidates.find((item) =>
+      item.source === "language"
+      && normaliseGapCandidate(item.text) === normaliseGapCandidate(candidate.text),
+    );
+    if (modelCandidate) evidence.push(languageEvidence(modelCandidate));
+
+    if (
+      review.focused
+      && normaliseGapCandidate(review.focused.text) === normaliseGapCandidate(candidate.text)
+    ) {
+      evidence.push(visualEvidence(
+        review.focused.text,
+        review.focused.confidence,
+        "focused-gap-ocr",
+      ));
+    }
+
+    const inserted = insertGapWord(
+      ocrWords,
+      readingWords,
+      review.gap,
+      candidate.text,
+      evidence,
+    );
+    if (!inserted) return;
+
+    setOcrWords(inserted.trustedWords);
+    setReadingWords(inserted.readingWords);
+
+    const remainingGaps = gapReviews
+      .filter((item) => item.gap.id !== review.gap.id && item.status !== "resolved")
+      .map((item) => item.gap);
+    const guardedSentences = markSentencesWithDetectedGaps(inserted.sentences, remainingGaps);
+    setSentences(guardedSentences);
+
+    setGapReviews((current) => current.map((item) =>
+      item.gap.id === review.gap.id
+        ? { ...item, status: "resolved", resolvedWord: inserted.word.text }
+        : item,
+    ));
+
+    let bookMemory = activeBookMemory
+      ?? createBookMemory(globalThis.crypto?.randomUUID?.() ?? `book-${Date.now()}`);
+    bookMemory = observeBookPassage(bookMemory, candidate.text, { confirmed: true });
+    setActiveBookMemory(bookMemory);
+    if (readingMemoryMode === "device") saveBookMemory(bookMemory);
+
+    const sentenceIndex = guardedSentences.findIndex((sentence) =>
+      sentence.wordIds.includes(inserted.word.id),
+    );
+    if (sentenceIndex >= 0) setActiveSentenceIndex(sentenceIndex);
+    setTapLookupMessage(`Got it — I’ll read that gap as “${inserted.word.text}”.`);
+  }
+
+  function dismissGapSuggestion(gapId: string) {
+    setGapReviews((current) => current.map((review) =>
+      review.gap.id === gapId ? { ...review, status: "dismissed" } : review,
+    ));
+  }
+
   async function capturePage() {
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) return;
 
-    const maxWidth = 2000;
-    const scale = Math.min(1, maxWidth / video.videoWidth);
-    const width = Math.round(video.videoWidth * scale);
-    const height = Math.round(video.videoHeight * scale);
+    const gapRunId = ++gapRunRef.current;
+    setGapReviews([]);
+
+    const maxLongEdge = 2800;
+    const scale = Math.min(1, maxLongEdge / Math.max(video.videoWidth, video.videoHeight));
+    const width = Math.max(1, Math.round(video.videoWidth * scale));
+    const height = Math.max(1, Math.round(video.videoHeight * scale));
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
@@ -260,7 +667,7 @@ export function ReadingCompanion() {
     if (!context) return;
 
     context.drawImage(video, 0, 0, width, height);
-    const image = canvas.toDataURL("image/jpeg", 0.94);
+    const image = canvas.toDataURL("image/jpeg", 0.95);
     const ocrImage = makeOcrImage(canvas);
     setCapturedPage({ image, ocrImage, width, height });
     stopCamera();
@@ -268,12 +675,48 @@ export function ReadingCompanion() {
     setBuddyState("thinking");
 
     try {
-      const result = await recognisePage(ocrImage, width, height);
-      setOcrWords(result.words.filter((word) => word.confidence >= 18 && /[a-z]/i.test(word.text)));
-      setSentences(result.sentences);
+      const result = await recognisePage(ocrImage, width, height, image);
+      const preparedPage = {
+        image: result.image,
+        ocrImage: result.ocrImage,
+        width: result.width,
+        height: result.height,
+      };
+      setCapturedPage(preparedPage);
+      const rawPassage = result.sentences.map((sentence) => sentence.text).join(" ") || result.text;
+      const storedMatch = activeBookMemory
+        ? null
+        : matchBookMemory(rawPassage, readBookMemories());
+      let bookMemory = activeBookMemory
+        ?? storedMatch?.record
+        ?? createBookMemory(globalThis.crypto?.randomUUID?.() ?? `book-${Date.now()}`);
+
+      const resolvedPage = applyBookMemoryToPage(
+        result.words,
+        result.readingWords,
+        result.sentences,
+        bookMemory,
+      );
+      const resolvedPassage = resolvedPage.sentences.map((sentence) => sentence.text).join(" ") || rawPassage;
+      bookMemory = observeBookPassage(bookMemory, resolvedPassage);
+
+      setActiveBookMemory(bookMemory);
+      if (readingMemoryMode === "device") saveBookMemory(bookMemory);
+
+      setReadingWords(resolvedPage.readingWords);
+      setOcrWords(resolvedPage.trustedWords.filter((word) => word.confidence >= 18 && /[a-z]/i.test(word.text)));
+      setSentences(resolvedPage.sentences);
       setActiveSentenceIndex(0);
       setShowSentenceChunks(false);
       setOcrState("ready");
+
+      void recoverPageGaps(
+        preparedPage,
+        resolvedPage.trustedWords,
+        resolvedPage.readingWords,
+        resolvedPage.sentences,
+        gapRunId,
+      );
     } catch {
       setOcrState("error");
     } finally {
@@ -281,13 +724,16 @@ export function ReadingCompanion() {
     }
   }
 
-  function chooseWord(word: string, source: WordSource, context?: string) {
+  function chooseWord(word: string, source: WordSource, context?: string, wordId?: string) {
     autoReadingRef.current = false;
     setAutoReading(false);
     speech.stop();
     const cleanWord = getWordSupport(word).word;
     if (!cleanWord) return;
     setSelectedWord(cleanWord);
+    setSelectedOcrWordId(wordId ?? null);
+    setCorrectionOpen(false);
+    setCorrectionDraft("");
     setSelectedContext(context?.trim() || null);
     setSelectedSource(source);
     setVoiceReply(null);
@@ -304,6 +750,58 @@ export function ReadingCompanion() {
       chooseWord("extraordinary", "demo", "The view from the top was extraordinary.");
       setBuddyState("idle");
     }, 320);
+  }
+
+  function changeReadingMemoryMode(nextMode: ReadingMemoryMode) {
+    persistReadingMemoryMode(nextMode);
+    setReadingMemoryModeState(nextMode);
+    if (nextMode === "device" && activeBookMemory) saveBookMemory(activeBookMemory);
+  }
+
+  function openCorrection() {
+    if (!selectedWord || !selectedOcrWordId) return;
+    setCorrectionDraft(selectedWord);
+    setCorrectionOpen(true);
+  }
+
+  function commitCorrection(value = correctionDraft) {
+    const corrected = value.trim();
+    if (!selectedOcrWordId || !corrected || !/[a-z]/i.test(corrected)) return;
+
+    const next = applyReaderCorrection(
+      ocrWords,
+      readingWords,
+      sentences,
+      selectedOcrWordId,
+      corrected,
+    );
+    if (!next.changed || !next.observed || !next.corrected) return;
+
+    setOcrWords(next.trustedWords);
+    setReadingWords(next.readingWords);
+    setSentences(next.sentences);
+
+    let bookMemory = activeBookMemory
+      ?? createBookMemory(globalThis.crypto?.randomUUID?.() ?? `book-${Date.now()}`);
+    bookMemory = rememberBookCorrection(bookMemory, next.observed, next.corrected);
+    setActiveBookMemory(bookMemory);
+    if (readingMemoryMode === "device") saveBookMemory(bookMemory);
+
+    const sentence = next.sentences.find((candidate) =>
+      candidate.wordIds.includes(selectedOcrWordId),
+    );
+
+    chooseWord(
+      next.corrected,
+      "ocr",
+      sentence?.text ?? selectedContext ?? undefined,
+      selectedOcrWordId,
+    );
+    setTapLookupMessage(
+      readingMemoryMode === "device"
+        ? "Got it — I'll remember that for this book on this device."
+        : "Got it — I'll use that while we're reading this book.",
+    );
   }
 
   function nearestLineText(y: number) {
@@ -388,6 +886,7 @@ export function ReadingCompanion() {
   }
 
   function speak(text: string) {
+    setReadingSentenceIndex(null);
     speech.speak(text, {
       onStart: () => setBuddyState("speaking"),
       onEnd: () => setBuddyState("idle"),
@@ -426,14 +925,45 @@ export function ReadingCompanion() {
 
     setActiveSentenceIndex(index);
     setShowSentenceChunks(false);
+    setReadingSentenceIndex(index);
+    setReadingProgress(0);
+
+    const hasUnresolvedGap = gapReviews.some((review) =>
+      review.status !== "resolved"
+      && gapBelongsToSentence(review.gap, sentence.wordIds),
+    );
+
+    if (sentence.quality === "blocked" || hasUnresolvedGap) {
+      autoReadingRef.current = false;
+      setAutoReading(false);
+      speech.stop();
+      setBuddyState("idle");
+      setReadingSentenceIndex(null);
+      setTapLookupMessage(
+        hasUnresolvedGap
+          ? "I think a word is missing here. Check the gap with me before I read this sentence aloud."
+          : "I can't read this bit reliably yet. Try the page again, or move to the next sentence.",
+      );
+      return;
+    }
+
     if (keepGoing) {
       autoReadingRef.current = true;
       setAutoReading(true);
     }
 
     speech.speak(sentence.text, {
-      onStart: () => setBuddyState("speaking"),
+      onStart: () => {
+        setBuddyState("speaking");
+        setReadingProgress(0);
+      },
+      onBoundary: ({ charIndex, charLength, name }) => {
+        if (name && name !== "word" && name !== "sentence") return;
+        const position = charIndex + Math.max(1, charLength) * 0.5;
+        setReadingProgress(clamp(position / Math.max(1, sentence.text.length), 0, 1));
+      },
       onEnd: () => {
+        setReadingProgress(1);
         if (autoReadingRef.current && index < sentences.length - 1) {
           window.setTimeout(() => readSentenceAt(index + 1, true), 180);
           return;
@@ -446,14 +976,14 @@ export function ReadingCompanion() {
   }
 
   function readCurrentSentence() {
-    if (!activeSentence) return;
+    if (!activeSentence || activeSentence.quality === "blocked" || activeSentenceHasUnresolvedGap) return;
     autoReadingRef.current = false;
     setAutoReading(false);
     readSentenceAt(activeSentenceIndex, false);
   }
 
   function startContinuousReading() {
-    if (!activeSentence) return;
+    if (!activeSentence || activeSentence.quality === "blocked" || activeSentenceHasUnresolvedGap) return;
     moveOn();
     readSentenceAt(activeSentenceIndex, true);
   }
@@ -463,13 +993,19 @@ export function ReadingCompanion() {
     stopContinuousReading();
     moveOn();
     setShowSentenceChunks(false);
+    setReadingSentenceIndex(null);
+    setReadingProgress(0);
     setActiveSentenceIndex((current) => clamp(current + direction, 0, sentences.length - 1));
   }
 
   function breakUpSentence() {
-    if (!activeSentence) return;
+    if (!activeSentence || activeSentence.quality === "blocked" || activeSentenceHasUnresolvedGap) return;
     stopContinuousReading();
     setShowSentenceChunks(true);
+  }
+
+  function retakePage() {
+    void startCamera();
   }
 
   function readSentenceChunk(chunk: string) {
@@ -520,6 +1056,9 @@ export function ReadingCompanion() {
 
   function retrySelection() {
     setSelectedWord(null);
+    setSelectedOcrWordId(null);
+    setCorrectionOpen(false);
+    setCorrectionDraft("");
     setSelectedContext(null);
     setVoiceReply(null);
     setLastTranscript(null);
@@ -534,6 +1073,9 @@ export function ReadingCompanion() {
       recordLearningEvent({ kind: "moved_on", word: selectedWord, helpDepth, source: selectedSource });
     }
     setSelectedWord(null);
+    setSelectedOcrWordId(null);
+    setCorrectionOpen(false);
+    setCorrectionDraft("");
     setSelectedContext(null);
     setVoiceReply(null);
     setLastTranscript(null);
@@ -629,7 +1171,7 @@ export function ReadingCompanion() {
   }
 
   return (
-    <div className="reading-layout">
+    <div className={`reading-layout${capturedPage ? " session-active" : ""}${support ? " has-word-support" : ""}`}>
       <section className="camera-card" aria-label="Reading camera">
         <div className="camera-toolbar">
           <div>
@@ -680,6 +1222,36 @@ export function ReadingCompanion() {
                   }}
                 />
               ))}
+              {ocrState === "ready" && activeSentence && gapReviews
+                .filter((review) =>
+                  review.status !== "resolved"
+                  && review.status !== "dismissed"
+                  && gapBelongsToSentence(review.gap, activeSentence.wordIds),
+                )
+                .map((review) => (
+                  <span
+                    key={`marker-${review.gap.id}`}
+                    className={`ocr-gap-marker ${review.status}`}
+                    aria-hidden="true"
+                    style={{
+                      left: `${(review.gap.bbox.x0 / capturedPage.width) * 100}%`,
+                      top: `${(review.gap.bbox.y0 / capturedPage.height) * 100}%`,
+                      width: `${((review.gap.bbox.x1 - review.gap.bbox.x0) / capturedPage.width) * 100}%`,
+                      height: `${((review.gap.bbox.y1 - review.gap.bbox.y0) / capturedPage.height) * 100}%`,
+                    }}
+                  >
+                    <span>?</span>
+                  </span>
+                ))}
+              {ocrState === "ready" && activeSentence && activeSentence.quality !== "blocked" && (
+                <ReadingBuddyCursor
+                  bounds={activeSentence.bounds}
+                  pageWidth={capturedPage.width}
+                  pageHeight={capturedPage.height}
+                  progress={readingSentenceIndex === activeSentenceIndex ? readingProgress : 0}
+                  speaking={buddyState === "speaking" && readingSentenceIndex === activeSentenceIndex}
+                />
+              )}
               {ocrState === "ready" && ocrWords.map((word) => (
                 <button
                   key={word.id}
@@ -702,6 +1274,7 @@ export function ReadingCompanion() {
                       word.text,
                       "ocr",
                       sentenceIndex >= 0 ? sentences[sentenceIndex].text : word.lineText,
+                      word.id,
                     );
                   }}
                   aria-label={`Choose ${word.text}`}
@@ -763,10 +1336,26 @@ export function ReadingCompanion() {
                 : "Tap a highlighted word — or tap an unboxed word and Buddy will take a closer look."
               : "The page stays on this device while Buddy finds the words."}
           </span>
-          <button type="button" className="text-button" onClick={chooseDemoWord}>
-            <HandPointing size={18} /> Try “extraordinary”
-          </button>
+          {!capturedPage && (
+            <button type="button" className="text-button" onClick={chooseDemoWord}>
+              <HandPointing size={18} /> Try “extraordinary”
+            </button>
+          )}
         </div>
+
+        {capturedPage && (
+          <label className="book-memory-control">
+            <input
+              type="checkbox"
+              checked={readingMemoryMode === "device"}
+              onChange={(event) => changeReadingMemoryMode(event.target.checked ? "device" : "session")}
+            />
+            <span>
+              <strong>Help my Buddy learn on this device</strong>
+              <small>Buddy keeps book corrections and small text fingerprints, not page photos.</small>
+            </span>
+          </label>
+        )}
       </section>
 
       <aside className="reading-side">
@@ -778,9 +1367,11 @@ export function ReadingCompanion() {
                 ? "This one?"
                 : autoReading
                   ? "I'll keep going. Stop me whenever you want."
-                  : activeSentence?.uncertain
-                    ? "This bit is a little fuzzy. Check me."
-                    : activeSentence
+                  : activeSentence?.quality === "blocked"
+                    ? "I can't read this bit reliably yet."
+                    : activeSentence?.quality === "check"
+                      ? "This bit is a little fuzzy. Check me."
+                      : activeSentence
                       ? "You read. I'm following."
                       : capturedPage
                       ? "Tap the bit you want."
@@ -798,20 +1389,110 @@ export function ReadingCompanion() {
               </div>
               {autoReading
                 ? <span className="reading-live">Buddy is reading</span>
-                : activeSentence.uncertain
-                  ? <span className="reading-quality-note">Fuzzy scan</span>
-                  : null}
+                : activeSentence.quality === "blocked"
+                  ? <span className="reading-quality-note blocked">Need another look</span>
+                  : activeSentence.quality === "check"
+                    ? <span className="reading-quality-note">Check scan</span>
+                    : null}
             </div>
 
-            <p className="guided-sentence">{activeSentence.text}</p>
+            {activeSentence.quality === "blocked" ? (
+              <div className="guided-blocked">
+                <strong>I can't quite read this bit yet.</strong>
+                <span>I won't guess or read muddled words aloud.</span>
+                <button type="button" className="text-button" onClick={retakePage}>
+                  <Camera size={18} /> Try the page again
+                </button>
+              </div>
+            ) : (
+              <p className="guided-sentence">{activeSentence.text}</p>
+            )}
 
-            {activeSentence.uncertain && (
+            {activeSentence.quality === "check" && !activeSentenceHasUnresolvedGap && (
               <p className="guided-scan-note">
-                I found this sentence, but some words were hard to see. If anything looks odd, tap the word or try the page again in better light.
+                I had to look more closely at this sentence. Check the highlighted line against the book before asking Buddy to read it.
               </p>
             )}
 
-            {showSentenceChunks && activeSentenceChunks.length > 1 && (
+            {activeGapReviews.map((review) => (
+              <div className="gap-recovery-card" key={review.gap.id}>
+                {review.status === "checking" ? (
+                  <>
+                    <strong>I spotted a space where a word might be missing.</strong>
+                    <span>I'm looking more closely at that bit of the page.</span>
+                  </>
+                ) : review.status === "suggested" ? (
+                  <>
+                    <strong>I think a word may be missing here.</strong>
+                    <p>“{gapContextSentence(review.gap, "___")}”</p>
+                    <div className="gap-candidate-actions">
+                      {review.candidates.slice(0, 3).map((candidate) => (
+                        <button
+                          type="button"
+                          className="gap-candidate"
+                          key={`${review.gap.id}-${candidate.text}`}
+                          onClick={() => acceptGapSuggestion(review, candidate)}
+                        >
+                          {candidate.text}?
+                        </button>
+                      ))}
+                    </div>
+                    <form
+                      className="gap-manual-form"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const data = new FormData(event.currentTarget);
+                        const value = String(data.get("gapWord") ?? "").trim();
+                        if (!value) return;
+                        acceptGapSuggestion(review, { text: value, confidence: 0 });
+                      }}
+                    >
+                      <input
+                        name="gapWord"
+                        aria-label="Type the missing word"
+                        placeholder="Or type the word…"
+                        autoComplete="off"
+                        spellCheck
+                      />
+                      <button type="submit">Use it</button>
+                    </form>
+                    <button
+                      type="button"
+                      className="text-button gap-dismiss"
+                      onClick={() => dismissGapSuggestion(review.gap.id)}
+                    >
+                      I'm not sure — leave this gap
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <strong>I can see a likely gap, but I can't tell what it says.</strong>
+                    <span>Read this word yourself, type it below, or try a clearer photo.</span>
+                    <form
+                      className="gap-manual-form"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const data = new FormData(event.currentTarget);
+                        const value = String(data.get("gapWord") ?? "").trim();
+                        if (!value) return;
+                        acceptGapSuggestion(review, { text: value, confidence: 0 });
+                      }}
+                    >
+                      <input
+                        name="gapWord"
+                        aria-label="Type the missing word"
+                        placeholder="Type the missing word…"
+                        autoComplete="off"
+                        spellCheck
+                      />
+                      <button type="submit">Use it</button>
+                    </form>
+                  </>
+                )}
+              </div>
+            ))}
+
+            {showSentenceChunks && activeSentence.quality !== "blocked" && activeSentenceChunks.length > 1 && (
               <div className="sentence-chunks" aria-label="Sentence broken into smaller parts">
                 {activeSentenceChunks.map((chunk, index) => (
                   <button type="button" key={`${chunk}-${index}`} onClick={() => readSentenceChunk(chunk)}>
@@ -832,10 +1513,20 @@ export function ReadingCompanion() {
               >
                 <ArrowLeft size={19} />
               </button>
-              <button type="button" className="tactile-button dark" onClick={readCurrentSentence}>
+              <button
+                type="button"
+                className="tactile-button dark"
+                onClick={readCurrentSentence}
+                disabled={activeSentence.quality === "blocked" || activeSentenceHasUnresolvedGap}
+              >
                 <SpeakerHigh size={20} /> Read this
               </button>
-              <button type="button" className="tactile-button" onClick={breakUpSentence}>
+              <button
+                type="button"
+                className="tactile-button"
+                onClick={breakUpSentence}
+                disabled={activeSentence.quality === "blocked" || activeSentenceHasUnresolvedGap}
+              >
                 Break it up
               </button>
               <button
@@ -854,6 +1545,7 @@ export function ReadingCompanion() {
                 type="button"
                 className={`tactile-button${autoReading ? "" : " dark"}`}
                 onClick={autoReading ? stopContinuousReading : startContinuousReading}
+                disabled={!autoReading && (activeSentence.quality === "blocked" || activeSentenceHasUnresolvedGap)}
               >
                 {autoReading ? <Pause size={20} /> : <Play size={20} />}
                 {autoReading ? "I'll read now" : "Keep reading to me"}
@@ -901,9 +1593,60 @@ export function ReadingCompanion() {
 
         {support ? (
           <section className={`selected-word-card${lookupUnknown ? " word-uncertain" : ""}`} aria-live="polite">
-            <span className="selected-kicker">{lookupUnknown ? "I might have misread this" : "This one?"}</span>
-            <h2>{support.word}</h2>
+            <div className="selected-word-heading">
+              <div>
+                <span className="selected-kicker">{
+                  lookupUnknown
+                    ? "I might have misread this"
+                    : selectedOcrWord?.resolvedBy === "reader-corrected"
+                      ? "I remember this one"
+                      : "This one?"
+                }</span>
+                <h2>{support.word}</h2>
+              </div>
+              {selectedSource === "ocr" && selectedOcrWordId && (
+                <button type="button" className="word-correct-button" onClick={openCorrection}>
+                  <PencilSimple size={17} /> Not right?
+                </button>
+              )}
+            </div>
             {!lookupUnknown && lookup?.partOfSpeech && <span className="word-kind">{lookup.partOfSpeech}</span>}
+
+            {correctionOpen && selectedOcrWordId && (
+              <form
+                className="reader-correction-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  commitCorrection();
+                }}
+              >
+                <label htmlFor="buddy-word-correction">What does the book say?</label>
+                <div>
+                  <input
+                    id="buddy-word-correction"
+                    value={correctionDraft}
+                    onChange={(event) => setCorrectionDraft(event.target.value)}
+                    autoCapitalize="sentences"
+                    autoComplete="off"
+                    spellCheck
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className="round-control compact"
+                    disabled={!correctionDraft.trim() || correctionDraft.trim() === selectedWord}
+                    aria-label="Use corrected word"
+                  >
+                    <Check size={18} />
+                  </button>
+                </div>
+                <small>
+                  {readingMemoryMode === "device"
+                    ? "Buddy can use this correction again in this book on this device."
+                    : "Buddy will use this correction for this reading session."}
+                </small>
+              </form>
+            )}
             <p className="word-help">{currentHelp}</p>
 
             {lookupState === "loading" && (
@@ -916,7 +1659,10 @@ export function ReadingCompanion() {
                   <button
                     type="button"
                     className="tactile-button dark"
-                    onClick={() => chooseWord(lookup.possibleSpelling!, selectedSource, selectedContext ?? undefined)}
+                    onClick={() => {
+                      if (selectedOcrWordId) commitCorrection(lookup.possibleSpelling!);
+                      else chooseWord(lookup.possibleSpelling!, selectedSource, selectedContext ?? undefined);
+                    }}
                   >
                     Yes — {lookup.possibleSpelling}
                   </button>
@@ -1003,13 +1749,13 @@ export function ReadingCompanion() {
               </div>
             )}
           </section>
-        ) : (
+        ) : !capturedPage ? (
           <section className="selected-word-card quiet">
             <span className="selected-kicker">Buddy stays quiet until you need it.</span>
             <h2>Keep reading.</h2>
             <p>No scores. No quiz. No interruption unless you ask.</p>
           </section>
-        )}
+        ) : null}
       </aside>
     </div>
   );

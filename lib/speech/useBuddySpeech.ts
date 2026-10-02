@@ -12,9 +12,16 @@ export type BuddyVoiceOption = {
   detail: string;
 };
 
+export type BuddySpeechBoundary = {
+  charIndex: number;
+  charLength: number;
+  name: string;
+};
+
 type SpeakOptions = {
   onStart?: () => void;
   onEnd?: () => void;
+  onBoundary?: (boundary: BuddySpeechBoundary) => void;
 };
 
 type StoredSpeechPreferences = {
@@ -158,6 +165,11 @@ export function useBuddySpeech() {
     utterance.pitch = 1;
     utterance.volume = 1;
     utterance.onstart = () => options.onStart?.();
+    utterance.onboundary = (event) => options.onBoundary?.({
+      charIndex: event.charIndex ?? 0,
+      charLength: event.charLength ?? 0,
+      name: event.name ?? "",
+    });
     utterance.onend = () => options.onEnd?.();
     utterance.onerror = () => options.onEnd?.();
     window.speechSynthesis.speak(utterance);
