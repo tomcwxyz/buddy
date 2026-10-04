@@ -1,0 +1,27 @@
+{
+  "benchmark": {
+    "version": 1,
+    "gaps": {
+      "expectedMissingWords": ["example"],
+      "correctlyDetectedWords": ["example"],
+      "missedGapWords": [],
+      "falseGapCount": 0
+    },
+    "recovery": {
+      "visuallyRecoveredWords": [],
+      "languageSuggestedWords": ["example"],
+      "readerConfirmedWords": ["example"],
+      "readerRejectedWords": [],
+      "unresolvedWords": [],
+      "automaticallyAcceptedWords": [],
+      "contradictedAutomaticWords": []
+    },
+    "sentences": {
+      "blockedBefore": 1,
+      "blockedAfter": 0,
+      "checkBefore": 1,
+      "checkAfter": 0,
+      "interactionSteps": 1
+    }
+  }
+}

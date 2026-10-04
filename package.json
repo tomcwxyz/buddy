@@ -13,7 +13,8 @@
     "lexicon:britfone": "node scripts/lexicon/import-britfone.mjs",
     "test:practice": "node scripts/test-practice-import.mjs",
     "test:e2e": "playwright test",
-    "test:evidence": "node scripts/test-reading-evidence.mjs && node scripts/test-reading-gaps.mjs"
+    "test:evidence": "node scripts/test-reading-evidence.mjs && node scripts/test-reading-gaps.mjs && node scripts/test-reading-benchmark.mjs",
+    "test:benchmark": "node scripts/test-reading-benchmark.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

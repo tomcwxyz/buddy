@@ -31,7 +31,10 @@ Run:
 
 ```bash
 npm run test:ocr
+npm run test:benchmark
 ```
+
+After exercising a reviewed page through `/read`, add the optional `benchmark` block described in [`docs/READING_BENCHMARK.md`](../../docs/READING_BENCHMARK.md). This records gap detection, recovery outcomes, sentence recovery and interaction cost so changes can be compared across the same real pages.
 
 The fixture contract check validates reviewed metadata, acceptance thresholds and the must-not-trust boundary. It does not re-run Tesseract because the page images are intentionally not in the repository; re-running the same private image through `/lab/ocr` remains the visual regression step when OCR behaviour changes materially.
 

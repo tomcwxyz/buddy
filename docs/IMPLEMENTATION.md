@@ -283,6 +283,12 @@ See `docs/READING_EVIDENCE.md`.
 - Spelling-list OCR currently treats the photographed page as a candidate source, not a trustworthy structured list; the human confirmation step is mandatory.
 - The rollercoaster is an initial playful-progress experiment and should be tested against quieter visual metaphors before it becomes a larger game layer.
 
+## Real-page reading benchmark
+
+`npm run test:benchmark` aggregates reviewed OCR fixtures that include benchmark v1 review data. It reports trusted OCR precision/recall, missing-gap F1, automatic recovery safety, blocked-sentence reduction, interaction cost and a safety-weighted 0–100 trend score. Any automatically accepted recovered word later contradicted by a reader fails the benchmark regardless of score.
+
+The page photographs remain in the tester's private/local pack; checked-in fixtures contain only derived OCR/evidence/review metadata. See `docs/READING_BENCHMARK.md`.
+
 ## Next implementation slice
 
 1. test gap detection and candidate recovery against the difficult real-book pages, recording false gaps, missed gaps and accepted/rejected language candidates in fixtures;
